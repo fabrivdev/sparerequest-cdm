@@ -143,7 +143,7 @@ const OrdersTable = ({
               <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
               <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
               <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
-              <TableHead className="font-semibold text-foreground text-xs text-right">Acciones</TableHead>
+              {!isAdmin && <TableHead className="font-semibold text-foreground text-xs text-right pr-4">Acciones</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -206,18 +206,20 @@ const OrdersTable = ({
                 <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                   {order.observation || '-'}
                 </TableCell>
-                <TableCell className="text-right">
-                  {!isAdmin && onDelete && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(order.id)}
-                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </TableCell>
+                {!isAdmin && (
+                  <TableCell className="text-right pr-4">
+                    {onDelete && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDelete(order.id)}
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
