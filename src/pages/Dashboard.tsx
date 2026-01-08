@@ -319,6 +319,7 @@ const Dashboard = () => {
               onDelete={handleDeleteOrder}
               onUpdate={handleUpdateOrder}
               showUserColumn={view === 'branch-orders'}
+              currentUserId={user?.id}
             />
           </>
         )}
