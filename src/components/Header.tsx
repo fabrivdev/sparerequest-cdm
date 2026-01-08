@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock } from 'lucide-react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,11 +16,20 @@ import { toast } from 'sonner';
 const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
-interface HeaderProps {
-  onNewOrder: () => void;
+interface Profile {
+  id: string;
+  user_id: string;
+  full_name: string | null;
+  branch: string;
 }
 
-const Header = ({ onNewOrder }: HeaderProps) => {
+interface HeaderProps {
+  onNewOrder: () => void;
+  onEditProfile?: () => void;
+  profile?: Profile | null;
+}
+
+const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -107,13 +116,24 @@ const Header = ({ onNewOrder }: HeaderProps) => {
                   Solicitud de Repuestos
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {user?.email}
+                  {profile?.full_name || user?.email} • {profile?.branch}
                 </p>
               </div>
             </div>
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {onEditProfile && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEditProfile}
+                  className="h-10 w-10 text-muted-foreground hover:text-primary"
+                  title="Editar perfil"
+                >
+                  <User className="w-5 h-5" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
