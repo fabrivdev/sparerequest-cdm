@@ -33,6 +33,7 @@ export interface Order {
   created_at: string;
   user_id?: string;
   user_email?: string;
+  user_name?: string;
 }
 
 interface OrdersTableProps {
@@ -42,6 +43,7 @@ interface OrdersTableProps {
   onStatusChange?: (orderId: string, newStatus: string) => void;
   updatingOrderId?: string | null;
   showExport?: boolean;
+  showUserColumn?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -56,7 +58,8 @@ const OrdersTable = ({
   onDelete, 
   onStatusChange, 
   updatingOrderId,
-  showExport = false 
+  showExport = false,
+  showUserColumn = false
 }: OrdersTableProps) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -73,9 +76,10 @@ const OrdersTable = ({
     );
   };
 
-  const getEmailUsername = (email?: string) => {
-    if (!email) return '-';
-    return email.split('@')[0];
+  const getUserDisplay = (order: Order) => {
+    if (order.user_name) return order.user_name;
+    if (order.user_email) return order.user_email.split('@')[0];
+    return '-';
   };
 
   const handleRowClick = (order: Order) => {
@@ -86,7 +90,7 @@ const OrdersTable = ({
   const exportToExcel = () => {
     const exportData = orders.map((order) => ({
       'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
-      ...(isAdmin && { 'Solicitante': getEmailUsername(order.user_email) }),
+      ...((isAdmin || showUserColumn) && { 'Solicitante': getUserDisplay(order) }),
       'Marca': order.brand,
       'Código': order.product_code,
       'Cantidad': order.quantity,
@@ -101,7 +105,7 @@ const OrdersTable = ({
     
     const colWidths = [
       { wch: 18 },
-      ...(isAdmin ? [{ wch: 15 }] : []),
+      ...((isAdmin || showUserColumn) ? [{ wch: 15 }] : []),
       { wch: 10 },
       { wch: 20 },
       { wch: 10 },
@@ -157,6 +161,8 @@ const OrdersTable = ({
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {showUserColumn && <span className="truncate">{getUserDisplay(order)}</span>}
+                  {showUserColumn && <span>•</span>}
                   <span>{format(new Date(order.created_at), "dd/MM/yy", { locale: es })}</span>
                   <span>•</span>
                   <span className="truncate">{order.branch_destination}</span>
@@ -176,7 +182,7 @@ const OrdersTable = ({
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
                 <TableHead className="font-semibold text-foreground text-xs">Fecha</TableHead>
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Solicitante</TableHead>}
+                {(isAdmin || showUserColumn) && <TableHead className="font-semibold text-foreground text-xs">Solicitante</TableHead>}
                 <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
@@ -202,9 +208,9 @@ const OrdersTable = ({
                       </span>
                     </div>
                   </TableCell>
-                  {isAdmin && (
+                  {(isAdmin || showUserColumn) && (
                     <TableCell className="text-xs font-medium text-foreground">
-                      {getEmailUsername(order.user_email)}
+                      {getUserDisplay(order)}
                     </TableCell>
                   )}
                   <TableCell>

@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Package } from 'lucide-react';
 import { z } from 'zod';
-
+import { BRANCHES } from '@/constants/branches';
 const orderSchema = z.object({
   brand: z.string().min(1, 'La marca es requerida').max(100),
   productCode: z.string().min(1, 'El código es requerido').max(100),
@@ -40,16 +40,6 @@ interface OrderFormProps {
   }) => Promise<void>;
 }
 
-const BRANCHES = [
-  'CAMPO 9',
-  'ITAPUA',
-  'KATUETE',
-  'LOMA PLATA',
-  'MISIONES',
-  'SAN ALBERTO',
-  'SANTA RITA',
-  'SANTA ROSA',
-];
 
 const BRANDS = ['CLAAS', 'HORSCH'];
 
