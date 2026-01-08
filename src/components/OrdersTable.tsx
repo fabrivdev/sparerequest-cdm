@@ -71,6 +71,7 @@ interface OrdersTableProps {
   selectable?: boolean;
   selectedOrders?: string[];
   onSelectionChange?: (selected: string[]) => void;
+  currentUserId?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -79,10 +80,25 @@ const STATUS_OPTIONS = [
   { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 ];
 
-// Check if order can be edited/deleted (within 24h and still pending)
-const canModifyOrder = (order: Order): boolean => {
+// Check if order can be edited/deleted (within 24h, still pending, and owned by current user)
+const canModifyOrder = (order: Order, currentUserId?: string): boolean => {
+  // Must be the owner of the order
+  if (currentUserId && order.user_id !== currentUserId) {
+    return false;
+  }
   const hoursSinceCreation = differenceInHours(new Date(), new Date(order.created_at));
   return hoursSinceCreation <= 24 && order.status === 'pending';
+};
+
+// Get reason why order cannot be modified
+const getModifyBlockReason = (order: Order, currentUserId?: string): string => {
+  if (currentUserId && order.user_id !== currentUserId) {
+    return 'Solo puedes modificar tus propios pedidos';
+  }
+  if (order.status !== 'pending') {
+    return 'No se puede modificar: el estado cambió';
+  }
+  return 'No se puede modificar: pasaron más de 24h';
 };
 
 const OrdersTable = ({ 
@@ -99,6 +115,7 @@ const OrdersTable = ({
   selectable = false,
   selectedOrders = [],
   onSelectionChange,
+  currentUserId,
 }: OrdersTableProps) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -307,7 +324,8 @@ const OrdersTable = ({
             </TableHeader>
             <TableBody>
               {orders.map((order, index) => {
-                const canModify = canModifyOrder(order);
+                const canModify = canModifyOrder(order, currentUserId);
+                const blockReason = !canModify ? getModifyBlockReason(order, currentUserId) : '';
                 return (
                   <TableRow 
                     key={order.id} 
@@ -392,12 +410,7 @@ const OrdersTable = ({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>
-                                {canModify 
-                                  ? 'Editar pedido' 
-                                  : order.status !== 'pending' 
-                                    ? 'No se puede editar: el estado cambió' 
-                                    : 'No se puede editar: pasaron más de 24h'
-                                }
+                                {canModify ? 'Editar pedido' : blockReason}
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
@@ -416,12 +429,7 @@ const OrdersTable = ({
                                   </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  {canModify 
-                                    ? 'Eliminar pedido' 
-                                    : order.status !== 'pending' 
-                                      ? 'No se puede eliminar: el estado cambió' 
-                                      : 'No se puede eliminar: pasaron más de 24h'
-                                  }
+                                  {canModify ? 'Eliminar pedido' : blockReason}
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
