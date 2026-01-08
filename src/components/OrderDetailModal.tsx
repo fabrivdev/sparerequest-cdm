@@ -20,9 +20,9 @@ interface OrderDetailModalProps {
 }
 
 const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pendiente', color: 'bg-warning/10 text-warning border-warning/20' },
-  { value: 'solicitado', label: 'Solicitado', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-primary/10 text-primary border-primary/20' },
+  { value: 'pending', label: 'Pendiente', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
+  { value: 'solicitado', label: 'Solicitado', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+  { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 ];
 
 const OrderDetailModal = ({ order, isOpen, onClose, onDelete, isAdmin }: OrderDetailModalProps) => {
