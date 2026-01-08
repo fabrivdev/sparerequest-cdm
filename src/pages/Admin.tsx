@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Shield, Loader2, ArrowLeft } from 'lucide-react';
+import { Shield, Loader2, ArrowLeft, Clock, Truck, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -109,6 +109,14 @@ const Admin = () => {
     return [...new Set(orders.map((o) => o.branch_destination))].sort();
   }, [orders]);
 
+  // Calculate stats
+  const stats = useMemo(() => {
+    const pending = orders.filter(o => o.status === 'pending').length;
+    const solicitado = orders.filter(o => o.status === 'solicitado').length;
+    const entregado = orders.filter(o => o.status === 'entregado').length;
+    return { pending, solicitado, entregado };
+  }, [orders]);
+
   // Apply filters
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -160,6 +168,43 @@ const Admin = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-card ios-shadow rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center">
+                <Clock className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
+                <p className="text-xs text-muted-foreground">Pendientes</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card ios-shadow rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-yellow-500/10 rounded-xl flex items-center justify-center">
+                <Truck className="w-5 h-5 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.solicitado}</p>
+                <p className="text-xs text-muted-foreground">Solicitados</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card ios-shadow rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-green-500/10 rounded-xl flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{stats.entregado}</p>
+                <p className="text-xs text-muted-foreground">Entregados</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <OrderFilters 
           filters={filters} 
           onFiltersChange={setFilters} 
