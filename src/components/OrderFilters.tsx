@@ -34,9 +34,9 @@ interface OrderFiltersProps {
   branches: string[];
 }
 
-const BRAND_OPTIONS = ['', 'CLAAS', 'HORSCH'];
+const BRAND_OPTIONS = ['CLAAS', 'HORSCH'];
 const STATUS_OPTIONS = [
-  { value: '', label: 'Todos' },
+  { value: 'all', label: 'Todos' },
   { value: 'pending', label: 'Pendiente' },
   { value: 'solicitado', label: 'Solicitado' },
   { value: 'entregado', label: 'Entregado' },
@@ -157,25 +157,25 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
           </Popover>
 
           {/* Brand */}
-          <Select value={filters.brand} onValueChange={(v) => updateFilter('brand', v)}>
+          <Select value={filters.brand || 'all'} onValueChange={(v) => updateFilter('brand', v === 'all' ? '' : v)}>
             <SelectTrigger className="h-10 bg-secondary/50 border-0">
               <SelectValue placeholder="Marca" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas</SelectItem>
-              {BRAND_OPTIONS.filter(b => b).map((brand) => (
+              <SelectItem value="all">Todas</SelectItem>
+              {BRAND_OPTIONS.map((brand) => (
                 <SelectItem key={brand} value={brand}>{brand}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           {/* Branch */}
-          <Select value={filters.branch} onValueChange={(v) => updateFilter('branch', v)}>
+          <Select value={filters.branch || 'all'} onValueChange={(v) => updateFilter('branch', v === 'all' ? '' : v)}>
             <SelectTrigger className="h-10 bg-secondary/50 border-0">
               <SelectValue placeholder="Sucursal" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Todas</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
               {branches.map((branch) => (
                 <SelectItem key={branch} value={branch}>{branch}</SelectItem>
               ))}
@@ -183,7 +183,7 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
           </Select>
 
           {/* Status */}
-          <Select value={filters.status} onValueChange={(v) => updateFilter('status', v)}>
+          <Select value={filters.status || 'all'} onValueChange={(v) => updateFilter('status', v === 'all' ? '' : v)}>
             <SelectTrigger className="h-10 bg-secondary/50 border-0">
               <SelectValue placeholder="Estado" />
             </SelectTrigger>
