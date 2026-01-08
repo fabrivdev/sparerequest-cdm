@@ -1,11 +1,11 @@
-import { useState } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { CalendarIcon, Search, Filter, X } from 'lucide-react';
+import { CalendarIcon, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Calendar } from '@/components/ui/calendar';
+import { Label } from '@/components/ui/label';
 import {
   Popover,
   PopoverContent,
@@ -43,8 +43,6 @@ const STATUS_OPTIONS = [
 ];
 
 const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const updateFilter = (key: keyof OrderFiltersState, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
   };
@@ -71,53 +69,46 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
   return (
     <div className="bg-card ios-shadow rounded-xl p-4 mb-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <button 
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-2 text-sm font-medium text-foreground"
-        >
-          <Filter className="w-4 h-4" />
-          Filtros
-          {hasActiveFilters && (
-            <span className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full">
-              Activos
-            </span>
-          )}
-        </button>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-semibold text-foreground">Filtros</h3>
         {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs">
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 text-xs">
             <X className="w-3 h-3 mr-1" />
-            Limpiar
+            Limpiar filtros
           </Button>
         )}
       </div>
 
-      {/* Search bar - always visible */}
-      <div className="relative mb-3">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por código de producto..."
-          value={filters.productCode}
-          onChange={(e) => updateFilter('productCode', e.target.value)}
-          className="h-10 bg-secondary/50 border-0 pl-10"
-        />
-      </div>
+      {/* Filters Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Search */}
+        <div className="col-span-2 sm:col-span-1 lg:col-span-1">
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Código</Label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar..."
+              value={filters.productCode}
+              onChange={(e) => updateFilter('productCode', e.target.value)}
+              className="h-9 bg-secondary/50 border-0 pl-9 text-sm"
+            />
+          </div>
+        </div>
 
-      {/* Expandable filters */}
-      {isExpanded && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-3 border-t border-border animate-fade-in">
-          {/* Date From */}
+        {/* Date From */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Fecha desde</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "h-10 justify-start text-left font-normal bg-secondary/50 border-0",
+                  "w-full h-9 justify-start text-left font-normal bg-secondary/50 border-0 text-sm",
                   !filters.dateFrom && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {filters.dateFrom ? format(filters.dateFrom, "dd/MM/yy") : "Desde"}
+                {filters.dateFrom ? format(filters.dateFrom, "dd/MM/yy") : "Seleccionar"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -130,19 +121,22 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               />
             </PopoverContent>
           </Popover>
+        </div>
 
-          {/* Date To */}
+        {/* Date To */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Fecha hasta</Label>
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "h-10 justify-start text-left font-normal bg-secondary/50 border-0",
+                  "w-full h-9 justify-start text-left font-normal bg-secondary/50 border-0 text-sm",
                   !filters.dateTo && "text-muted-foreground"
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {filters.dateTo ? format(filters.dateTo, "dd/MM/yy") : "Hasta"}
+                {filters.dateTo ? format(filters.dateTo, "dd/MM/yy") : "Seleccionar"}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -155,11 +149,14 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               />
             </PopoverContent>
           </Popover>
+        </div>
 
-          {/* Brand */}
+        {/* Brand */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Marca</Label>
           <Select value={filters.brand || 'all'} onValueChange={(v) => updateFilter('brand', v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-10 bg-secondary/50 border-0">
-              <SelectValue placeholder="Marca" />
+            <SelectTrigger className="h-9 bg-secondary/50 border-0 text-sm">
+              <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
@@ -168,11 +165,14 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               ))}
             </SelectContent>
           </Select>
+        </div>
 
-          {/* Branch */}
+        {/* Branch */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Sucursal</Label>
           <Select value={filters.branch || 'all'} onValueChange={(v) => updateFilter('branch', v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-10 bg-secondary/50 border-0">
-              <SelectValue placeholder="Sucursal" />
+            <SelectTrigger className="h-9 bg-secondary/50 border-0 text-sm">
+              <SelectValue placeholder="Todas" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
@@ -181,11 +181,14 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               ))}
             </SelectContent>
           </Select>
+        </div>
 
-          {/* Status */}
+        {/* Status */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Estado</Label>
           <Select value={filters.status || 'all'} onValueChange={(v) => updateFilter('status', v === 'all' ? '' : v)}>
-            <SelectTrigger className="h-10 bg-secondary/50 border-0">
-              <SelectValue placeholder="Estado" />
+            <SelectTrigger className="h-9 bg-secondary/50 border-0 text-sm">
+              <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((status) => (
@@ -194,7 +197,7 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
             </SelectContent>
           </Select>
         </div>
-      )}
+      </div>
     </div>
   );
 };

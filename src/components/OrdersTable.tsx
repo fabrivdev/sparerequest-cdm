@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, FileText, Download } from 'lucide-react';
+import { Package, Trash2, Loader2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -18,12 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import * as XLSX from 'xlsx';
 
 export interface Order {
@@ -36,6 +30,7 @@ export interface Order {
   status: string;
   created_at: string;
   user_id?: string;
+  user_email?: string;
 }
 
 interface OrdersTableProps {
@@ -74,9 +69,15 @@ const OrdersTable = ({
     );
   };
 
+  const getEmailUsername = (email?: string) => {
+    if (!email) return '-';
+    return email.split('@')[0];
+  };
+
   const exportToExcel = () => {
     const exportData = orders.map((order) => ({
       'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
+      ...(isAdmin && { 'Solicitante': getEmailUsername(order.user_email) }),
       'Marca': order.brand,
       'Código': order.product_code,
       'Cantidad': order.quantity,
@@ -92,6 +93,7 @@ const OrdersTable = ({
     // Auto-size columns
     const colWidths = [
       { wch: 18 }, // Fecha
+      ...(isAdmin ? [{ wch: 15 }] : []), // Solicitante
       { wch: 10 }, // Marca
       { wch: 20 }, // Código
       { wch: 10 }, // Cantidad
@@ -108,7 +110,7 @@ const OrdersTable = ({
     return (
       <div className="bg-card ios-shadow rounded-xl p-12 text-center">
         <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">No hay pedidos que coincidan con los filtros</p>
+        <p className="text-sm text-muted-foreground">No hay pedidos que coincidan con los filtros</p>
       </div>
     );
   }
@@ -133,14 +135,15 @@ const OrdersTable = ({
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
-              <TableHead className="font-semibold text-foreground min-w-[140px]">Fecha</TableHead>
-              <TableHead className="font-semibold text-foreground">Marca</TableHead>
-              <TableHead className="font-semibold text-foreground min-w-[150px]">Código</TableHead>
-              <TableHead className="font-semibold text-foreground text-center">Cant.</TableHead>
-              <TableHead className="font-semibold text-foreground min-w-[120px]">Sucursal</TableHead>
-              <TableHead className="font-semibold text-foreground min-w-[110px]">Estado</TableHead>
-              <TableHead className="font-semibold text-foreground">Obs.</TableHead>
-              <TableHead className="font-semibold text-foreground text-right">Acciones</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs">Fecha</TableHead>
+              {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Solicitante</TableHead>}
+              <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
+              <TableHead className="font-semibold text-foreground text-xs text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -149,26 +152,31 @@ const OrdersTable = ({
                 key={order.id} 
                 className={`hover:bg-muted/30 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
               >
-                <TableCell className="text-sm">
+                <TableCell className="text-xs">
                   <div className="flex flex-col">
-                    <span className="font-medium">
+                    <span className="font-medium text-foreground">
                       {format(new Date(order.created_at), "dd/MM/yyyy", { locale: es })}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground">
                       {format(new Date(order.created_at), "HH:mm", { locale: es })}
                     </span>
                   </div>
                 </TableCell>
+                {isAdmin && (
+                  <TableCell className="text-xs font-medium text-foreground">
+                    {getEmailUsername(order.user_email)}
+                  </TableCell>
+                )}
                 <TableCell>
-                  <Badge variant="secondary" className="font-medium">
+                  <Badge variant="secondary" className="font-medium text-xs">
                     {order.brand}
                   </Badge>
                 </TableCell>
-                <TableCell className="font-mono text-sm">{order.product_code}</TableCell>
+                <TableCell className="font-mono text-xs text-foreground">{order.product_code}</TableCell>
                 <TableCell className="text-center">
-                  <span className="font-semibold text-primary">{order.quantity}</span>
+                  <span className="font-semibold text-xs text-primary">{order.quantity}</span>
                 </TableCell>
-                <TableCell className="text-sm">{order.branch_destination}</TableCell>
+                <TableCell className="text-xs text-foreground">{order.branch_destination}</TableCell>
                 <TableCell>
                   {isAdmin && onStatusChange ? (
                     <Select
@@ -176,7 +184,7 @@ const OrdersTable = ({
                       onValueChange={(value) => onStatusChange(order.id, value)}
                       disabled={updatingOrderId === order.id}
                     >
-                      <SelectTrigger className="w-28 h-8 text-xs bg-secondary/50 border-0">
+                      <SelectTrigger className="w-28 h-7 text-xs bg-secondary/50 border-0">
                         {updatingOrderId === order.id ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
                         ) : (
@@ -195,21 +203,8 @@ const OrdersTable = ({
                     getStatusBadge(order.status)
                   )}
                 </TableCell>
-                <TableCell>
-                  {order.observation ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <FileText className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
-                        </TooltipTrigger>
-                        <TooltipContent side="left" className="max-w-xs">
-                          <p className="text-sm">{order.observation}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                  {order.observation || '-'}
                 </TableCell>
                 <TableCell className="text-right">
                   {!isAdmin && onDelete && (
@@ -217,7 +212,7 @@ const OrdersTable = ({
                       variant="ghost"
                       size="icon"
                       onClick={() => onDelete(order.id)}
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
