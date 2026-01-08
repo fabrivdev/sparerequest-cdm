@@ -29,7 +29,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (action === 'getOrders') {
-      const { data, error } = await supabase
+      // Get orders
+      const { data: orders, error } = await supabase
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false });
@@ -42,8 +43,28 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Get unique user IDs
+      const userIds = [...new Set(orders?.map(o => o.user_id) || [])];
+      
+      // Fetch user emails from auth.users
+      const usersWithEmails = await Promise.all(
+        userIds.map(async (userId) => {
+          const { data: userData } = await supabase.auth.admin.getUserById(userId);
+          return { id: userId, email: userData?.user?.email || null };
+        })
+      );
+      
+      // Create a map of user_id to email
+      const emailMap = Object.fromEntries(usersWithEmails.map(u => [u.id, u.email]));
+      
+      // Add email to each order
+      const ordersWithEmail = orders?.map(order => ({
+        ...order,
+        user_email: emailMap[order.user_id] || null
+      }));
+
       return new Response(
-        JSON.stringify({ orders: data }),
+        JSON.stringify({ orders: ordersWithEmail }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
