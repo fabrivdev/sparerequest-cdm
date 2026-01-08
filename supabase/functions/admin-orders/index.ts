@@ -43,6 +43,17 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Get all products for price lookup
+      const { data: products } = await supabase
+        .from('products')
+        .select('code, brand, price');
+
+      // Create a map of product key (brand + code) to price
+      const priceMap: Record<string, number> = {};
+      products?.forEach(p => {
+        priceMap[`${p.brand}|${p.code}`] = Number(p.price) || 0;
+      });
+
       // Get unique user IDs
       const userIds = [...new Set(orders?.map(o => o.user_id) || [])];
       
@@ -68,12 +79,18 @@ Deno.serve(async (req) => {
       // Create a map of user_id to email
       const emailMap = Object.fromEntries(usersWithEmails.map(u => [u.id, u.email]));
       
-      // Add name and email to each order
-      const ordersWithUser = orders?.map(order => ({
-        ...order,
-        user_email: emailMap[order.user_id] || null,
-        user_name: nameMap[order.user_id] || null
-      }));
+      // Add name, email, and price to each order
+      const ordersWithUser = orders?.map(order => {
+        const productKey = `${order.brand}|${order.product_code}`;
+        const unitPrice = priceMap[productKey] || 0;
+        return {
+          ...order,
+          user_email: emailMap[order.user_id] || null,
+          user_name: nameMap[order.user_id] || null,
+          unit_price: unitPrice,
+          total_price: unitPrice * order.quantity
+        };
+      });
 
       return new Response(
         JSON.stringify({ orders: ordersWithUser }),
