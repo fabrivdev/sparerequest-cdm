@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, FileSpreadsheet, Loader2, Check, X } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { Progress } from '@/components/ui/progress';
 
 interface Product {
   brand: string;
@@ -16,9 +17,14 @@ interface ProductCatalogUploadProps {
   onUploadSuccess?: () => void;
 }
 
+const BATCH_SIZE = 2000;
+const MAX_CONCURRENT_BATCHES = 3;
+
 const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseExcel = (file: File): Promise<Product[]> => {
@@ -26,6 +32,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
+          setStatusMessage('Procesando archivo Excel...');
           const data = new Uint8Array(e.target?.result as ArrayBuffer);
           const workbook = XLSX.read(data, { type: 'array' });
           const sheetName = workbook.SheetNames[0];
@@ -58,6 +65,49 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
     });
   };
 
+  const insertInBatches = async (products: Product[]) => {
+    const totalBatches = Math.ceil(products.length / BATCH_SIZE);
+    let completedBatches = 0;
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Divide into batches
+    const batches: Product[][] = [];
+    for (let i = 0; i < products.length; i += BATCH_SIZE) {
+      batches.push(products.slice(i, i + BATCH_SIZE));
+    }
+
+    // Process batches with limited concurrency
+    for (let i = 0; i < batches.length; i += MAX_CONCURRENT_BATCHES) {
+      const concurrentBatches = batches.slice(i, i + MAX_CONCURRENT_BATCHES);
+
+      const results = await Promise.allSettled(
+        concurrentBatches.map(batch =>
+          supabase.from('products').upsert(batch, {
+            onConflict: 'code',
+            ignoreDuplicates: false
+          })
+        )
+      );
+
+      results.forEach((result, idx) => {
+        if (result.status === 'fulfilled' && !result.value.error) {
+          successCount += concurrentBatches[idx].length;
+        } else {
+          errorCount += concurrentBatches[idx].length;
+          console.error('Batch error:', result.status === 'rejected' ? result.reason : result.value.error);
+        }
+      });
+
+      completedBatches += concurrentBatches.length;
+      const progressPercent = Math.round((completedBatches / totalBatches) * 100);
+      setProgress(progressPercent);
+      setStatusMessage(`Cargando ${Math.min(completedBatches * BATCH_SIZE, products.length).toLocaleString()} de ${products.length.toLocaleString()} productos...`);
+    }
+
+    return { successCount, errorCount };
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,6 +119,8 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
 
     setFileName(file.name);
     setIsUploading(true);
+    setProgress(0);
+    setStatusMessage('Leyendo archivo...');
 
     try {
       const products = await parseExcel(file);
@@ -76,42 +128,30 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       if (products.length === 0) {
         toast.error('No se encontraron productos válidos en el archivo');
         setIsUploading(false);
+        setStatusMessage('');
         return;
       }
 
-      // Delete existing products and insert new ones
-      const { error: deleteError } = await supabase
-        .from('products')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+      setStatusMessage(`Encontrados ${products.length.toLocaleString()} productos. Iniciando carga...`);
 
-      if (deleteError) {
-        console.error('Error deleting products:', deleteError);
-        toast.error('Error al reemplazar el catálogo');
-        setIsUploading(false);
-        return;
+      const { successCount, errorCount } = await insertInBatches(products);
+
+      if (errorCount === 0) {
+        toast.success(`Se cargaron ${successCount.toLocaleString()} productos correctamente`);
+      } else {
+        toast.warning(`Cargados ${successCount.toLocaleString()} productos. ${errorCount.toLocaleString()} fallaron.`);
       }
 
-      // Insert new products
-      const { error: insertError } = await supabase
-        .from('products')
-        .insert(products);
-
-      if (insertError) {
-        console.error('Error inserting products:', insertError);
-        toast.error('Error al cargar los productos');
-        setIsUploading(false);
-        return;
-      }
-
-      toast.success(`Se cargaron ${products.length} productos correctamente`);
+      setStatusMessage('');
       onUploadSuccess?.();
     } catch (error) {
       console.error('Error processing file:', error);
       toast.error('Error al procesar el archivo');
+      setStatusMessage('');
     }
 
     setIsUploading(false);
+    setProgress(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -131,7 +171,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           <div>
             <h3 className="font-semibold text-foreground text-sm">Catálogo de Productos</h3>
             <p className="text-xs text-muted-foreground">
-              {fileName ? (
+              {fileName && !isUploading ? (
                 <span className="flex items-center gap-1">
                   <Check className="w-3 h-3 text-green-500" />
                   {fileName}
@@ -171,6 +211,13 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           </Button>
         </div>
       </div>
+
+      {isUploading && (
+        <div className="mt-4 space-y-2">
+          <Progress value={progress} className="h-2" />
+          <p className="text-xs text-muted-foreground text-center">{statusMessage}</p>
+        </div>
+      )}
     </div>
   );
 };
