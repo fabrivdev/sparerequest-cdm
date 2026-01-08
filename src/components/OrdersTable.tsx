@@ -233,7 +233,7 @@ const OrdersTable = ({
                         </SelectTrigger>
                         <SelectContent>
                           {STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status.value} value={status.value} className={status.color}>
+                            <SelectItem key={status.value} value={status.value}>
                               {status.label}
                             </SelectItem>
                           ))}
