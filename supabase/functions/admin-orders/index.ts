@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, password, orderId, orderIds, newStatus } = await req.json();
+    const { action, password, orderId, orderIds, newStatus, orderNumber } = await req.json();
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     
@@ -130,15 +130,52 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Build update object with auto-fill dates based on status
+      const updateData: Record<string, any> = { status: newStatus };
+      const now = new Date().toISOString();
+      
+      if (newStatus === 'solicitado') {
+        updateData.requested_at = now;
+      } else if (newStatus === 'entregado') {
+        updateData.delivered_at = now;
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) {
         console.error('Error updating order:', error);
         return new Response(
           JSON.stringify({ error: 'Error al actualizar pedido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'updateOrderNumber') {
+      if (!orderId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_number: orderNumber || null })
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error updating order number:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar número de pedido' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -165,9 +202,19 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Build update object with auto-fill dates based on status
+      const updateData: Record<string, any> = { status: newStatus };
+      const now = new Date().toISOString();
+      
+      if (newStatus === 'solicitado') {
+        updateData.requested_at = now;
+      } else if (newStatus === 'entregado') {
+        updateData.delivered_at = now;
+      }
+
       const { error } = await supabase
         .from('orders')
-        .update({ status: newStatus })
+        .update(updateData)
         .in('id', orderIds);
 
       if (error) {

@@ -19,10 +19,13 @@ export type Database = {
           branch_destination: string
           brand: string
           created_at: string
+          delivered_at: string | null
           id: string
           observation: string | null
+          order_number: string | null
           product_code: string
           quantity: number
+          requested_at: string | null
           status: string
           updated_at: string
           user_id: string
@@ -31,10 +34,13 @@ export type Database = {
           branch_destination: string
           brand: string
           created_at?: string
+          delivered_at?: string | null
           id?: string
           observation?: string | null
+          order_number?: string | null
           product_code: string
           quantity: number
+          requested_at?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -43,10 +49,13 @@ export type Database = {
           branch_destination?: string
           brand?: string
           created_at?: string
+          delivered_at?: string | null
           id?: string
           observation?: string | null
+          order_number?: string | null
           product_code?: string
           quantity?: number
+          requested_at?: string | null
           status?: string
           updated_at?: string
           user_id?: string
