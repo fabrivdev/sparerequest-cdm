@@ -1,4 +1,4 @@
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Package, MapPin, Clock, Hash, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,10 +33,10 @@ interface OrderCardProps {
 
 const getStatusBadge = (status: string) => {
   switch (status) {
-    case 'completed':
-      return <Badge className="bg-primary/10 text-primary border-0 font-medium">Completado</Badge>;
-    case 'cancelled':
-      return <Badge className="bg-destructive/10 text-destructive border-0 font-medium">Cancelado</Badge>;
+    case 'entregado':
+      return <Badge className="bg-primary/10 text-primary border-0 font-medium">Entregado</Badge>;
+    case 'solicitado':
+      return <Badge className="bg-blue-500/10 text-blue-600 border-0 font-medium">Solicitado</Badge>;
     default:
       return <Badge className="bg-warning/10 text-warning border-0 font-medium">Pendiente</Badge>;
   }
@@ -99,9 +99,12 @@ const OrderCard = ({ order, onDelete }: OrderCardProps) => {
 
       {/* Footer */}
       <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="w-3 h-3" />
-          <span>{timeAgo}</span>
+        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>{format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</span>
+          </div>
+          <span className="text-muted-foreground/70">{timeAgo}</span>
         </div>
 
         <AlertDialog>
