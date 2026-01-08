@@ -83,6 +83,15 @@ const Admin = () => {
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
+    // Validate on frontend that 'entregado' requires order_number
+    if (newStatus === 'entregado') {
+      const order = orders.find(o => o.id === orderId);
+      if (!order?.order_number || order.order_number.trim() === '') {
+        toast.error('Debe ingresar un número de pedido antes de marcar como entregado');
+        return;
+      }
+    }
+
     setUpdatingOrderId(orderId);
 
     try {
@@ -96,16 +105,16 @@ const Admin = () => {
         return;
       }
 
-      // Update local state with new status and auto-filled dates
-      const now = new Date().toISOString();
+      // Update local state with new status and auto-filled dates from response
       setOrders((prev) =>
         prev.map((order) => {
           if (order.id === orderId) {
             const updates: Partial<typeof order> = { status: newStatus };
-            if (newStatus === 'solicitado') {
-              updates.requested_at = now;
-            } else if (newStatus === 'entregado') {
-              updates.delivered_at = now;
+            if (data.requested_at) {
+              updates.requested_at = data.requested_at;
+            }
+            if (data.delivered_at) {
+              updates.delivered_at = data.delivered_at;
             }
             return { ...order, ...updates };
           }
@@ -143,6 +152,17 @@ const Admin = () => {
   };
 
   const handleBulkStatusChange = async (newStatus: string) => {
+    // Validate on frontend that 'entregado' requires order_number for all selected
+    if (newStatus === 'entregado') {
+      const ordersWithoutNumber = orders.filter(
+        o => selectedOrders.includes(o.id) && (!o.order_number || o.order_number.trim() === '')
+      );
+      if (ordersWithoutNumber.length > 0) {
+        toast.error(`${ordersWithoutNumber.length} pedido(s) no tienen número de pedido`);
+        return;
+      }
+    }
+
     try {
       const { data, error } = await supabase.functions.invoke('admin-orders', {
         body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus },
@@ -154,9 +174,19 @@ const Admin = () => {
       }
 
       setOrders((prev) =>
-        prev.map((order) =>
-          selectedOrders.includes(order.id) ? { ...order, status: newStatus } : order
-        )
+        prev.map((order) => {
+          if (selectedOrders.includes(order.id)) {
+            const updates: Partial<typeof order> = { status: newStatus };
+            if (data.requested_at) {
+              updates.requested_at = data.requested_at;
+            }
+            if (data.delivered_at) {
+              updates.delivered_at = data.delivered_at;
+            }
+            return { ...order, ...updates };
+          }
+          return order;
+        })
       );
       setSelectedOrders([]);
       toast.success(`${selectedOrders.length} pedidos actualizados`);
