@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Package, Check } from 'lucide-react';
+import { Loader2, Package, Check, AlertCircle } from 'lucide-react';
 import { z } from 'zod';
 import { BRANCHES } from '@/constants/branches';
 import { supabase } from '@/integrations/supabase/client';
+
 const orderSchema = z.object({
   brand: z.string().min(1, 'La marca es requerida').max(100),
   productCode: z.string().min(1, 'El código es requerido').max(100),
@@ -42,13 +43,13 @@ interface OrderFormProps {
   defaultBranch?: string;
 }
 
-
 const BRANDS = ['CLAAS', 'HORSCH'];
 
 const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
   const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
+  const [productNotFound, setProductNotFound] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
   const [branchDestination, setBranchDestination] = useState(defaultBranch);
   const [observation, setObservation] = useState('');
@@ -63,29 +64,34 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     }
   }, [isOpen, defaultBranch]);
 
-  // Search for product name when code changes
-  const searchProductByCode = useCallback(async (code: string) => {
-    if (!code.trim()) {
+  // Search for product name when code or brand changes
+  const searchProductByCodeAndBrand = useCallback(async (code: string, selectedBrand: string) => {
+    if (!code.trim() || !selectedBrand) {
       setProductName('');
+      setProductNotFound(false);
       return;
     }
 
     setIsSearching(true);
+    setProductNotFound(false);
     try {
       const { data, error } = await supabase
         .from('products')
         .select('name')
         .ilike('code', code.trim())
-        .limit(1)
-        .single();
+        .ilike('brand', selectedBrand)
+        .maybeSingle();
 
       if (data && !error) {
         setProductName(data.name);
+        setProductNotFound(false);
       } else {
         setProductName('');
+        setProductNotFound(true);
       }
     } catch {
       setProductName('');
+      setProductNotFound(true);
     }
     setIsSearching(false);
   }, []);
@@ -93,16 +99,17 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   // Debounce product code search
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchProductByCode(productCode);
+      searchProductByCodeAndBrand(productCode, brand);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [productCode, searchProductByCode]);
+  }, [productCode, brand, searchProductByCodeAndBrand]);
 
   const resetForm = () => {
     setBrand('');
     setProductCode('');
     setProductName('');
+    setProductNotFound(false);
     setQuantity(1);
     setBranchDestination(defaultBranch);
     setObservation('');
@@ -123,6 +130,12 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
     if (!validation.success) {
       setError(validation.error.errors[0].message);
+      return;
+    }
+
+    // Validate product exists in catalog with matching brand
+    if (!productName) {
+      setError('El producto no existe en el catálogo para la marca seleccionada');
       return;
     }
 
@@ -176,8 +189,8 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
           {/* Brand */}
           <div className="space-y-2">
-            <Label htmlFor="brand">Marca</Label>
-            <Select value={brand} onValueChange={setBrand}>
+            <Label htmlFor="brand">Marca <span className="text-destructive">*</span></Label>
+            <Select value={brand} onValueChange={setBrand} required>
               <SelectTrigger className="h-11 bg-secondary/50 border-0">
                 <SelectValue placeholder="Selecciona una marca" />
               </SelectTrigger>
@@ -193,7 +206,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
           {/* Product Code */}
           <div className="space-y-2">
-            <Label htmlFor="productCode">Código de Mercadería</Label>
+            <Label htmlFor="productCode">Código de Mercadería <span className="text-destructive">*</span></Label>
             <div className="relative">
               <Input
                 id="productCode"
@@ -213,6 +226,11 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
                   <Check className="w-4 h-4 text-green-500" />
                 </div>
               )}
+              {productNotFound && !isSearching && productCode && brand && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
+                </div>
+              )}
             </div>
             {productName && (
               <p className="text-xs text-green-600 flex items-center gap-1">
@@ -220,11 +238,22 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
                 {productName}
               </p>
             )}
+            {productNotFound && !isSearching && productCode && brand && (
+              <p className="text-xs text-destructive flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                Producto no encontrado para {brand}
+              </p>
+            )}
+            {!brand && productCode && (
+              <p className="text-xs text-muted-foreground">
+                Selecciona una marca para validar el código
+              </p>
+            )}
           </div>
 
           {/* Quantity */}
           <div className="space-y-2">
-            <Label htmlFor="quantity">Cantidad</Label>
+            <Label htmlFor="quantity">Cantidad <span className="text-destructive">*</span></Label>
             <Input
               id="quantity"
               type="number"
@@ -238,8 +267,8 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
           {/* Branch Destination */}
           <div className="space-y-2">
-            <Label htmlFor="branch">Destino Sucursal</Label>
-            <Select value={branchDestination} onValueChange={setBranchDestination}>
+            <Label htmlFor="branch">Destino Sucursal <span className="text-destructive">*</span></Label>
+            <Select value={branchDestination} onValueChange={setBranchDestination} required>
               <SelectTrigger className="h-11 bg-secondary/50 border-0">
                 <SelectValue placeholder="Selecciona una sucursal" />
               </SelectTrigger>
@@ -279,7 +308,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
             <Button
               type="submit"
               className="flex-1 h-11"
-              disabled={isLoading}
+              disabled={isLoading || (productNotFound && !!productCode && !!brand)}
             >
               {isLoading ? (
                 <>
