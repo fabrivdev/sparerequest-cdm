@@ -224,7 +224,7 @@ const OrdersTable = ({
                         onValueChange={(value) => onStatusChange(order.id, value)}
                         disabled={updatingOrderId === order.id}
                       >
-                        <SelectTrigger className="w-28 h-7 text-xs bg-secondary/50 border-0">
+                        <SelectTrigger className={`w-28 h-7 text-xs border ${STATUS_OPTIONS.find(s => s.value === order.status)?.color || 'bg-muted'}`}>
                           {updatingOrderId === order.id ? (
                             <Loader2 className="w-3 h-3 animate-spin" />
                           ) : (
@@ -233,7 +233,7 @@ const OrdersTable = ({
                         </SelectTrigger>
                         <SelectContent>
                           {STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
+                            <SelectItem key={status.value} value={status.value} className={status.color}>
                               {status.label}
                             </SelectItem>
                           ))}
