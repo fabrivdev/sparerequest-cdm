@@ -46,7 +46,18 @@ Deno.serve(async (req) => {
       // Get unique user IDs
       const userIds = [...new Set(orders?.map(o => o.user_id) || [])];
       
-      // Fetch user emails from auth.users
+      // Fetch profiles for user names
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, full_name')
+        .in('user_id', userIds);
+      
+      // Create a map of user_id to name
+      const nameMap = Object.fromEntries(
+        profiles?.map(p => [p.user_id, p.full_name]) || []
+      );
+      
+      // Fetch user emails from auth.users (as fallback)
       const usersWithEmails = await Promise.all(
         userIds.map(async (userId) => {
           const { data: userData } = await supabase.auth.admin.getUserById(userId);
@@ -57,14 +68,15 @@ Deno.serve(async (req) => {
       // Create a map of user_id to email
       const emailMap = Object.fromEntries(usersWithEmails.map(u => [u.id, u.email]));
       
-      // Add email to each order
-      const ordersWithEmail = orders?.map(order => ({
+      // Add name and email to each order
+      const ordersWithUser = orders?.map(order => ({
         ...order,
-        user_email: emailMap[order.user_id] || null
+        user_email: emailMap[order.user_id] || null,
+        user_name: nameMap[order.user_id] || null
       }));
 
       return new Response(
-        JSON.stringify({ orders: ordersWithEmail }),
+        JSON.stringify({ orders: ordersWithUser }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
