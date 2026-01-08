@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,9 +17,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Package } from 'lucide-react';
+import { Loader2, Package, Check } from 'lucide-react';
 import { z } from 'zod';
 import { BRANCHES } from '@/constants/branches';
+import { supabase } from '@/integrations/supabase/client';
 const orderSchema = z.object({
   brand: z.string().min(1, 'La marca es requerida').max(100),
   productCode: z.string().min(1, 'El código es requerido').max(100),
@@ -47,11 +48,13 @@ const BRANDS = ['CLAAS', 'HORSCH'];
 const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
   const [productCode, setProductCode] = useState('');
+  const [productName, setProductName] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [branchDestination, setBranchDestination] = useState(defaultBranch);
   const [observation, setObservation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Update default branch when form opens
   useEffect(() => {
@@ -60,9 +63,46 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     }
   }, [isOpen, defaultBranch]);
 
+  // Search for product name when code changes
+  const searchProductByCode = useCallback(async (code: string) => {
+    if (!code.trim()) {
+      setProductName('');
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('name')
+        .ilike('code', code.trim())
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        setProductName(data.name);
+      } else {
+        setProductName('');
+      }
+    } catch {
+      setProductName('');
+    }
+    setIsSearching(false);
+  }, []);
+
+  // Debounce product code search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchProductByCode(productCode);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [productCode, searchProductByCode]);
+
   const resetForm = () => {
     setBrand('');
     setProductCode('');
+    setProductName('');
     setQuantity(1);
     setBranchDestination(defaultBranch);
     setObservation('');
@@ -154,14 +194,32 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
           {/* Product Code */}
           <div className="space-y-2">
             <Label htmlFor="productCode">Código de Mercadería</Label>
-            <Input
-              id="productCode"
-              placeholder="Ej: ABC-12345"
-              value={productCode}
-              onChange={(e) => setProductCode(e.target.value)}
-              className="h-11 bg-secondary/50 border-0"
-              required
-            />
+            <div className="relative">
+              <Input
+                id="productCode"
+                placeholder="Ej: ABC-12345"
+                value={productCode}
+                onChange={(e) => setProductCode(e.target.value)}
+                className="h-11 bg-secondary/50 border-0 pr-10"
+                required
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {productName && !isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Check className="w-4 h-4 text-green-500" />
+                </div>
+              )}
+            </div>
+            {productName && (
+              <p className="text-xs text-green-600 flex items-center gap-1">
+                <Check className="w-3 h-3" />
+                {productName}
+              </p>
+            )}
           </div>
 
           {/* Quantity */}
