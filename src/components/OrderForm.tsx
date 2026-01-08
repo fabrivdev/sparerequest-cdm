@@ -50,7 +50,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
   const [productNotFound, setProductNotFound] = useState(false);
-  const [quantity, setQuantity] = useState<number>(1);
+  const [quantity, setQuantity] = useState<string>('1');
   const [branchDestination, setBranchDestination] = useState(defaultBranch);
   const [observation, setObservation] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +110,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     setProductCode('');
     setProductName('');
     setProductNotFound(false);
-    setQuantity(1);
+    setQuantity('1');
     setBranchDestination(defaultBranch);
     setObservation('');
     setError(null);
@@ -120,10 +120,12 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     e.preventDefault();
     setError(null);
 
+    const quantityNum = parseInt(quantity) || 0;
+    
     const validation = orderSchema.safeParse({
       brand,
       productCode,
-      quantity,
+      quantity: quantityNum,
       branchDestination,
       observation,
     });
@@ -145,7 +147,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
       await onSubmit({
         brand,
         productCode,
-        quantity,
+        quantity: quantityNum,
         branchDestination,
         observation: observation || '',
       });
@@ -256,10 +258,11 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
             <Label htmlFor="quantity">Cantidad <span className="text-destructive">*</span></Label>
             <Input
               id="quantity"
-              type="number"
-              min="1"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+              onChange={(e) => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
               className="h-11 bg-secondary/50 border-0"
               required
             />
