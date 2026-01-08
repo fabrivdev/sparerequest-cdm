@@ -1,48 +1,13 @@
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { 
-  Shield, 
-  Loader2, 
-  Package, 
-  MapPin, 
-  Calendar,
-  Hash,
-  FileText,
-  ArrowLeft
-} from 'lucide-react';
+import { Shield, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
+import OrdersTable, { Order } from '@/components/OrdersTable';
 
 const ADMIN_SESSION_KEY = 'admin_session';
-
-interface Order {
-  id: string;
-  brand: string;
-  product_code: string;
-  quantity: number;
-  branch_destination: string;
-  observation: string | null;
-  status: string;
-  created_at: string;
-  user_id: string;
-}
-
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pendiente', color: 'bg-warning/10 text-warning' },
-  { value: 'solicitado', label: 'Solicitado', color: 'bg-blue-500/10 text-blue-600' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-primary/10 text-primary' },
-];
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -50,6 +15,14 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<OrderFiltersState>({
+    dateFrom: undefined,
+    dateTo: undefined,
+    brand: '',
+    productCode: '',
+    branch: '',
+    status: '',
+  });
 
   const getAdminSession = () => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -131,14 +104,30 @@ const Admin = () => {
     setUpdatingOrderId(null);
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusOption = STATUS_OPTIONS.find((s) => s.value === status);
-    return (
-      <Badge className={`${statusOption?.color || 'bg-muted text-muted-foreground'} border-0 font-medium`}>
-        {statusOption?.label || status}
-      </Badge>
-    );
-  };
+  // Get unique branches for filter dropdown
+  const branches = useMemo(() => {
+    return [...new Set(orders.map((o) => o.branch_destination))].sort();
+  }, [orders]);
+
+  // Apply filters
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      
+      if (filters.dateFrom && orderDate < filters.dateFrom) return false;
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (orderDate > endOfDay) return false;
+      }
+      if (filters.brand && order.brand !== filters.brand) return false;
+      if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
+      if (filters.branch && order.branch_destination !== filters.branch) return false;
+      if (filters.status && order.status !== filters.status) return false;
+      
+      return true;
+    });
+  }, [orders, filters]);
 
   if (isLoading) {
     return (
@@ -151,7 +140,7 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border/50">
+      <header className="sticky top-0 z-50 bg-card/80 backdrop-blur-xl border-b border-border">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -169,100 +158,20 @@ const Admin = () => {
         </div>
       </header>
 
-      {/* Orders List */}
+      {/* Content */}
       <main className="container mx-auto px-4 py-6">
-        <div className="space-y-3">
-          {orders.map((order) => (
-            <div
-              key={order.id}
-              className="bg-card ios-shadow rounded-xl p-4 animate-fade-in"
-            >
-              {/* Row 1: Brand, Code, Status */}
-              <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Package className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground">{order.brand}</h3>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Hash className="w-3 h-3" />
-                      <span className="truncate">{order.product_code}</span>
-                    </div>
-                  </div>
-                </div>
-                {getStatusBadge(order.status)}
-              </div>
-
-              {/* Row 2: Details */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3 text-sm">
-                <div className="bg-secondary/50 rounded-lg px-3 py-2">
-                  <span className="text-muted-foreground text-xs">Cantidad</span>
-                  <p className="font-medium">{order.quantity}</p>
-                </div>
-                <div className="bg-secondary/50 rounded-lg px-3 py-2">
-                  <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                    <MapPin className="w-3 h-3" />
-                    <span>Destino</span>
-                  </div>
-                  <p className="font-medium truncate">{order.branch_destination}</p>
-                </div>
-                <div className="bg-secondary/50 rounded-lg px-3 py-2 col-span-2 sm:col-span-2">
-                  <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                    <Calendar className="w-3 h-3" />
-                    <span>Fecha</span>
-                  </div>
-                  <p className="font-medium">
-                    {format(new Date(order.created_at), "dd 'de' MMMM yyyy, HH:mm", { locale: es })}
-                  </p>
-                </div>
-              </div>
-
-              {/* Observation */}
-              {order.observation && (
-                <div className="bg-accent/50 rounded-lg px-3 py-2 mb-3">
-                  <div className="flex items-center gap-1 text-muted-foreground text-xs mb-1">
-                    <FileText className="w-3 h-3" />
-                    <span>Observación</span>
-                  </div>
-                  <p className="text-sm">{order.observation}</p>
-                </div>
-              )}
-
-              {/* Status Update */}
-              <div className="flex items-center gap-3 pt-3 border-t border-border">
-                <span className="text-sm text-muted-foreground">Cambiar estado:</span>
-                <Select
-                  value={order.status}
-                  onValueChange={(value) => handleStatusChange(order.id, value)}
-                  disabled={updatingOrderId === order.id}
-                >
-                  <SelectTrigger className="w-40 h-9 bg-secondary/50 border-0">
-                    {updatingOrderId === order.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <SelectValue />
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_OPTIONS.map((status) => (
-                      <SelectItem key={status.value} value={status.value}>
-                        {status.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          ))}
-
-          {orders.length === 0 && (
-            <div className="text-center py-16">
-              <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">No hay pedidos registrados</p>
-            </div>
-          )}
-        </div>
+        <OrderFilters 
+          filters={filters} 
+          onFiltersChange={setFilters} 
+          branches={branches}
+        />
+        <OrdersTable 
+          orders={filteredOrders}
+          isAdmin
+          onStatusChange={handleStatusChange}
+          updatingOrderId={updatingOrderId}
+          showExport
+        />
       </main>
     </div>
   );

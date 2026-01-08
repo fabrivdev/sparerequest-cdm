@@ -1,29 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
-import OrderCard from '@/components/OrderCard';
 import OrderForm from '@/components/OrderForm';
+import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
+import OrdersTable, { Order } from '@/components/OrdersTable';
 import EmptyState from '@/components/EmptyState';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface Order {
-  id: string;
-  brand: string;
-  product_code: string;
-  quantity: number;
-  branch_destination: string;
-  observation: string | null;
-  status: string;
-  created_at: string;
-}
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [filters, setFilters] = useState<OrderFiltersState>({
+    dateFrom: undefined,
+    dateTo: undefined,
+    brand: '',
+    productCode: '',
+    branch: '',
+    status: '',
+  });
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -85,13 +83,38 @@ const Dashboard = () => {
     }
   };
 
+  // Get unique branches for filter dropdown
+  const branches = useMemo(() => {
+    return [...new Set(orders.map((o) => o.branch_destination))].sort();
+  }, [orders]);
+
+  // Apply filters
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.created_at);
+      
+      if (filters.dateFrom && orderDate < filters.dateFrom) return false;
+      if (filters.dateTo) {
+        const endOfDay = new Date(filters.dateTo);
+        endOfDay.setHours(23, 59, 59, 999);
+        if (orderDate > endOfDay) return false;
+      }
+      if (filters.brand && order.brand !== filters.brand) return false;
+      if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
+      if (filters.branch && order.branch_destination !== filters.branch) return false;
+      if (filters.status && order.status !== filters.status) return false;
+      
+      return true;
+    });
+  }, [orders, filters]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header onNewOrder={() => setIsFormOpen(true)} />
 
       <main className="container mx-auto px-4 py-6">
         {/* Stats */}
-        <div className="mb-6">
+        <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground mb-1">
             Mis Pedidos
           </h2>
@@ -108,15 +131,17 @@ const Dashboard = () => {
         ) : orders.length === 0 ? (
           <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {orders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                onDelete={handleDeleteOrder}
-              />
-            ))}
-          </div>
+          <>
+            <OrderFilters 
+              filters={filters} 
+              onFiltersChange={setFilters} 
+              branches={branches}
+            />
+            <OrdersTable 
+              orders={filteredOrders} 
+              onDelete={handleDeleteOrder}
+            />
+          </>
         )}
       </main>
 
