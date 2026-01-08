@@ -169,7 +169,45 @@ const Dashboard = () => {
     }
   };
 
+  const handleUpdateOrder = async (orderId: string, data: {
+    brand: string;
+    product_code: string;
+    quantity: number;
+    branch_destination: string;
+    observation: string | null;
+  }) => {
+    const { error } = await supabase
+      .from('orders')
+      .update(data)
+      .eq('id', orderId);
+
+    if (error) {
+      toast.error('Error al actualizar el pedido');
+      throw error;
+    }
+
+    toast.success('Pedido actualizado exitosamente');
+    fetchOrders();
+    if (view === 'branch-orders') {
+      fetchBranchOrders();
+    }
+  };
+
   const handleDeleteOrder = async (id: string) => {
+    // Find the order to check if it can be deleted
+    const order = orders.find(o => o.id === id);
+    if (order) {
+      const hoursSinceCreation = (new Date().getTime() - new Date(order.created_at).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceCreation > 24) {
+        toast.error('No se puede eliminar: pasaron más de 24 horas');
+        return;
+      }
+      if (order.status !== 'pending') {
+        toast.error('No se puede eliminar: el estado ya cambió');
+        return;
+      }
+    }
+
     const { error } = await supabase.from('orders').delete().eq('id', id);
 
     if (error) {
@@ -279,6 +317,7 @@ const Dashboard = () => {
             <OrdersTable 
               orders={filteredOrders} 
               onDelete={handleDeleteOrder}
+              onUpdate={handleUpdateOrder}
               showUserColumn={view === 'branch-orders'}
             />
           </>

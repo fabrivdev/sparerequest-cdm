@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, password, orderId, newStatus } = await req.json();
+    const { action, password, orderId, orderIds, newStatus } = await req.json();
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     
@@ -112,6 +112,68 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'bulkUpdateStatus') {
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0 || !newStatus) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validStatuses = ['pending', 'solicitado', 'entregado'];
+      if (!validStatuses.includes(newStatus)) {
+        return new Response(
+          JSON.stringify({ error: 'Estado inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ status: newStatus })
+        .in('id', orderIds);
+
+      if (error) {
+        console.error('Error updating orders:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar pedidos' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, updated: orderIds.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'bulkDelete') {
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .in('id', orderIds);
+
+      if (error) {
+        console.error('Error deleting orders:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al eliminar pedidos' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, deleted: orderIds.length }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
