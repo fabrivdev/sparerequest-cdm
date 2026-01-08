@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,25 +38,33 @@ interface OrderFormProps {
     branchDestination: string;
     observation: string;
   }) => Promise<void>;
+  defaultBranch?: string;
 }
 
 
 const BRANDS = ['CLAAS', 'HORSCH'];
 
-const OrderForm = ({ isOpen, onClose, onSubmit }: OrderFormProps) => {
+const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
   const [productCode, setProductCode] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
-  const [branchDestination, setBranchDestination] = useState('');
+  const [branchDestination, setBranchDestination] = useState(defaultBranch);
   const [observation, setObservation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Update default branch when form opens
+  useEffect(() => {
+    if (isOpen && defaultBranch) {
+      setBranchDestination(defaultBranch);
+    }
+  }, [isOpen, defaultBranch]);
 
   const resetForm = () => {
     setBrand('');
     setProductCode('');
     setQuantity(1);
-    setBranchDestination('');
+    setBranchDestination(defaultBranch);
     setObservation('');
     setError(null);
   };

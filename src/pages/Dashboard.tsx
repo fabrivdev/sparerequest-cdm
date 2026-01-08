@@ -290,6 +290,7 @@ const Dashboard = () => {
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleCreateOrder}
+        defaultBranch={profile?.branch}
       />
 
       {/* Profile Edit Modal */}
