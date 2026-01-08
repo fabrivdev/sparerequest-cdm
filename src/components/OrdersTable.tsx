@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/table';
 import OrderDetailModal from './OrderDetailModal';
 import * as XLSX from 'xlsx';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface Order {
   id: string;
@@ -34,6 +35,12 @@ export interface Order {
   user_id?: string;
   user_email?: string;
   user_name?: string;
+}
+
+interface Product {
+  code: string;
+  name: string;
+  price: number;
 }
 
 interface OrdersTableProps {
@@ -87,17 +94,36 @@ const OrdersTable = ({
     setIsDetailOpen(true);
   };
 
-  const exportToExcel = () => {
-    const exportData = orders.map((order) => ({
-      'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
-      ...((isAdmin || showUserColumn) && { 'Solicitante': getUserDisplay(order) }),
-      'Marca': order.brand,
-      'Código': order.product_code,
-      'Cantidad': order.quantity,
-      'Sucursal': order.branch_destination,
-      'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
-      'Observación': order.observation || '',
-    }));
+  const exportToExcel = async () => {
+    // Fetch product catalog for enriching export
+    const productCodes = [...new Set(orders.map(o => o.product_code))];
+    const { data: products } = await supabase
+      .from('products')
+      .select('code, name, price')
+      .in('code', productCodes);
+    
+    // Create a map for quick lookup (case-insensitive)
+    const productMap = new Map<string, Product>();
+    products?.forEach(p => {
+      productMap.set(p.code.toLowerCase(), p);
+    });
+
+    const exportData = orders.map((order) => {
+      const product = productMap.get(order.product_code.toLowerCase());
+      return {
+        'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
+        ...((isAdmin || showUserColumn) && { 'Solicitante': getUserDisplay(order) }),
+        'Marca': order.brand,
+        'Código': order.product_code,
+        'Nombre': product?.name || '',
+        'Cantidad': order.quantity,
+        'Precio Unitario': product?.price || '',
+        'Precio Total': product?.price ? product.price * order.quantity : '',
+        'Sucursal': order.branch_destination,
+        'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
+        'Observación': order.observation || '',
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
@@ -108,7 +134,10 @@ const OrdersTable = ({
       ...((isAdmin || showUserColumn) ? [{ wch: 15 }] : []),
       { wch: 10 },
       { wch: 20 },
+      { wch: 25 },
       { wch: 10 },
+      { wch: 14 },
+      { wch: 14 },
       { wch: 20 },
       { wch: 12 },
       { wch: 40 },
