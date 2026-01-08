@@ -43,16 +43,32 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Get all products for price lookup
-      const { data: products } = await supabase
-        .from('products')
-        .select('code, brand, price');
+      // Get unique product combinations from orders
+      const uniqueProducts = [...new Set(orders?.map(o => JSON.stringify({ brand: o.brand, code: o.product_code })) || [])]
+        .map(s => JSON.parse(s));
 
-      // Create a map of product key (brand + code) to price
+      // Fetch prices only for products in orders
       const priceMap: Record<string, number> = {};
-      products?.forEach(p => {
-        priceMap[`${p.brand}|${p.code}`] = Number(p.price) || 0;
-      });
+      
+      if (uniqueProducts.length > 0) {
+        // Fetch prices for each unique product (in parallel for efficiency)
+        const pricePromises = uniqueProducts.map(async (p: { brand: string; code: string }) => {
+          const { data: product } = await supabase
+            .from('products')
+            .select('price, brand, code')
+            .eq('brand', p.brand)
+            .eq('code', p.code)
+            .maybeSingle();
+          
+          if (product) {
+            priceMap[`${product.brand}|${product.code}`] = Number(product.price) || 0;
+          }
+        });
+        
+        await Promise.all(pricePromises);
+      }
+      
+      console.log('Price map:', priceMap);
 
       // Get unique user IDs
       const userIds = [...new Set(orders?.map(o => o.user_id) || [])];
