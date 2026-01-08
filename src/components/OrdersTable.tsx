@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight, Pencil } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -44,6 +45,9 @@ export interface Order {
   user_id?: string;
   user_email?: string;
   user_name?: string;
+  order_number?: string | null;
+  requested_at?: string | null;
+  delivered_at?: string | null;
 }
 
 interface Product {
@@ -64,6 +68,7 @@ interface OrdersTableProps {
     observation: string | null;
   }) => Promise<void>;
   onStatusChange?: (orderId: string, newStatus: string) => void;
+  onOrderNumberChange?: (orderId: string, orderNumber: string) => void;
   onBulkStatusChange?: (orderIds: string[], newStatus: string) => Promise<void>;
   onBulkDelete?: (orderIds: string[]) => Promise<void>;
   updatingOrderId?: string | null;
@@ -107,7 +112,8 @@ const OrdersTable = ({
   isAdmin = false, 
   onDelete,
   onUpdate,
-  onStatusChange, 
+  onStatusChange,
+  onOrderNumberChange,
   onBulkStatusChange,
   onBulkDelete,
   updatingOrderId,
@@ -122,6 +128,8 @@ const OrdersTable = ({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingOrderNumber, setEditingOrderNumber] = useState<string | null>(null);
+  const [orderNumberValue, setOrderNumberValue] = useState('');
 
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find((s) => s.value === status);
@@ -319,6 +327,10 @@ const OrdersTable = ({
                 <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
+                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Actualización</TableHead>}
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Solicitud</TableHead>}
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Entrega</TableHead>}
                 <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs text-right pr-4">Acciones</TableHead>}
               </TableRow>
@@ -391,6 +403,102 @@ const OrdersTable = ({
                         getStatusBadge(order.status)
                       )}
                     </TableCell>
+                    {/* User view: Update date column */}
+                    {!isAdmin && (
+                      <TableCell className="text-xs">
+                        {order.updated_at ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
+                              {format(new Date(order.updated_at), "dd/MM/yyyy", { locale: es })}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(order.updated_at), "HH:mm", { locale: es })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {/* Admin view: Order number editable field */}
+                    {isAdmin && (
+                      <TableCell className="text-xs">
+                        {editingOrderNumber === order.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={orderNumberValue}
+                              onChange={(e) => setOrderNumberValue(e.target.value)}
+                              className="h-7 w-24 text-xs"
+                              placeholder="Nro..."
+                              autoFocus
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                onOrderNumberChange?.(order.id, orderNumberValue);
+                                setEditingOrderNumber(null);
+                              }}
+                            >
+                              <Check className="w-3 h-3 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setEditingOrderNumber(null)}
+                            >
+                              <X className="w-3 h-3 text-muted-foreground" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:text-primary font-mono"
+                            onClick={() => {
+                              setEditingOrderNumber(order.id);
+                              setOrderNumberValue(order.order_number || '');
+                            }}
+                          >
+                            {order.order_number || <span className="text-muted-foreground italic">Agregar...</span>}
+                          </span>
+                        )}
+                      </TableCell>
+                    )}
+                    {/* Admin view: Requested at date */}
+                    {isAdmin && (
+                      <TableCell className="text-xs">
+                        {order.requested_at ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
+                              {format(new Date(order.requested_at), "dd/MM/yyyy", { locale: es })}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(order.requested_at), "HH:mm", { locale: es })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {/* Admin view: Delivered at date */}
+                    {isAdmin && (
+                      <TableCell className="text-xs">
+                        {order.delivered_at ? (
+                          <div className="flex flex-col">
+                            <span className="font-medium text-foreground">
+                              {format(new Date(order.delivered_at), "dd/MM/yyyy", { locale: es })}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {format(new Date(order.delivered_at), "HH:mm", { locale: es })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                       {order.observation || '-'}
                     </TableCell>

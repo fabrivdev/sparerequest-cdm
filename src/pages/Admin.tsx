@@ -96,10 +96,21 @@ const Admin = () => {
         return;
       }
 
+      // Update local state with new status and auto-filled dates
+      const now = new Date().toISOString();
       setOrders((prev) =>
-        prev.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
+        prev.map((order) => {
+          if (order.id === orderId) {
+            const updates: Partial<typeof order> = { status: newStatus };
+            if (newStatus === 'solicitado') {
+              updates.requested_at = now;
+            } else if (newStatus === 'entregado') {
+              updates.delivered_at = now;
+            }
+            return { ...order, ...updates };
+          }
+          return order;
+        })
       );
       toast.success('Estado actualizado');
     } catch (err) {
@@ -107,6 +118,28 @@ const Admin = () => {
     }
 
     setUpdatingOrderId(null);
+  };
+
+  const handleOrderNumberChange = async (orderId: string, orderNumber: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'updateOrderNumber', password, orderId, orderNumber },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al actualizar');
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, order_number: orderNumber || null } : order
+        )
+      );
+      toast.success('Número de pedido actualizado');
+    } catch (err) {
+      toast.error('Error al actualizar');
+    }
   };
 
   const handleBulkStatusChange = async (newStatus: string) => {
@@ -304,6 +337,7 @@ const Admin = () => {
               orders={filteredOrders}
               isAdmin
               onStatusChange={handleStatusChange}
+              onOrderNumberChange={handleOrderNumberChange}
               updatingOrderId={updatingOrderId}
               showExport
               selectable
