@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
 import OrdersTable, { Order } from '@/components/OrdersTable';
 import ProductCatalogUpload from '@/components/ProductCatalogUpload';
+import BulkActionsBar from '@/components/BulkActionsBar';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -16,6 +17,7 @@ const Admin = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [filters, setFilters] = useState<OrderFiltersState>({
     dateFrom: undefined,
     dateTo: undefined,
@@ -103,6 +105,48 @@ const Admin = () => {
     }
 
     setUpdatingOrderId(null);
+  };
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al actualizar');
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          selectedOrders.includes(order.id) ? { ...order, status: newStatus } : order
+        )
+      );
+      setSelectedOrders([]);
+      toast.success(`${selectedOrders.length} pedidos actualizados`);
+    } catch (err) {
+      toast.error('Error al actualizar');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'bulkDelete', password, orderIds: selectedOrders },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al eliminar');
+        return;
+      }
+
+      setOrders((prev) => prev.filter((order) => !selectedOrders.includes(order.id)));
+      setSelectedOrders([]);
+      toast.success(`${selectedOrders.length} pedidos eliminados`);
+    } catch (err) {
+      toast.error('Error al eliminar');
+    }
   };
 
   // Get unique branches for filter dropdown
@@ -216,12 +260,24 @@ const Admin = () => {
           onFiltersChange={setFilters} 
           branches={branches}
         />
+
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={selectedOrders.length}
+          onStatusChange={handleBulkStatusChange}
+          onDelete={handleBulkDelete}
+          onClearSelection={() => setSelectedOrders([])}
+        />
+
         <OrdersTable 
           orders={filteredOrders}
           isAdmin
           onStatusChange={handleStatusChange}
           updatingOrderId={updatingOrderId}
           showExport
+          selectable
+          selectedOrders={selectedOrders}
+          onSelectionChange={setSelectedOrders}
         />
       </main>
     </div>

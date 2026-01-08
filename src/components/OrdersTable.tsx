@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -19,7 +20,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import OrderDetailModal from './OrderDetailModal';
+import OrderEditModal from './OrderEditModal';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -47,10 +55,22 @@ interface OrdersTableProps {
   orders: Order[];
   isAdmin?: boolean;
   onDelete?: (id: string) => void;
+  onUpdate?: (orderId: string, data: {
+    brand: string;
+    product_code: string;
+    quantity: number;
+    branch_destination: string;
+    observation: string | null;
+  }) => Promise<void>;
   onStatusChange?: (orderId: string, newStatus: string) => void;
+  onBulkStatusChange?: (orderIds: string[], newStatus: string) => Promise<void>;
+  onBulkDelete?: (orderIds: string[]) => Promise<void>;
   updatingOrderId?: string | null;
   showExport?: boolean;
   showUserColumn?: boolean;
+  selectable?: boolean;
+  selectedOrders?: string[];
+  onSelectionChange?: (selected: string[]) => void;
 }
 
 const STATUS_OPTIONS = [
@@ -59,17 +79,31 @@ const STATUS_OPTIONS = [
   { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 ];
 
+// Check if order can be edited/deleted (within 24h and still pending)
+const canModifyOrder = (order: Order): boolean => {
+  const hoursSinceCreation = differenceInHours(new Date(), new Date(order.created_at));
+  return hoursSinceCreation <= 24 && order.status === 'pending';
+};
+
 const OrdersTable = ({ 
   orders, 
   isAdmin = false, 
-  onDelete, 
+  onDelete,
+  onUpdate,
   onStatusChange, 
+  onBulkStatusChange,
+  onBulkDelete,
   updatingOrderId,
   showExport = false,
-  showUserColumn = false
+  showUserColumn = false,
+  selectable = false,
+  selectedOrders = [],
+  onSelectionChange,
 }: OrdersTableProps) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find((s) => s.value === status);
@@ -92,6 +126,33 @@ const OrdersTable = ({
   const handleRowClick = (order: Order) => {
     setSelectedOrder(order);
     setIsDetailOpen(true);
+  };
+
+  const handleEditClick = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation();
+    setEditingOrder(order);
+    setIsEditOpen(true);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, orderId: string) => {
+    e.stopPropagation();
+    onDelete?.(orderId);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      onSelectionChange?.(orders.map(o => o.id));
+    } else {
+      onSelectionChange?.([]);
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    if (checked) {
+      onSelectionChange?.([...selectedOrders, orderId]);
+    } else {
+      onSelectionChange?.(selectedOrders.filter(id => id !== orderId));
+    }
   };
 
   const exportToExcel = async () => {
@@ -156,6 +217,9 @@ const OrdersTable = ({
     );
   }
 
+  const allSelected = orders.length > 0 && selectedOrders.length === orders.length;
+  const someSelected = selectedOrders.length > 0 && selectedOrders.length < orders.length;
+
   return (
     <>
       <div className="bg-card ios-shadow rounded-xl overflow-hidden">
@@ -163,7 +227,10 @@ const OrdersTable = ({
         {showExport && (
           <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
             <span className="text-sm text-muted-foreground">
-              {orders.length} {orders.length === 1 ? 'pedido' : 'pedidos'}
+              {selectedOrders.length > 0 
+                ? `${selectedOrders.length} seleccionado${selectedOrders.length > 1 ? 's' : ''}`
+                : `${orders.length} ${orders.length === 1 ? 'pedido' : 'pedidos'}`
+              }
             </span>
             <Button variant="outline" size="sm" onClick={exportToExcel} className="h-8 gap-2">
               <Download className="w-4 h-4" />
@@ -180,6 +247,14 @@ const OrdersTable = ({
               onClick={() => handleRowClick(order)}
               className="flex items-center justify-between p-4 hover:bg-muted/30 active:bg-muted/50 cursor-pointer transition-colors"
             >
+              {selectable && (
+                <div className="mr-3" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedOrders.includes(order.id)}
+                    onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                  />
+                </div>
+              )}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="font-mono text-sm font-medium text-foreground truncate">
@@ -210,6 +285,15 @@ const OrdersTable = ({
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50 hover:bg-muted/50">
+                {selectable && (
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allSelected}
+                      onCheckedChange={handleSelectAll}
+                      className={someSelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                    />
+                  </TableHead>
+                )}
                 <TableHead className="font-semibold text-foreground text-xs">Fecha</TableHead>
                 {(isAdmin || showUserColumn) && <TableHead className="font-semibold text-foreground text-xs">Solicitante</TableHead>}
                 <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
@@ -222,81 +306,132 @@ const OrdersTable = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order, index) => (
-                <TableRow 
-                  key={order.id} 
-                  className={`hover:bg-muted/30 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
-                >
-                  <TableCell className="text-xs">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-foreground">
-                        {format(new Date(order.created_at), "dd/MM/yyyy", { locale: es })}
-                      </span>
-                      <span className="text-muted-foreground">
-                        {format(new Date(order.created_at), "HH:mm", { locale: es })}
-                      </span>
-                    </div>
-                  </TableCell>
-                  {(isAdmin || showUserColumn) && (
-                    <TableCell className="text-xs font-medium text-foreground">
-                      {getUserDisplay(order)}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <Badge variant="secondary" className="font-medium text-xs">
-                      {order.brand}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-foreground">{order.product_code}</TableCell>
-                  <TableCell className="text-center">
-                    <span className="font-semibold text-xs text-primary">{order.quantity}</span>
-                  </TableCell>
-                  <TableCell className="text-xs text-foreground">{order.branch_destination}</TableCell>
-                  <TableCell>
-                    {isAdmin && onStatusChange ? (
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => onStatusChange(order.id, value)}
-                        disabled={updatingOrderId === order.id}
-                      >
-                        <SelectTrigger className={`w-28 h-7 text-xs border ${STATUS_OPTIONS.find(s => s.value === order.status)?.color || 'bg-muted'}`}>
-                          {updatingOrderId === order.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <SelectValue />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {STATUS_OPTIONS.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      getStatusBadge(order.status)
+              {orders.map((order, index) => {
+                const canModify = canModifyOrder(order);
+                return (
+                  <TableRow 
+                    key={order.id} 
+                    className={`hover:bg-muted/30 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}`}
+                  >
+                    {selectable && (
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedOrders.includes(order.id)}
+                          onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                        />
+                      </TableCell>
                     )}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                    {order.observation || '-'}
-                  </TableCell>
-                  {!isAdmin && (
-                    <TableCell className="text-right pr-4">
-                      {onDelete && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDelete(order.id)}
-                          className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    <TableCell className="text-xs">
+                      <div className="flex flex-col">
+                        <span className="font-medium text-foreground">
+                          {format(new Date(order.created_at), "dd/MM/yyyy", { locale: es })}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {format(new Date(order.created_at), "HH:mm", { locale: es })}
+                        </span>
+                      </div>
+                    </TableCell>
+                    {(isAdmin || showUserColumn) && (
+                      <TableCell className="text-xs font-medium text-foreground">
+                        {getUserDisplay(order)}
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <Badge variant="secondary" className="font-medium text-xs">
+                        {order.brand}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-foreground">{order.product_code}</TableCell>
+                    <TableCell className="text-center">
+                      <span className="font-semibold text-xs text-primary">{order.quantity}</span>
+                    </TableCell>
+                    <TableCell className="text-xs text-foreground">{order.branch_destination}</TableCell>
+                    <TableCell>
+                      {isAdmin && onStatusChange ? (
+                        <Select
+                          value={order.status}
+                          onValueChange={(value) => onStatusChange(order.id, value)}
+                          disabled={updatingOrderId === order.id}
                         >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                          <SelectTrigger className={`w-28 h-7 text-xs border ${STATUS_OPTIONS.find(s => s.value === order.status)?.color || 'bg-muted'}`}>
+                            {updatingOrderId === order.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <SelectValue />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUS_OPTIONS.map((status) => (
+                              <SelectItem key={status.value} value={status.value}>
+                                {status.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        getStatusBadge(order.status)
                       )}
                     </TableCell>
-                  )}
-                </TableRow>
-              ))}
+                    <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
+                      {order.observation || '-'}
+                    </TableCell>
+                    {!isAdmin && (
+                      <TableCell className="text-right pr-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => handleEditClick(e, order)}
+                                  disabled={!canModify}
+                                  className="h-7 w-7 text-muted-foreground hover:text-primary disabled:opacity-50"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {canModify 
+                                  ? 'Editar pedido' 
+                                  : order.status !== 'pending' 
+                                    ? 'No se puede editar: el estado cambió' 
+                                    : 'No se puede editar: pasaron más de 24h'
+                                }
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {onDelete && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={(e) => handleDeleteClick(e, order.id)}
+                                    disabled={!canModify}
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {canModify 
+                                    ? 'Eliminar pedido' 
+                                    : order.status !== 'pending' 
+                                      ? 'No se puede eliminar: el estado cambió' 
+                                      : 'No se puede eliminar: pasaron más de 24h'
+                                  }
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -310,6 +445,19 @@ const OrdersTable = ({
         onDelete={onDelete}
         isAdmin={isAdmin}
       />
+
+      {/* Order Edit Modal */}
+      {onUpdate && (
+        <OrderEditModal
+          order={editingOrder}
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditingOrder(null);
+          }}
+          onUpdate={onUpdate}
+        />
+      )}
     </>
   );
 };
