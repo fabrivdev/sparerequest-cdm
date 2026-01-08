@@ -41,11 +41,14 @@ interface OrderFormProps {
 }
 
 const BRANCHES = [
-  'Sucursal Central',
-  'Sucursal Norte',
-  'Sucursal Sur',
-  'Sucursal Este',
-  'Sucursal Oeste',
+  'CAMPO 9',
+  'ITAPUA',
+  'KATUETE',
+  'LOMA PLATA',
+  'MISIONES',
+  'SAN ALBERTO',
+  'SANTA RITA',
+  'SANTA ROSA',
 ];
 
 const BRANDS = ['CLAAS', 'HORSCH'];
@@ -111,7 +114,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit }: OrderFormProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md border-0 ios-shadow-lg">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto mx-4 border-0 ios-shadow-lg">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
