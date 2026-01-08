@@ -2,9 +2,9 @@ import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend 
+  PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts';
-import { Timer, TrendingUp, MapPin, Users, Package, Tag } from 'lucide-react';
+import { Timer, TrendingUp, MapPin, Users, Package, Tag, DollarSign, UserCheck } from 'lucide-react';
 import { Order } from '@/components/OrdersTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -60,6 +60,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setIsLoading(true);
     const timer = setTimeout(() => setIsLoading(false), 800);
     return () => clearTimeout(timer);
   }, [orders]);
@@ -142,7 +143,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       .sort((a, b) => b.value - a.value);
   }, [orders]);
 
-  // Orders by brand (pie chart)
+  // Orders by brand (pie chart) with percentages
   const ordersByBrand = useMemo(() => {
     const brandMap: Record<string, number> = {};
     
@@ -150,8 +151,14 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       brandMap[o.brand] = (brandMap[o.brand] || 0) + o.quantity;
     });
     
+    const total = Object.values(brandMap).reduce((a, b) => a + b, 0);
+    
     return Object.entries(brandMap)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ 
+        name, 
+        value, 
+        percentage: total > 0 ? ((value / total) * 100).toFixed(1) : '0'
+      }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
   }, [orders]);
@@ -185,6 +192,16 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     return Array.from(monthsWithData).sort((a, b) => a - b);
   }, [orders]);
 
+  // Calculate total value and active sellers
+  const summaryStats = useMemo(() => {
+    const totalValue = orders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const activeSellers = new Set(orders.map(o => (o as any).user_id || (o as any).user_email)).size;
+    const totalUnits = orders.reduce((acc, o) => acc + o.quantity, 0);
+    const activeBranches = new Set(orders.map(o => o.branch_destination)).size;
+    
+    return { totalValue, activeSellers, totalUnits, activeBranches };
+  }, [orders]);
+
   const formatHours = (hours: number) => {
     if (hours < 1) {
       return `${Math.round(hours * 60)} min`;
@@ -209,6 +226,21 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       );
     }
     return null;
+  };
+
+  const renderCustomizedLabel = ({ x, y, width, value }: any) => {
+    return (
+      <text 
+        x={x + width / 2} 
+        y={y - 8} 
+        fill="hsl(var(--foreground))" 
+        textAnchor="middle" 
+        fontSize={12}
+        fontWeight={600}
+      >
+        {value}
+      </text>
+    );
   };
 
   return (
@@ -310,7 +342,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Orders by Branch - Column Chart */}
+        {/* Orders by Branch - Column Chart with data labels */}
         <Card className="rounded-2xl border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -324,7 +356,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
             ) : (
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={ordersByBranch} margin={{ left: 10, right: 10, bottom: 60 }}>
+                  <BarChart data={ordersByBranch} margin={{ left: 10, right: 10, bottom: 60, top: 20 }}>
                     <XAxis 
                       dataKey="name" 
                       angle={-45} 
@@ -334,11 +366,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                       axisLine={false}
                       tickLine={false}
                     />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} 
-                    />
+                    <YAxis hide />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar 
                       dataKey="value" 
@@ -348,6 +376,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                       {ordersByBranch.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={GREEN_PALETTE[index % GREEN_PALETTE.length]} />
                       ))}
+                      <LabelList dataKey="value" content={renderCustomizedLabel} />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
@@ -357,7 +386,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
         </Card>
       </div>
 
-      {/* Charts Row 2 - Brand Pie Chart */}
+      {/* Charts Row 2 - Brand Pie Chart with percentages */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="rounded-2xl border-0 shadow-sm">
           <CardHeader className="pb-2">
@@ -382,6 +411,8 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                       paddingAngle={3}
                       dataKey="value"
                       stroke="none"
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                      labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                     >
                       {ordersByBrand.map((_, index) => (
                         <Cell 
@@ -391,19 +422,13 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                       ))}
                     </Pie>
                     <Tooltip 
-                      formatter={(value: number) => [value, 'Unidades']}
+                      formatter={(value: number, name: string, props: any) => [`${value} unidades (${props.payload.percentage}%)`, name]}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '12px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                       }}
-                    />
-                    <Legend 
-                      layout="vertical" 
-                      align="right" 
-                      verticalAlign="middle"
-                      wrapperStyle={{ fontSize: '12px' }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -412,7 +437,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
           </CardContent>
         </Card>
 
-        {/* Empty placeholder or additional chart */}
+        {/* Summary with Total Value and Active Sellers */}
         <Card className="rounded-2xl border-0 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -426,25 +451,46 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
             ) : (
               <div className="space-y-4 py-4">
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
-                  <span className="text-muted-foreground">Total Pedidos</span>
+                  <div className="flex items-center gap-3">
+                    <Package className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Total Pedidos</span>
+                  </div>
                   <span className="text-2xl font-bold text-primary">{orders.length}</span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
-                  <span className="text-muted-foreground">Total Unidades</span>
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Total Unidades</span>
+                  </div>
                   <span className="text-2xl font-bold text-primary">
-                    {orders.reduce((acc, o) => acc + o.quantity, 0).toLocaleString()}
+                    {summaryStats.totalUnits.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
-                  <span className="text-muted-foreground">Marcas Únicas</span>
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Valor Total</span>
+                  </div>
                   <span className="text-2xl font-bold text-primary">
-                    {new Set(orders.map(o => o.brand)).size}
+                    ${summaryStats.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
-                  <span className="text-muted-foreground">Sucursales Activas</span>
+                  <div className="flex items-center gap-3">
+                    <UserCheck className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Vendedores Activos</span>
+                  </div>
                   <span className="text-2xl font-bold text-primary">
-                    {new Set(orders.map(o => o.branch_destination)).size}
+                    {summaryStats.activeSellers}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Sucursales Activas</span>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">
+                    {summaryStats.activeBranches}
                   </span>
                 </div>
               </div>

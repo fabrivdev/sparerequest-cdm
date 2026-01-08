@@ -312,8 +312,13 @@ const Admin = () => {
             />
           </TabsContent>
 
-          <TabsContent value="dashboard">
-            <AdminDashboard orders={orders} />
+          <TabsContent value="dashboard" className="space-y-4">
+            <OrderFilters 
+              filters={filters} 
+              onFiltersChange={setFilters} 
+              branches={branches}
+            />
+            <AdminDashboard orders={filteredOrders} />
           </TabsContent>
         </Tabs>
       </main>
