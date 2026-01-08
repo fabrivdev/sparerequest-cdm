@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Select,
@@ -20,11 +19,12 @@ import {
   Calendar,
   Hash,
   FileText,
-  ArrowLeft,
-  Lock
+  ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
+
+const ADMIN_SESSION_KEY = 'admin_session';
 
 interface Order {
   id: string;
@@ -47,40 +47,61 @@ const STATUS_OPTIONS = [
 const Admin = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  const getAdminSession = () => {
+    const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
+    if (!sessionData) return null;
+    
+    try {
+      const parsed = JSON.parse(sessionData);
+      if (Date.now() > parsed.expiresAt) {
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem(ADMIN_SESSION_KEY);
+      return null;
+    }
+  };
 
+  const loadOrders = async (adminPassword: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('admin-orders', {
-        body: { action: 'getOrders', password },
+        body: { action: 'getOrders', password: adminPassword },
       });
 
-      if (error) {
-        toast.error('Error de conexión');
-        setIsLoading(false);
-        return;
-      }
-
-      if (data.error) {
-        toast.error(data.error);
-        setIsLoading(false);
+      if (error || data.error) {
+        toast.error('Sesión expirada');
+        localStorage.removeItem(ADMIN_SESSION_KEY);
+        navigate('/');
         return;
       }
 
       setOrders(data.orders);
-      setIsAuthenticated(true);
-      toast.success('Acceso autorizado');
+      setPassword(adminPassword);
     } catch (err) {
-      toast.error('Error al conectar');
+      toast.error('Error al cargar pedidos');
+      navigate('/');
     }
-
     setIsLoading(false);
+  };
+
+  useEffect(() => {
+    const session = getAdminSession();
+    if (!session) {
+      navigate('/');
+      return;
+    }
+    loadOrders(session.password);
+  }, [navigate]);
+
+  const handleLogout = () => {
+    localStorage.removeItem(ADMIN_SESSION_KEY);
+    navigate('/');
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -119,57 +140,10 @@ const Admin = () => {
     );
   };
 
-  if (!isAuthenticated) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="bg-card ios-shadow rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Shield className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">Panel Admin</h1>
-                <p className="text-sm text-muted-foreground">Ingresa la contraseña</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  type="password"
-                  placeholder="Contraseña de administrador"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 bg-secondary/50 border-0 pl-10"
-                  required
-                />
-              </div>
-
-              <Button type="submit" className="w-full h-11" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Verificando
-                  </>
-                ) : (
-                  'Acceder'
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="ghost"
-                className="w-full"
-                onClick={() => navigate('/')}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver al inicio
-              </Button>
-            </form>
-          </div>
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -188,9 +162,9 @@ const Admin = () => {
               <p className="text-xs text-muted-foreground">{orders.length} pedidos totales</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+          <Button variant="ghost" size="sm" onClick={handleLogout}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Salir
+            Cerrar Sesión
           </Button>
         </div>
       </header>
