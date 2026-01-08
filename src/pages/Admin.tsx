@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Shield, Loader2, ArrowLeft, Clock, Truck, CheckCircle } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Shield, Loader2, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
 import OrdersTable, { Order } from '@/components/OrdersTable';
 import ProductCatalogUpload from '@/components/ProductCatalogUpload';
 import BulkActionsBar from '@/components/BulkActionsBar';
+import AdminDashboard from '@/components/AdminDashboard';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -270,30 +272,50 @@ const Admin = () => {
           </div>
         </div>
 
-        <OrderFilters 
-          filters={filters} 
-          onFiltersChange={setFilters} 
-          branches={branches}
-        />
+        {/* Tabs for Dashboard and Orders */}
+        <Tabs defaultValue="orders" className="space-y-4">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="orders" className="flex items-center gap-2">
+              <List className="w-4 h-4" />
+              Pedidos
+            </TabsTrigger>
+            <TabsTrigger value="dashboard" className="flex items-center gap-2">
+              <LayoutDashboard className="w-4 h-4" />
+              Dashboard
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Bulk Actions Bar */}
-        <BulkActionsBar
-          selectedCount={selectedOrders.length}
-          onStatusChange={handleBulkStatusChange}
-          onDelete={handleBulkDelete}
-          onClearSelection={() => setSelectedOrders([])}
-        />
+          <TabsContent value="orders" className="space-y-4">
+            <OrderFilters 
+              filters={filters} 
+              onFiltersChange={setFilters} 
+              branches={branches}
+            />
 
-        <OrdersTable 
-          orders={filteredOrders}
-          isAdmin
-          onStatusChange={handleStatusChange}
-          updatingOrderId={updatingOrderId}
-          showExport
-          selectable
-          selectedOrders={selectedOrders}
-          onSelectionChange={setSelectedOrders}
-        />
+            {/* Bulk Actions Bar */}
+            <BulkActionsBar
+              selectedCount={selectedOrders.length}
+              onStatusChange={handleBulkStatusChange}
+              onDelete={handleBulkDelete}
+              onClearSelection={() => setSelectedOrders([])}
+            />
+
+            <OrdersTable 
+              orders={filteredOrders}
+              isAdmin
+              onStatusChange={handleStatusChange}
+              updatingOrderId={updatingOrderId}
+              showExport
+              selectable
+              selectedOrders={selectedOrders}
+              onSelectionChange={setSelectedOrders}
+            />
+          </TabsContent>
+
+          <TabsContent value="dashboard">
+            <AdminDashboard orders={orders} />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
