@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
 import OrdersTable, { Order } from '@/components/OrdersTable';
+import ProductCatalogUpload from '@/components/ProductCatalogUpload';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -168,6 +169,11 @@ const Admin = () => {
 
       {/* Content */}
       <main className="container mx-auto px-4 py-6">
+        {/* Product Catalog Upload */}
+        <div className="mb-6">
+          <ProductCatalogUpload />
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-4 mb-6">
           <div className="bg-card ios-shadow rounded-xl p-4">
