@@ -154,12 +154,24 @@ const Admin = () => {
     return [...new Set(orders.map((o) => o.branch_destination))].sort();
   }, [orders]);
 
-  // Calculate stats
+  // Calculate stats with totals
   const stats = useMemo(() => {
-    const pending = orders.filter(o => o.status === 'pending').length;
-    const solicitado = orders.filter(o => o.status === 'solicitado').length;
-    const entregado = orders.filter(o => o.status === 'entregado').length;
-    return { pending, solicitado, entregado };
+    const pendingOrders = orders.filter(o => o.status === 'pending');
+    const solicitadoOrders = orders.filter(o => o.status === 'solicitado');
+    const entregadoOrders = orders.filter(o => o.status === 'entregado');
+    
+    const pendingTotal = pendingOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const solicitadoTotal = solicitadoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const entregadoTotal = entregadoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    
+    return { 
+      pending: pendingOrders.length, 
+      pendingTotal,
+      solicitado: solicitadoOrders.length, 
+      solicitadoTotal,
+      entregado: entregadoOrders.length,
+      entregadoTotal
+    };
   }, [orders]);
 
   // Apply filters
@@ -228,6 +240,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pendientes</p>
+                <p className="text-sm font-semibold text-red-500">${stats.pendingTotal.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -239,6 +252,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.solicitado}</p>
                 <p className="text-xs text-muted-foreground">Solicitados</p>
+                <p className="text-sm font-semibold text-yellow-500">${stats.solicitadoTotal.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -250,6 +264,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.entregado}</p>
                 <p className="text-xs text-muted-foreground">Entregados</p>
+                <p className="text-sm font-semibold text-green-500">${stats.entregadoTotal.toFixed(2)}</p>
               </div>
             </div>
           </div>
