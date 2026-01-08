@@ -48,6 +48,8 @@ const BRANCHES = [
   'Sucursal Oeste',
 ];
 
+const BRANDS = ['CLAAS', 'HORSCH'];
+
 const OrderForm = ({ isOpen, onClose, onSubmit }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
   const [productCode, setProductCode] = useState('');
@@ -134,14 +136,18 @@ const OrderForm = ({ isOpen, onClose, onSubmit }: OrderFormProps) => {
           {/* Brand */}
           <div className="space-y-2">
             <Label htmlFor="brand">Marca</Label>
-            <Input
-              id="brand"
-              placeholder="Ej: Toyota, Ford, Chevrolet"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="h-11 bg-secondary/50 border-0"
-              required
-            />
+            <Select value={brand} onValueChange={setBrand}>
+              <SelectTrigger className="h-11 bg-secondary/50 border-0">
+                <SelectValue placeholder="Selecciona una marca" />
+              </SelectTrigger>
+              <SelectContent>
+                {BRANDS.map((b) => (
+                  <SelectItem key={b} value={b}>
+                    {b}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Product Code */}
