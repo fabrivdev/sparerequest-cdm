@@ -157,8 +157,14 @@ Deno.serve(async (req) => {
       const updateData: Record<string, any> = { status: newStatus };
       const now = new Date().toISOString();
       
-      if (newStatus === 'solicitado') {
+      if (newStatus === 'pending') {
+        // Clear all dates when going back to pending
+        updateData.requested_at = null;
+        updateData.delivered_at = null;
+      } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
+        // Clear delivered_at when going back to solicitado
+        updateData.delivered_at = null;
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
         // If jumping directly to entregado without requested_at, fill it too
@@ -253,16 +259,25 @@ Deno.serve(async (req) => {
       const updateData: Record<string, any> = { status: newStatus };
       const now = new Date().toISOString();
       
-      if (newStatus === 'solicitado') {
+      if (newStatus === 'pending') {
+        // Clear all dates when going back to pending
+        updateData.requested_at = null;
+        updateData.delivered_at = null;
+      } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
-        // If orderNumber is provided, set it for all selected orders
+        // Clear delivered_at when going back to solicitado
+        updateData.delivered_at = null;
+        // orderNumber is required for solicitado (validated on frontend)
         if (orderNumber && orderNumber.trim() !== '') {
           updateData.order_number = orderNumber.trim();
         }
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
+        // orderNumber is required (validated before this point)
+        if (orderNumber && orderNumber.trim() !== '') {
+          updateData.order_number = orderNumber.trim();
+        }
         // For orders jumping directly to entregado, we need to update requested_at individually
-        // First, find orders without requested_at
         const { data: ordersWithoutRequested } = await supabase
           .from('orders')
           .select('id')
