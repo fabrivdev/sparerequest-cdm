@@ -43,7 +43,10 @@ interface OrderFormProps {
   defaultBranch?: string;
 }
 
-const BRANDS = ['CLAAS', 'HORSCH'];
+const BRANDS = [
+  { value: 'CLAAS', label: 'CLAAS', color: '#B4C618', textColor: 'text-black' },
+  { value: 'HORSCH', label: 'HORSCH', color: '#A01B1B', textColor: 'text-white' },
+];
 
 const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
@@ -191,19 +194,27 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
           {/* Brand */}
           <div className="space-y-2">
-            <Label htmlFor="brand">Marca <span className="text-destructive">*</span></Label>
-            <Select value={brand} onValueChange={setBrand} required>
-              <SelectTrigger className="h-11 bg-secondary/50 border-0">
-                <SelectValue placeholder="Selecciona una marca" />
-              </SelectTrigger>
-              <SelectContent>
-                {BRANDS.map((b) => (
-                  <SelectItem key={b} value={b}>
-                    {b}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Marca <span className="text-destructive">*</span></Label>
+            <div className="flex gap-2">
+              {BRANDS.map((b) => (
+                <button
+                  key={b.value}
+                  type="button"
+                  onClick={() => setBrand(b.value)}
+                  className={`flex-1 h-11 rounded-xl font-semibold text-sm transition-all duration-200 border-2 ${
+                    brand === b.value 
+                      ? 'ring-2 ring-offset-2 ring-primary scale-[1.02]' 
+                      : 'opacity-70 hover:opacity-100'
+                  } ${b.textColor}`}
+                  style={{ 
+                    backgroundColor: b.color,
+                    borderColor: brand === b.value ? b.color : 'transparent'
+                  }}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Product Code */}
