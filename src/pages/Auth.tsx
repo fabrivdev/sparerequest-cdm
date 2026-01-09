@@ -5,13 +5,90 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { z } from 'zod';
+import loadingIcon from '@/assets/loading-icon.png';
 
 const authSchema = z.object({
   email: z.string().email({ message: 'Ingresa un email válido' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }),
 });
+
+const CLAAS_COLOR = '#B4C618';
+const HORSCH_COLOR = '#A01B1B';
+
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  size: number;
+  speedX: number;
+  speedY: number;
+  color: string;
+  opacity: number;
+}
+
+const AuthBackground = () => {
+  const [particles, setParticles] = useState<Particle[]>([]);
+
+  useEffect(() => {
+    const initialParticles: Particle[] = Array.from({ length: 15 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 6 + 2,
+      speedX: (Math.random() - 0.5) * 0.1,
+      speedY: (Math.random() - 0.5) * 0.1,
+      color: Math.random() > 0.5 ? CLAAS_COLOR : HORSCH_COLOR,
+      opacity: Math.random() * 0.25 + 0.05,
+    }));
+    setParticles(initialParticles);
+
+    const interval = setInterval(() => {
+      setParticles(prev => prev.map(p => {
+        let newX = p.x + p.speedX;
+        let newY = p.y + p.speedY;
+        let newSpeedX = p.speedX;
+        let newSpeedY = p.speedY;
+
+        if (newX < 0 || newX > 100) {
+          newSpeedX = -newSpeedX;
+          newX = Math.max(0, Math.min(100, newX));
+        }
+        if (newY < 0 || newY > 100) {
+          newSpeedY = -newSpeedY;
+          newY = Math.max(0, Math.min(100, newY));
+        }
+
+        return { ...p, x: newX, y: newY, speedX: newSpeedX, speedY: newSpeedY };
+      }));
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map(particle => (
+        <div
+          key={particle.id}
+          className="absolute rounded-full transition-all duration-300 ease-linear"
+          style={{
+            left: `${particle.x}%`,
+            top: `${particle.y}%`,
+            width: `${particle.size}px`,
+            height: `${particle.size}px`,
+            backgroundColor: particle.color,
+            opacity: particle.opacity,
+            filter: `blur(${particle.size / 2}px)`,
+            boxShadow: `0 0 ${particle.size * 3}px ${particle.color}30`,
+            transform: 'translate(-50%, -50%)',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -74,12 +151,20 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md animate-fade-in">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated background particles */}
+      <AuthBackground />
+      
+      <div className="w-full max-w-md animate-fade-in relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4">
-            <Package className="w-8 h-8 text-primary" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl mb-4 relative">
+            <img 
+              src={loadingIcon} 
+              alt="Logo" 
+              className="w-10 h-10 animate-spin"
+              style={{ animationDuration: '3s' }}
+            />
           </div>
           <h1 className="text-2xl font-semibold text-foreground">
             Solicitud de Repuestos
