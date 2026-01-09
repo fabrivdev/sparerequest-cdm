@@ -86,6 +86,23 @@ const STATUS_OPTIONS = [
   { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 ];
 
+// Brand colors
+const BRAND_COLORS: Record<string, { bg: string; text: string; hex: string }> = {
+  'CLAAS': { bg: 'bg-[#B4C618]', text: 'text-black', hex: '#B4C618' },
+  'HORSCH': { bg: 'bg-[#A01B1B]', text: 'text-white', hex: '#A01B1B' },
+};
+
+const getBrandBadge = (brand: string) => {
+  const brandColor = BRAND_COLORS[brand] || { bg: 'bg-muted', text: 'text-foreground' };
+  return (
+    <Badge 
+      className={`${brandColor.bg} ${brandColor.text} font-semibold text-xs border-0 hover:opacity-90`}
+    >
+      {brand}
+    </Badge>
+  );
+};
+
 // Check if order can be edited/deleted (within 24h, still pending, and owned by current user)
 const canModifyOrder = (order: Order, currentUserId?: string): boolean => {
   // Must be the owner of the order
@@ -286,9 +303,7 @@ const OrdersTable = ({
                   <span className="font-mono text-sm font-medium text-foreground truncate">
                     {order.product_code}
                   </span>
-                  <Badge variant="secondary" className="text-xs shrink-0">
-                    {order.brand}
-                  </Badge>
+                  {getBrandBadge(order.brand)}
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {showUserColumn && <span className="truncate">{getUserDisplay(order)}</span>}
@@ -368,9 +383,7 @@ const OrdersTable = ({
                       </TableCell>
                     )}
                     <TableCell>
-                      <Badge variant="secondary" className="font-medium text-xs">
-                        {order.brand}
-                      </Badge>
+                      {getBrandBadge(order.brand)}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-foreground">{order.product_code}</TableCell>
                     <TableCell className="text-center">

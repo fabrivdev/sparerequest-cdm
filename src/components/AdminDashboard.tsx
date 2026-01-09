@@ -20,18 +20,24 @@ interface AdminDashboardProps {
   orders: Order[];
 }
 
-// Variaciones de verde para los gráficos
+// Brand colors
+const BRAND_COLORS: Record<string, string> = {
+  'CLAAS': '#B4C618',
+  'HORSCH': '#A01B1B',
+};
+
+// Fallback palette for other brands
 const GREEN_PALETTE = [
-  'hsl(75, 46%, 44%)',   // Primary olive
-  'hsl(75, 46%, 55%)',   // Lighter
-  'hsl(75, 46%, 35%)',   // Darker
-  'hsl(85, 40%, 50%)',   // More yellow-green
-  'hsl(65, 50%, 45%)',   // More lime
-  'hsl(90, 35%, 40%)',   // Forest
-  'hsl(75, 30%, 60%)',   // Muted
-  'hsl(80, 45%, 48%)',   // Vibrant
-  'hsl(70, 40%, 52%)',   // Soft
-  'hsl(75, 50%, 38%)',   // Deep
+  'hsl(75, 46%, 44%)',
+  'hsl(75, 46%, 55%)',
+  'hsl(75, 46%, 35%)',
+  'hsl(85, 40%, 50%)',
+  'hsl(65, 50%, 45%)',
+  'hsl(90, 35%, 40%)',
+  'hsl(75, 30%, 60%)',
+  'hsl(80, 45%, 48%)',
+  'hsl(70, 40%, 52%)',
+  'hsl(75, 50%, 38%)',
 ];
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -143,7 +149,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       .sort((a, b) => b.value - a.value);
   }, [orders]);
 
-  // Orders by brand (pie chart) with percentages
+  // Orders by brand (pie chart) with percentages and brand colors
   const ordersByBrand = useMemo(() => {
     const brandMap: Record<string, number> = {};
     
@@ -154,10 +160,11 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     const total = Object.values(brandMap).reduce((a, b) => a + b, 0);
     
     return Object.entries(brandMap)
-      .map(([name, value]) => ({ 
+      .map(([name, value], index) => ({ 
         name, 
         value, 
-        percentage: total > 0 ? ((value / total) * 100).toFixed(1) : '0'
+        percentage: total > 0 ? ((value / total) * 100).toFixed(1) : '0',
+        color: BRAND_COLORS[name] || GREEN_PALETTE[index % GREEN_PALETTE.length]
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 10);
@@ -414,10 +421,10 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                       label={({ name, percentage }) => `${name}: ${percentage}%`}
                       labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                     >
-                      {ordersByBrand.map((_, index) => (
+                      {ordersByBrand.map((entry, index) => (
                         <Cell 
                           key={`cell-${index}`} 
-                          fill={GREEN_PALETTE[index % GREEN_PALETTE.length]}
+                          fill={entry.color}
                         />
                       ))}
                     </Pie>
