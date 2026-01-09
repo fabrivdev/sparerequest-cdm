@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -147,6 +147,22 @@ const OrdersTable = ({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingOrderNumber, setEditingOrderNumber] = useState<string | null>(null);
   const [orderNumberValue, setOrderNumberValue] = useState('');
+  const [rowsPerPage, setRowsPerPage] = useState(50);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Pagination logic
+  const totalPages = Math.ceil(orders.length / rowsPerPage);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return orders.slice(startIndex, startIndex + rowsPerPage);
+  }, [orders, currentPage, rowsPerPage]);
+
+  // Reset to page 1 when orders change
+  useMemo(() => {
+    if (currentPage > Math.ceil(orders.length / rowsPerPage)) {
+      setCurrentPage(1);
+    }
+  }, [orders.length, rowsPerPage]);
 
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find((s) => s.value === status);
@@ -184,7 +200,7 @@ const OrdersTable = ({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      onSelectionChange?.(orders.map(o => o.id));
+      onSelectionChange?.(paginatedOrders.map(o => o.id));
     } else {
       onSelectionChange?.([]);
     }
@@ -264,8 +280,8 @@ const OrdersTable = ({
     );
   }
 
-  const allSelected = orders.length > 0 && selectedOrders.length === orders.length;
-  const someSelected = selectedOrders.length > 0 && selectedOrders.length < orders.length;
+  const allSelected = paginatedOrders.length > 0 && paginatedOrders.every(o => selectedOrders.includes(o.id));
+  const someSelected = paginatedOrders.some(o => selectedOrders.includes(o.id)) && !allSelected;
 
   return (
     <>
@@ -288,7 +304,7 @@ const OrdersTable = ({
 
         {/* Mobile List View */}
         <div className="md:hidden divide-y divide-border">
-          {orders.map((order) => (
+          {paginatedOrders.map((order) => (
             <div
               key={order.id}
               onClick={() => handleRowClick(order)}
@@ -355,7 +371,7 @@ const OrdersTable = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {orders.map((order, index) => {
+              {paginatedOrders.map((order, index) => {
                 const canModify = canModifyOrder(order, currentUserId);
                 const blockReason = !canModify ? getModifyBlockReason(order, currentUserId) : '';
                 return (
@@ -568,6 +584,56 @@ const OrdersTable = ({
               })}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 border-t border-border bg-muted/30">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Filas por página:</span>
+            <Select
+              value={rowsPerPage.toString()}
+              onValueChange={(value) => {
+                setRowsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
+            >
+              <SelectTrigger className="w-20 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {((currentPage - 1) * rowsPerPage) + 1}-{Math.min(currentPage * rowsPerPage, orders.length)} de {orders.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => p - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={currentPage >= totalPages}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
