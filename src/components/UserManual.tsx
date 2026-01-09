@@ -40,17 +40,17 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !isClosing && onClose()}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
-        <DialogHeader className="p-6 pb-4 border-b border-border">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-primary" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
-            <DialogTitle className="text-xl">Manual de Usuario</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Manual de Usuario</DialogTitle>
           </div>
         </DialogHeader>
         
-        <ScrollArea className="h-[55vh] px-6 py-4">
+        <ScrollArea className="h-[50vh] sm:h-[55vh] px-4 sm:px-6 py-4">
           <div className="space-y-6">
             {/* Introducción */}
             <section>
@@ -209,7 +209,7 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
           </div>
         </ScrollArea>
 
-        <div className="p-6 pt-4 border-t border-border relative overflow-hidden">
+        <div className="p-4 sm:p-6 pt-3 sm:pt-4 border-t border-border relative overflow-hidden">
           {isClosing ? (
             <div className="flex items-center justify-center py-2">
               <div className="relative">
