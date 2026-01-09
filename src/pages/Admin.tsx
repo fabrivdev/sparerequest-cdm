@@ -179,10 +179,11 @@ const Admin = () => {
               requested_at: data.requested_at ?? order.requested_at,
               delivered_at: data.delivered_at ?? order.delivered_at
             };
-            // For pending status, clear dates
+            // For pending status, clear dates and order number
             if (newStatus === 'pending') {
               updates.requested_at = null;
               updates.delivered_at = null;
+              updates.order_number = null;
             }
             // For solicitado, clear delivered_at
             if (newStatus === 'solicitado') {
