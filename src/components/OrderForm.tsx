@@ -121,6 +121,8 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     setBranchDestination(defaultBranch);
     setObservation('');
     setError(null);
+    setIsLoading(false);
+    setCloseAnimation(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
