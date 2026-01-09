@@ -158,9 +158,10 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString();
       
       if (newStatus === 'pending') {
-        // Clear all dates when going back to pending
+        // Clear all dates and order number when going back to pending
         updateData.requested_at = null;
         updateData.delivered_at = null;
+        updateData.order_number = null;
       } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
         // Clear delivered_at when going back to solicitado
@@ -260,9 +261,10 @@ Deno.serve(async (req) => {
       const now = new Date().toISOString();
       
       if (newStatus === 'pending') {
-        // Clear all dates when going back to pending
+        // Clear all dates and order number when going back to pending
         updateData.requested_at = null;
         updateData.delivered_at = null;
+        updateData.order_number = null;
       } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
         // Clear delivered_at when going back to solicitado
