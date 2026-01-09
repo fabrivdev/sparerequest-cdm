@@ -146,6 +146,13 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Get current order to check if requested_at needs to be set
+      const { data: currentOrder } = await supabase
+        .from('orders')
+        .select('requested_at')
+        .eq('id', orderId)
+        .single();
+
       // Build update object with auto-fill dates based on status
       const updateData: Record<string, any> = { status: newStatus };
       const now = new Date().toISOString();
@@ -154,6 +161,10 @@ Deno.serve(async (req) => {
         updateData.requested_at = now;
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
+        // If jumping directly to entregado without requested_at, fill it too
+        if (!currentOrder?.requested_at) {
+          updateData.requested_at = now;
+        }
       }
 
       const { error } = await supabase
@@ -170,7 +181,11 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, requested_at: newStatus === 'solicitado' ? now : null, delivered_at: newStatus === 'entregado' ? now : null }),
+        JSON.stringify({ 
+          success: true, 
+          requested_at: updateData.requested_at || null, 
+          delivered_at: updateData.delivered_at || null 
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -240,8 +255,27 @@ Deno.serve(async (req) => {
       
       if (newStatus === 'solicitado') {
         updateData.requested_at = now;
+        // If orderNumber is provided, set it for all selected orders
+        if (orderNumber && orderNumber.trim() !== '') {
+          updateData.order_number = orderNumber.trim();
+        }
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
+        // For orders jumping directly to entregado, we need to update requested_at individually
+        // First, find orders without requested_at
+        const { data: ordersWithoutRequested } = await supabase
+          .from('orders')
+          .select('id')
+          .in('id', orderIds)
+          .is('requested_at', null);
+        
+        if (ordersWithoutRequested && ordersWithoutRequested.length > 0) {
+          const idsWithoutRequested = ordersWithoutRequested.map(o => o.id);
+          await supabase
+            .from('orders')
+            .update({ requested_at: now })
+            .in('id', idsWithoutRequested);
+        }
       }
 
       const { error } = await supabase
@@ -258,7 +292,13 @@ Deno.serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, updated: orderIds.length, requested_at: newStatus === 'solicitado' ? now : null, delivered_at: newStatus === 'entregado' ? now : null }),
+        JSON.stringify({ 
+          success: true, 
+          updated: orderIds.length, 
+          requested_at: updateData.requested_at || null, 
+          delivered_at: updateData.delivered_at || null,
+          order_number: updateData.order_number || null
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

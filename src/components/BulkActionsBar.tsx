@@ -7,11 +7,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Trash2, RefreshCw, Loader2, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Trash2, RefreshCw, Loader2, X, Check } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedCount: number;
-  onStatusChange: (status: string) => Promise<void>;
+  onStatusChange: (status: string, orderNumber?: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onClearSelection: () => void;
 }
@@ -30,11 +31,34 @@ const BulkActionsBar = ({
 }: BulkActionsBarProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState('');
 
-  const handleStatusChange = async (status: string) => {
+  const handleStatusSelect = (status: string) => {
+    if (status === 'solicitado') {
+      // Show order number input for solicitado
+      setPendingStatus(status);
+    } else {
+      // For other statuses, apply directly
+      handleStatusChange(status);
+    }
+  };
+
+  const handleStatusChange = async (status: string, number?: string) => {
     setIsUpdating(true);
-    await onStatusChange(status);
+    await onStatusChange(status, number);
     setIsUpdating(false);
+    setPendingStatus(null);
+    setOrderNumber('');
+  };
+
+  const handleConfirmSolicitado = async () => {
+    await handleStatusChange('solicitado', orderNumber || undefined);
+  };
+
+  const handleCancelSolicitado = () => {
+    setPendingStatus(null);
+    setOrderNumber('');
   };
 
   const handleDelete = async () => {
@@ -67,25 +91,59 @@ const BulkActionsBar = ({
 
       <div className="flex items-center gap-3">
         {/* Bulk Status Change */}
-        <div className="flex items-center gap-2">
-          <RefreshCw className="w-4 h-4 text-muted-foreground" />
-          <Select onValueChange={handleStatusChange} disabled={isUpdating}>
-            <SelectTrigger className="w-36 h-9">
+        {pendingStatus === 'solicitado' ? (
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="Nro. Pedido (opcional)"
+              value={orderNumber}
+              onChange={(e) => setOrderNumber(e.target.value)}
+              className="w-40 h-9"
+            />
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleConfirmSolicitado}
+              disabled={isUpdating}
+              className="h-9 gap-1"
+            >
               {isUpdating ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <SelectValue placeholder="Cambiar estado" />
+                <Check className="w-4 h-4" />
               )}
-            </SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((status) => (
-                <SelectItem key={status.value} value={status.value}>
-                  {status.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+              Confirmar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancelSolicitado}
+              disabled={isUpdating}
+              className="h-9"
+            >
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-muted-foreground" />
+            <Select onValueChange={handleStatusSelect} disabled={isUpdating}>
+              <SelectTrigger className="w-36 h-9">
+                {isUpdating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <SelectValue placeholder="Cambiar estado" />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((status) => (
+                  <SelectItem key={status.value} value={status.value}>
+                    {status.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Bulk Delete */}
         <Button
