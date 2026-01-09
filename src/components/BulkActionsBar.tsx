@@ -15,6 +15,7 @@ interface BulkActionsBarProps {
   onStatusChange: (status: string, orderNumber?: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onClearSelection: () => void;
+  selectedOrdersNeedOrderNumber?: boolean; // true if any selected order doesn't have order_number
 }
 
 const STATUS_OPTIONS = [
@@ -27,7 +28,8 @@ const BulkActionsBar = ({
   selectedCount, 
   onStatusChange, 
   onDelete,
-  onClearSelection 
+  onClearSelection,
+  selectedOrdersNeedOrderNumber = true
 }: BulkActionsBarProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -35,12 +37,17 @@ const BulkActionsBar = ({
   const [orderNumber, setOrderNumber] = useState('');
 
   const handleStatusSelect = (status: string) => {
-    if (status === 'solicitado') {
-      // Show order number input for solicitado
-      setPendingStatus(status);
-    } else {
-      // For other statuses, apply directly
+    if (status === 'pending') {
+      // For pending, apply directly (no order number needed)
       handleStatusChange(status);
+    } else if (status === 'solicitado' || status === 'entregado') {
+      // For solicitado and entregado, check if we need order number
+      if (selectedOrdersNeedOrderNumber) {
+        setPendingStatus(status);
+      } else {
+        // All orders already have order_number, proceed directly
+        handleStatusChange(status);
+      }
     }
   };
 
@@ -52,11 +59,14 @@ const BulkActionsBar = ({
     setOrderNumber('');
   };
 
-  const handleConfirmSolicitado = async () => {
-    await handleStatusChange('solicitado', orderNumber || undefined);
+  const handleConfirmStatus = async () => {
+    if (!orderNumber.trim()) {
+      return; // Don't allow empty order number
+    }
+    await handleStatusChange(pendingStatus!, orderNumber);
   };
 
-  const handleCancelSolicitado = () => {
+  const handleCancelStatus = () => {
     setPendingStatus(null);
     setOrderNumber('');
   };
@@ -91,19 +101,22 @@ const BulkActionsBar = ({
 
       <div className="flex items-center gap-3">
         {/* Bulk Status Change */}
-        {pendingStatus === 'solicitado' ? (
+        {pendingStatus ? (
           <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {pendingStatus === 'solicitado' ? 'Solicitado' : 'Entregado'}:
+            </span>
             <Input
-              placeholder="Nro. Pedido (opcional)"
+              placeholder="Nro. Pedido (obligatorio)"
               value={orderNumber}
               onChange={(e) => setOrderNumber(e.target.value)}
-              className="w-40 h-9"
+              className="w-44 h-9"
             />
             <Button
               variant="default"
               size="sm"
-              onClick={handleConfirmSolicitado}
-              disabled={isUpdating}
+              onClick={handleConfirmStatus}
+              disabled={isUpdating || !orderNumber.trim()}
               className="h-9 gap-1"
             >
               {isUpdating ? (
@@ -116,7 +129,7 @@ const BulkActionsBar = ({
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleCancelSolicitado}
+              onClick={handleCancelStatus}
               disabled={isUpdating}
               className="h-9"
             >

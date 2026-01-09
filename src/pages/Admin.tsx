@@ -105,17 +105,15 @@ const Admin = () => {
         return;
       }
 
-      // Update local state with new status and auto-filled dates from response
+      // Update local state with new status and dates from response
       setOrders((prev) =>
         prev.map((order) => {
           if (order.id === orderId) {
-            const updates: Partial<typeof order> = { status: newStatus };
-            if (data.requested_at) {
-              updates.requested_at = data.requested_at;
-            }
-            if (data.delivered_at) {
-              updates.delivered_at = data.delivered_at;
-            }
+            const updates: Partial<typeof order> = { 
+              status: newStatus,
+              requested_at: data.requested_at,
+              delivered_at: data.delivered_at
+            };
             return { ...order, ...updates };
           }
           return order;
@@ -176,12 +174,19 @@ const Admin = () => {
       setOrders((prev) =>
         prev.map((order) => {
           if (selectedOrders.includes(order.id)) {
-            const updates: Partial<typeof order> = { status: newStatus };
-            if (data.requested_at) {
-              updates.requested_at = data.requested_at;
+            const updates: Partial<typeof order> = { 
+              status: newStatus,
+              requested_at: data.requested_at ?? order.requested_at,
+              delivered_at: data.delivered_at ?? order.delivered_at
+            };
+            // For pending status, clear dates
+            if (newStatus === 'pending') {
+              updates.requested_at = null;
+              updates.delivered_at = null;
             }
-            if (data.delivered_at) {
-              updates.delivered_at = data.delivered_at;
+            // For solicitado, clear delivered_at
+            if (newStatus === 'solicitado') {
+              updates.delivered_at = null;
             }
             if (data.order_number) {
               updates.order_number = data.order_number;
@@ -364,6 +369,9 @@ const Admin = () => {
               onStatusChange={handleBulkStatusChange}
               onDelete={handleBulkDelete}
               onClearSelection={() => setSelectedOrders([])}
+              selectedOrdersNeedOrderNumber={orders.some(
+                o => selectedOrders.includes(o.id) && (!o.order_number || o.order_number.trim() === '')
+              )}
             />
 
             <OrdersTable 
