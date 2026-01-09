@@ -73,35 +73,51 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
 
   // Calculate time statistics (average time between status changes)
   const timeStats = useMemo(() => {
-    const deliveredOrders = orders.filter(o => o.status === 'entregado');
-    const solicitadoOrders = orders.filter(o => o.status === 'solicitado' || o.status === 'entregado');
+    // Orders that have requested_at (went from pending to solicitado)
+    const ordersWithRequestedAt = orders.filter(o => o.requested_at);
+    // Orders that have delivered_at (went from solicitado to entregado)
+    const ordersWithDeliveredAt = orders.filter(o => o.delivered_at && o.requested_at);
     
     let avgPendingToSolicitado = 0;
     let avgSolicitadoToEntregado = 0;
     let avgTotalTime = 0;
     
-    if (solicitadoOrders.length > 0) {
-      const times = solicitadoOrders.map(o => {
+    // Calculate average time from created_at to requested_at (pending → solicitado)
+    if (ordersWithRequestedAt.length > 0) {
+      const times = ordersWithRequestedAt.map(o => {
         const created = new Date(o.created_at).getTime();
-        const updated = new Date(o.updated_at || o.created_at).getTime();
-        return (updated - created) / (1000 * 60 * 60);
-      }).filter(t => t > 0);
+        const requested = new Date(o.requested_at!).getTime();
+        return (requested - created) / (1000 * 60 * 60); // hours
+      }).filter(t => t >= 0);
       
       if (times.length > 0) {
         avgPendingToSolicitado = times.reduce((a, b) => a + b, 0) / times.length;
       }
     }
     
-    if (deliveredOrders.length > 0) {
-      const times = deliveredOrders.map(o => {
+    // Calculate average time from requested_at to delivered_at (solicitado → entregado)
+    if (ordersWithDeliveredAt.length > 0) {
+      const times = ordersWithDeliveredAt.map(o => {
+        const requested = new Date(o.requested_at!).getTime();
+        const delivered = new Date(o.delivered_at!).getTime();
+        return (delivered - requested) / (1000 * 60 * 60); // hours
+      }).filter(t => t >= 0);
+      
+      if (times.length > 0) {
+        avgSolicitadoToEntregado = times.reduce((a, b) => a + b, 0) / times.length;
+      }
+    }
+    
+    // Calculate total average time (created_at to delivered_at)
+    if (ordersWithDeliveredAt.length > 0) {
+      const times = ordersWithDeliveredAt.map(o => {
         const created = new Date(o.created_at).getTime();
-        const updated = new Date(o.updated_at || o.created_at).getTime();
-        return (updated - created) / (1000 * 60 * 60);
-      }).filter(t => t > 0);
+        const delivered = new Date(o.delivered_at!).getTime();
+        return (delivered - created) / (1000 * 60 * 60); // hours
+      }).filter(t => t >= 0);
       
       if (times.length > 0) {
         avgTotalTime = times.reduce((a, b) => a + b, 0) / times.length;
-        avgSolicitadoToEntregado = avgTotalTime - avgPendingToSolicitado;
       }
     }
     
