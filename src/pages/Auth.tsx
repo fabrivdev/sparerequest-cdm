@@ -14,8 +14,8 @@ const authSchema = z.object({
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres' }),
 });
 
-const CLAAS_COLOR = '#B4C618';
-const HORSCH_COLOR = '#A01B1B';
+const CLAAS_COLOR = '#c8d45a';
+const HORSCH_COLOR = '#c45a5a';
 
 interface Particle {
   id: number;
@@ -32,15 +32,15 @@ const AuthBackground = () => {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    const initialParticles: Particle[] = Array.from({ length: 15 }, (_, i) => ({
+    const initialParticles: Particle[] = Array.from({ length: 18 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 6 + 2,
+      size: Math.random() * 8 + 4,
       speedX: (Math.random() - 0.5) * 0.1,
       speedY: (Math.random() - 0.5) * 0.1,
       color: Math.random() > 0.5 ? CLAAS_COLOR : HORSCH_COLOR,
-      opacity: Math.random() * 0.25 + 0.05,
+      opacity: Math.random() * 0.3 + 0.1,
     }));
     setParticles(initialParticles);
 
@@ -80,8 +80,8 @@ const AuthBackground = () => {
             height: `${particle.size}px`,
             backgroundColor: particle.color,
             opacity: particle.opacity,
-            filter: `blur(${particle.size / 2}px)`,
-            boxShadow: `0 0 ${particle.size * 3}px ${particle.color}30`,
+            filter: `blur(${particle.size / 4}px)`,
+            boxShadow: `0 0 ${particle.size * 2}px ${particle.color}40`,
             transform: 'translate(-50%, -50%)',
           }}
         />

@@ -12,8 +12,8 @@ interface Particle {
   opacity: number;
 }
 
-const CLAAS_COLOR = '#B4C618';
-const HORSCH_COLOR = '#A01B1B';
+const CLAAS_COLOR = '#c8d45a';
+const HORSCH_COLOR = '#c45a5a';
 
 interface LoadingScreenProps {
   showIcon?: boolean;
@@ -25,15 +25,15 @@ const LoadingScreen = ({ showIcon = true, showText = true }: LoadingScreenProps)
 
   useEffect(() => {
     // Create initial particles - more subtle
-    const initialParticles: Particle[] = Array.from({ length: 20 }, (_, i) => ({
+    const initialParticles: Particle[] = Array.from({ length: 25 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 6 + 2,
+      size: Math.random() * 8 + 4,
       speedX: (Math.random() - 0.5) * 0.15,
       speedY: (Math.random() - 0.5) * 0.15,
       color: Math.random() > 0.5 ? CLAAS_COLOR : HORSCH_COLOR,
-      opacity: Math.random() * 0.3 + 0.1,
+      opacity: Math.random() * 0.35 + 0.15,
     }));
     setParticles(initialParticles);
 
@@ -86,8 +86,8 @@ const LoadingScreen = ({ showIcon = true, showText = true }: LoadingScreenProps)
               height: `${particle.size}px`,
               backgroundColor: particle.color,
               opacity: particle.opacity,
-              filter: `blur(${particle.size / 2}px)`,
-              boxShadow: `0 0 ${particle.size * 3}px ${particle.color}40`,
+              filter: `blur(${particle.size / 4}px)`,
+              boxShadow: `0 0 ${particle.size * 2}px ${particle.color}50`,
               transform: 'translate(-50%, -50%)',
             }}
           />
