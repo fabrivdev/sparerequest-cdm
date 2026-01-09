@@ -151,7 +151,7 @@ const Admin = () => {
     }
   };
 
-  const handleBulkStatusChange = async (newStatus: string) => {
+  const handleBulkStatusChange = async (newStatus: string, orderNumber?: string) => {
     // Validate on frontend that 'entregado' requires order_number for all selected
     if (newStatus === 'entregado') {
       const ordersWithoutNumber = orders.filter(
@@ -165,7 +165,7 @@ const Admin = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('admin-orders', {
-        body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus },
+        body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus, orderNumber },
       });
 
       if (error || data.error) {
@@ -182,6 +182,9 @@ const Admin = () => {
             }
             if (data.delivered_at) {
               updates.delivered_at = data.delivered_at;
+            }
+            if (data.order_number) {
+              updates.order_number = data.order_number;
             }
             return { ...order, ...updates };
           }
