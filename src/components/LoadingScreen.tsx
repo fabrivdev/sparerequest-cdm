@@ -15,20 +15,25 @@ interface Particle {
 const CLAAS_COLOR = '#B4C618';
 const HORSCH_COLOR = '#A01B1B';
 
-const LoadingScreen = () => {
+interface LoadingScreenProps {
+  showIcon?: boolean;
+  showText?: boolean;
+}
+
+const LoadingScreen = ({ showIcon = true, showText = true }: LoadingScreenProps) => {
   const [particles, setParticles] = useState<Particle[]>([]);
 
   useEffect(() => {
-    // Create initial particles
-    const initialParticles: Particle[] = Array.from({ length: 30 }, (_, i) => ({
+    // Create initial particles - more subtle
+    const initialParticles: Particle[] = Array.from({ length: 20 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      size: Math.random() * 8 + 4,
-      speedX: (Math.random() - 0.5) * 0.3,
-      speedY: (Math.random() - 0.5) * 0.3,
+      size: Math.random() * 6 + 2,
+      speedX: (Math.random() - 0.5) * 0.15,
+      speedY: (Math.random() - 0.5) * 0.15,
       color: Math.random() > 0.5 ? CLAAS_COLOR : HORSCH_COLOR,
-      opacity: Math.random() * 0.6 + 0.3,
+      opacity: Math.random() * 0.3 + 0.1,
     }));
     setParticles(initialParticles);
 
@@ -73,7 +78,7 @@ const LoadingScreen = () => {
         {particles.map(particle => (
           <div
             key={particle.id}
-            className="absolute rounded-full transition-all duration-100 ease-linear"
+            className="absolute rounded-full transition-all duration-300 ease-linear"
             style={{
               left: `${particle.x}%`,
               top: `${particle.y}%`,
@@ -81,7 +86,8 @@ const LoadingScreen = () => {
               height: `${particle.size}px`,
               backgroundColor: particle.color,
               opacity: particle.opacity,
-              boxShadow: `0 0 ${particle.size * 2}px ${particle.color}`,
+              filter: `blur(${particle.size / 2}px)`,
+              boxShadow: `0 0 ${particle.size * 3}px ${particle.color}40`,
               transform: 'translate(-50%, -50%)',
             }}
           />
@@ -89,28 +95,32 @@ const LoadingScreen = () => {
       </div>
 
       {/* Spinning icon */}
-      <div className="relative z-10 flex flex-col items-center gap-4">
-        <div className="relative">
-          {/* Glow effect */}
-          <div 
-            className="absolute inset-0 animate-pulse rounded-full blur-xl"
-            style={{
-              background: `radial-gradient(circle, ${CLAAS_COLOR}40 0%, ${HORSCH_COLOR}40 50%, transparent 70%)`,
-              transform: 'scale(1.5)',
-            }}
-          />
-          {/* Icon */}
-          <img 
-            src={loadingIcon} 
-            alt="Cargando" 
-            className="w-20 h-20 animate-spin relative z-10"
-            style={{ animationDuration: '2s' }}
-          />
+      {showIcon && (
+        <div className="relative z-10 flex flex-col items-center gap-4">
+          <div className="relative">
+            {/* Glow effect */}
+            <div 
+              className="absolute inset-0 animate-pulse rounded-full blur-xl"
+              style={{
+                background: `radial-gradient(circle, ${CLAAS_COLOR}30 0%, ${HORSCH_COLOR}30 50%, transparent 70%)`,
+                transform: 'scale(1.5)',
+              }}
+            />
+            {/* Icon */}
+            <img 
+              src={loadingIcon} 
+              alt="Cargando" 
+              className="w-20 h-20 animate-spin relative z-10"
+              style={{ animationDuration: '2s' }}
+            />
+          </div>
+          {showText && (
+            <p className="text-sm font-medium text-muted-foreground animate-pulse">
+              Cargando...
+            </p>
+          )}
         </div>
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-          Cargando...
-        </p>
-      </div>
+      )}
     </div>
   );
 };
