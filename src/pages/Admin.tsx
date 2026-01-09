@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Loader2, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List } from 'lucide-react';
+import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -10,6 +10,7 @@ import OrdersTable, { Order } from '@/components/OrdersTable';
 import ProductCatalogUpload from '@/components/ProductCatalogUpload';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import AdminDashboard from '@/components/AdminDashboard';
+import LoadingScreen from '@/components/LoadingScreen';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -269,11 +270,7 @@ const Admin = () => {
   }, [orders, filters]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (

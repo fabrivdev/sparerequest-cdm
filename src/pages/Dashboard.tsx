@@ -9,7 +9,7 @@ import EmptyState from '@/components/EmptyState';
 import ProfileSetup from '@/components/ProfileSetup';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import ViewToggle from '@/components/ViewToggle';
-import { Loader2 } from 'lucide-react';
+import LoadingScreen from '@/components/LoadingScreen';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -262,11 +262,7 @@ const Dashboard = () => {
 
   // Show loading while checking profile
   if (profileLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Show profile setup if no profile exists
@@ -302,9 +298,7 @@ const Dashboard = () => {
 
         {/* Content */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          </div>
+          <LoadingScreen />
         ) : currentOrders.length === 0 ? (
           <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : (
