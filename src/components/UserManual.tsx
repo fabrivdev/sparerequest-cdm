@@ -161,16 +161,15 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 <Pencil className="w-5 h-5 text-primary" />
                 Editar o Eliminar Pedidos
               </h3>
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p className="flex items-start gap-2">
-                  <Pencil className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  Puedes <strong>editar</strong> un pedido mientras esté en estado <strong>Pendiente</strong>.
-                </p>
-                <p className="flex items-start gap-2">
-                  <Trash2 className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  Puedes <strong>eliminar</strong> un pedido solo si está en estado <strong>Pendiente</strong> y 
-                  han pasado menos de <strong>24 horas</strong> desde su creación.
-                </p>
+              <div className="text-sm text-muted-foreground space-y-3">
+                <div className="flex items-start gap-3">
+                  <Pencil className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <p>Puedes <strong>editar</strong> un pedido mientras esté en estado <strong>Pendiente</strong>.</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Trash2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
+                  <p>Puedes <strong>eliminar</strong> un pedido solo si está en estado <strong>Pendiente</strong> y han pasado menos de <strong>24 horas</strong> desde su creación.</p>
+                </div>
               </div>
             </section>
 
@@ -183,9 +182,9 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 El administrador es responsable de gestionar el flujo de los pedidos. Su rol principal consiste 
                 en <strong>cambiar los estados</strong> de los pedidos (de Pendiente a Solicitado, y de Solicitado a Entregado), 
-                <strong>asignar el número de pedido</strong> cuando corresponde, y <strong>cargar el catálogo de productos</strong> con 
+                <strong> asignar el número de pedido</strong> cuando corresponde, y <strong>cargar el catálogo de productos</strong> con 
                 precios actualizados. También puede realizar acciones masivas sobre múltiples pedidos y 
-                <strong>exportar los datos a Excel</strong> para su análisis.
+                <strong> exportar los datos a Excel</strong> para su análisis.
               </p>
               <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
                 Además, el administrador cuenta con un <strong>Dashboard de Control</strong> que muestra métricas 
