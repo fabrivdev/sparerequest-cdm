@@ -225,6 +225,9 @@ const OrdersTable = ({
         'Precio Total': product?.price ? product.price * order.quantity : '',
         'Sucursal': order.branch_destination,
         'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
+        ...(isAdmin && { 'Nro. Pedido': order.order_number || '' }),
+        ...(isAdmin && { 'F. Solicitud': order.requested_at ? format(new Date(order.requested_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
+        ...(isAdmin && { 'F. Entrega': order.delivered_at ? format(new Date(order.delivered_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
         'Observación': order.observation || '',
       };
     });
@@ -244,6 +247,7 @@ const OrdersTable = ({
       { wch: 14 },
       { wch: 20 },
       { wch: 12 },
+      ...(isAdmin ? [{ wch: 15 }, { wch: 18 }, { wch: 18 }] : []),
       { wch: 40 },
     ];
     worksheet['!cols'] = colWidths;

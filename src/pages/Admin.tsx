@@ -314,7 +314,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pendientes</p>
-                <p className="text-sm font-semibold text-red-500">${stats.pendingTotal.toFixed(2)}</p>
+                <p className="text-sm font-semibold text-red-500">${stats.pendingTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -326,7 +326,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.solicitado}</p>
                 <p className="text-xs text-muted-foreground">Solicitados</p>
-                <p className="text-sm font-semibold text-yellow-500">${stats.solicitadoTotal.toFixed(2)}</p>
+                <p className="text-sm font-semibold text-yellow-500">${stats.solicitadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -338,7 +338,7 @@ const Admin = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.entregado}</p>
                 <p className="text-xs text-muted-foreground">Entregados</p>
-                <p className="text-sm font-semibold text-green-500">${stats.entregadoTotal.toFixed(2)}</p>
+                <p className="text-sm font-semibold text-green-500">${stats.entregadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
