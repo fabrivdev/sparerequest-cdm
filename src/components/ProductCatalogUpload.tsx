@@ -1,10 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Upload, FileSpreadsheet, Loader2, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface Product {
   brand: string;
@@ -17,15 +19,33 @@ interface ProductCatalogUploadProps {
   onUploadSuccess?: () => void;
 }
 
+interface CatalogInfo {
+  fileName: string;
+  uploadedAt: string;
+}
+
 const BATCH_SIZE = 2000;
 const MAX_CONCURRENT_BATCHES = 3;
+const CATALOG_INFO_KEY = 'product_catalog_info';
 
 const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) => {
   const [isUploading, setIsUploading] = useState(false);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load catalog info from localStorage on mount
+  useEffect(() => {
+    const savedInfo = localStorage.getItem(CATALOG_INFO_KEY);
+    if (savedInfo) {
+      try {
+        setCatalogInfo(JSON.parse(savedInfo));
+      } catch {
+        localStorage.removeItem(CATALOG_INFO_KEY);
+      }
+    }
+  }, []);
 
   const parseExcel = (file: File): Promise<Product[]> => {
     return new Promise((resolve, reject) => {
@@ -117,7 +137,6 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       return;
     }
 
-    setFileName(file.name);
     setIsUploading(true);
     setProgress(0);
     setStatusMessage('Leyendo archivo...');
@@ -141,6 +160,14 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       } else {
         toast.warning(`Cargados ${successCount.toLocaleString()} productos. ${errorCount.toLocaleString()} fallaron.`);
       }
+
+      // Save catalog info to localStorage
+      const newCatalogInfo: CatalogInfo = {
+        fileName: file.name,
+        uploadedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(CATALOG_INFO_KEY, JSON.stringify(newCatalogInfo));
+      setCatalogInfo(newCatalogInfo);
 
       setStatusMessage('');
       onUploadSuccess?.();
@@ -171,10 +198,10 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           <div>
             <h3 className="font-semibold text-foreground text-sm">Catálogo de Productos</h3>
             <p className="text-xs text-muted-foreground">
-              {fileName && !isUploading ? (
+              {catalogInfo && !isUploading ? (
                 <span className="flex items-center gap-1">
                   <Check className="w-3 h-3 text-green-500" />
-                  {fileName}
+                  {catalogInfo.fileName} • {format(new Date(catalogInfo.uploadedAt), "d 'de' MMMM yyyy, HH:mm", { locale: es })}
                 </span>
               ) : (
                 'Sube un archivo XLSX con marca, código, nombre y precio'
@@ -205,7 +232,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                {fileName ? 'Reemplazar' : 'Subir Catálogo'}
+                {catalogInfo ? 'Reemplazar' : 'Subir Catálogo'}
               </>
             )}
           </Button>
