@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User } from 'lucide-react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import UserManual from '@/components/UserManual';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -33,6 +34,7 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showManual, setShowManual] = useState(false);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -123,6 +125,15 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowManual(true)}
+                className="h-10 w-10 text-muted-foreground hover:text-primary"
+                title="Manual de usuario"
+              >
+                <BookOpen className="w-5 h-5" />
+              </Button>
               {onEditProfile && (
                 <Button
                   variant="ghost"
@@ -199,6 +210,9 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* User Manual Modal */}
+      <UserManual isOpen={showManual} onClose={() => setShowManual(false)} />
     </>
   );
 };
