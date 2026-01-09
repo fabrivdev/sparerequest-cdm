@@ -18,7 +18,8 @@ import {
   Truck, 
   CheckCircle,
   Users,
-  Shield
+  Shield,
+  Check
 } from 'lucide-react';
 
 interface UserManualProps {
@@ -27,8 +28,18 @@ interface UserManualProps {
 }
 
 const UserManual = ({ isOpen, onClose }: UserManualProps) => {
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 800);
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && !isClosing && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
         <DialogHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
@@ -198,10 +209,21 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
           </div>
         </ScrollArea>
 
-        <div className="p-6 pt-4 border-t border-border">
-          <Button onClick={onClose} className="w-full">
-            Entendido
-          </Button>
+        <div className="p-6 pt-4 border-t border-border relative overflow-hidden">
+          {isClosing ? (
+            <div className="flex items-center justify-center py-2">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center animate-scale-in">
+                  <Check className="w-6 h-6 text-white animate-fade-in" strokeWidth={3} />
+                </div>
+                <div className="absolute inset-0 w-12 h-12 rounded-full bg-green-500/30 animate-ping" />
+              </div>
+            </div>
+          ) : (
+            <Button onClick={handleClose} className="w-full">
+              Entendido
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
