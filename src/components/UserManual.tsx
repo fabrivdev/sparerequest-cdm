@@ -12,16 +12,13 @@ import {
   Package, 
   Plus, 
   Filter, 
-  Download, 
   Pencil, 
   Trash2, 
   Clock, 
   Truck, 
   CheckCircle,
   Users,
-  Shield,
-  FileSpreadsheet,
-  Eye
+  Shield
 } from 'lucide-react';
 
 interface UserManualProps {
@@ -32,9 +29,9 @@ interface UserManualProps {
 const UserManual = ({ isOpen, onClose }: UserManualProps) => {
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[85vh]">
-        <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b border-border">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-primary" />
             </div>
@@ -42,7 +39,7 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
           </div>
         </DialogHeader>
         
-        <ScrollArea className="h-[60vh] pr-4">
+        <ScrollArea className="h-[55vh] px-6 py-4">
           <div className="space-y-6">
             {/* Introducción */}
             <section>
@@ -177,100 +174,32 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
               </div>
             </section>
 
-            {/* Exportar */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Download className="w-5 h-5 text-primary" />
-                Exportar a Excel
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Haz clic en el botón de <strong>descarga</strong> en la tabla de pedidos para exportar 
-                todos los pedidos filtrados a un archivo Excel (.xlsx).
-              </p>
-            </section>
-
             {/* Separador Admin */}
             <div className="border-t border-border pt-6">
               <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
                 <Shield className="w-6 h-6 text-primary" />
                 Funciones de Administrador
               </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                El panel de administrador permite gestionar y monitorear todos los pedidos del sistema.
-                Accede haciendo clic en el ícono de escudo en la barra superior.
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                El administrador es responsable de gestionar el flujo de los pedidos. Su rol principal consiste 
+                en <strong>cambiar los estados</strong> de los pedidos (de Pendiente a Solicitado, y de Solicitado a Entregado), 
+                <strong>asignar el número de pedido</strong> cuando corresponde, y <strong>cargar el catálogo de productos</strong> con 
+                precios actualizados. También puede realizar acciones masivas sobre múltiples pedidos y 
+                <strong>exportar los datos a Excel</strong> para su análisis.
+              </p>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
+                Además, el administrador cuenta con un <strong>Dashboard de Control</strong> que muestra métricas 
+                en tiempo real: tiempos promedio de gestión, productos más solicitados, distribución por sucursal y marca, 
+                valores totales por estado, y ranking de usuarios.
+              </p>
+              <p className="text-xs text-muted-foreground/70 mt-3">
+                Accede al panel de administrador haciendo clic en el ícono de escudo en la barra superior.
               </p>
             </div>
-
-            {/* Admin - Catálogo */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-primary" />
-                Catálogo de Productos
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                El administrador puede subir un archivo Excel con el catálogo de productos (marca, código, 
-                nombre y precio). Esto permite mostrar precios y nombres de productos en los pedidos.
-              </p>
-            </section>
-
-            {/* Admin - Cambiar estados */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Truck className="w-5 h-5 text-primary" />
-                Cambiar Estado de Pedidos
-              </h3>
-              <div className="text-sm text-muted-foreground space-y-2">
-                <p>
-                  El administrador puede cambiar el estado de los pedidos de forma individual o masiva:
-                </p>
-                <ul className="ml-4 space-y-1">
-                  <li>• <strong>Pendiente → Solicitado:</strong> Cuando se hace el pedido al proveedor.</li>
-                  <li>• <strong>Solicitado → Entregado:</strong> Cuando el repuesto llega a destino.</li>
-                </ul>
-                <p className="mt-2">
-                  <strong>Nota:</strong> Para marcar como "Entregado", primero debe asignar un número de pedido.
-                </p>
-              </div>
-            </section>
-
-            {/* Admin - Dashboard */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-primary" />
-                Dashboard de Métricas
-              </h3>
-              <p className="text-sm text-muted-foreground mb-2">
-                El administrador tiene acceso a un dashboard con estadísticas en tiempo real:
-              </p>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                <li>• <strong>Tiempos promedio:</strong> De pendiente a solicitado, de solicitado a entregado.</li>
-                <li>• <strong>Top SKUs:</strong> Los productos más solicitados.</li>
-                <li>• <strong>Pedidos por sucursal:</strong> Distribución geográfica.</li>
-                <li>• <strong>Distribución por marca:</strong> Porcentaje CLAAS vs HORSCH.</li>
-                <li>• <strong>Valores totales:</strong> Suma de precios por estado.</li>
-                <li>• <strong>Pedidos por usuario:</strong> Ranking de solicitantes.</li>
-              </ul>
-            </section>
-
-            {/* Admin - Acciones masivas */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <CheckCircle className="w-5 h-5 text-primary" />
-                Acciones Masivas
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Selecciona múltiples pedidos usando las casillas de verificación para:
-              </p>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-4 mt-2">
-                <li>• Cambiar el estado de varios pedidos a la vez.</li>
-                <li>• Asignar el mismo número de pedido a un grupo.</li>
-                <li>• Eliminar pedidos seleccionados.</li>
-              </ul>
-            </section>
           </div>
         </ScrollArea>
 
-        <div className="pt-4 border-t border-border">
+        <div className="p-6 pt-4 border-t border-border">
           <Button onClick={onClose} className="w-full">
             Entendido
           </Button>
