@@ -193,7 +193,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto mx-4 border-0 ios-shadow-lg rounded-2xl p-6">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto border-0 ios-shadow-lg rounded-2xl p-4 sm:p-6">
         {/* Animation overlay */}
         {closeAnimation && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-2xl">
