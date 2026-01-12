@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link } from 'lucide-react';
+import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -29,6 +29,7 @@ interface Order {
 interface BulkActionsBarProps {
   selectedCount: number;
   onStatusChange: (status: string, orderNumber?: string) => Promise<void>;
+  onShippingMethodChange?: (shippingMethod: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onClearSelection: () => void;
   selectedOrdersNeedOrderNumber?: boolean;
@@ -45,7 +46,8 @@ const STATUS_OPTIONS = [
 
 const BulkActionsBar = ({ 
   selectedCount, 
-  onStatusChange, 
+  onStatusChange,
+  onShippingMethodChange,
   onDelete,
   onClearSelection,
   selectedOrdersNeedOrderNumber = true,
@@ -54,6 +56,7 @@ const BulkActionsBar = ({
   onSelectByOrderNumber
 }: BulkActionsBarProps) => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdatingShipping, setIsUpdatingShipping] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState('');
@@ -112,6 +115,13 @@ const BulkActionsBar = ({
   const handleCancelStatus = () => {
     setPendingStatus(null);
     setOrderNumber('');
+  };
+
+  const handleShippingMethodChange = async (method: string) => {
+    if (!onShippingMethodChange) return;
+    setIsUpdatingShipping(true);
+    await onShippingMethodChange(method);
+    setIsUpdatingShipping(false);
   };
 
   const handleDelete = async () => {
@@ -228,6 +238,41 @@ const BulkActionsBar = ({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+        )}
+
+        {/* Bulk Shipping Method Change */}
+        {onShippingMethodChange && (
+          <div className="flex items-center gap-1 border-l border-border pl-3">
+            <span className="text-xs text-muted-foreground mr-1">Envío:</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleShippingMethodChange('aereo')}
+              disabled={isUpdatingShipping}
+              className="h-9 px-2 gap-1 text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+            >
+              {isUpdatingShipping ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plane className="w-4 h-4" />
+              )}
+              Aéreo
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleShippingMethodChange('maritimo')}
+              disabled={isUpdatingShipping}
+              className="h-9 px-2 gap-1 text-cyan-600 hover:text-cyan-700 hover:bg-cyan-500/10"
+            >
+              {isUpdatingShipping ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Ship className="w-4 h-4" />
+              )}
+              Marítimo
+            </Button>
           </div>
         )}
 

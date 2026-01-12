@@ -383,6 +383,41 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === 'bulkUpdateShippingMethod') {
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0 || !shippingMethod) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validMethods = ['aereo', 'maritimo'];
+      if (!validMethods.includes(shippingMethod)) {
+        return new Response(
+          JSON.stringify({ error: 'Método de envío inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ shipping_method: shippingMethod })
+        .in('id', orderIds);
+
+      if (error) {
+        console.error('Error updating shipping method:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar método de envío' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, updated: orderIds.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Acción no válida' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
