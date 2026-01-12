@@ -28,6 +28,7 @@ export interface OrderFiltersState {
   productCode: string;
   branch: string;
   status: string;
+  observation: string;
 }
 
 interface OrderFiltersProps {
@@ -59,6 +60,7 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
       productCode: '',
       branch: '',
       status: '',
+      observation: '',
     });
   };
 
@@ -69,6 +71,7 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
     filters.productCode,
     filters.branch,
     filters.status,
+    filters.observation,
   ].filter(Boolean).length;
 
   const hasActiveFilters = activeFiltersCount > 0;
@@ -217,6 +220,20 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               </div>
             </div>
 
+            {/* Observation Search */}
+            <div>
+              <Label className="text-xs text-muted-foreground mb-1.5 block">Observación</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar en observaciones..."
+                  value={filters.observation}
+                  onChange={(e) => updateFilter('observation', e.target.value)}
+                  className="h-10 bg-secondary/50 border-0 pl-9 text-sm"
+                />
+              </div>
+            </div>
+
             {/* Clear Button */}
             {hasActiveFilters && (
               <Button variant="ghost" size="sm" onClick={clearFilters} className="w-full h-9 text-sm">
@@ -242,7 +259,7 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
         </div>
 
         {/* Filters Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
           {/* Search */}
           <div className="col-span-2 sm:col-span-1 lg:col-span-1">
             <Label className="text-xs text-muted-foreground mb-1.5 block">Código</Label>
@@ -358,6 +375,20 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Observation Search */}
+          <div>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">Observación</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar..."
+                value={filters.observation}
+                onChange={(e) => updateFilter('observation', e.target.value)}
+                className="h-9 bg-secondary/50 border-0 pl-9 text-sm"
+              />
+            </div>
           </div>
         </div>
       </div>
