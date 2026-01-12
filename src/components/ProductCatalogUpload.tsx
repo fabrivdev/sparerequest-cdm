@@ -68,22 +68,38 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
   const handleDownloadCatalog = async () => {
     setIsDownloading(true);
     try {
-      // Fetch all products
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('brand, code, name, price_aereo, price_maritimo')
-        .order('brand', { ascending: true })
-        .order('code', { ascending: true });
+      // Fetch all products in batches to bypass 1000 row limit
+      const allProducts: { brand: string; code: string; name: string; price_aereo: number; price_maritimo: number }[] = [];
+      const FETCH_BATCH_SIZE = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const { data: products, error } = await supabase
+          .from('products')
+          .select('brand, code, name, price_aereo, price_maritimo')
+          .order('brand', { ascending: true })
+          .order('code', { ascending: true })
+          .range(offset, offset + FETCH_BATCH_SIZE - 1);
 
-      if (!products || products.length === 0) {
+        if (error) throw error;
+
+        if (products && products.length > 0) {
+          allProducts.push(...products);
+          offset += FETCH_BATCH_SIZE;
+          hasMore = products.length === FETCH_BATCH_SIZE;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      if (allProducts.length === 0) {
         toast.error('No hay productos en el catálogo');
         return;
       }
 
       // Create Excel
-      const worksheetData = products.map(p => ({
+      const worksheetData = allProducts.map(p => ({
         'Marca': p.brand,
         'Código': p.code,
         'Nombre': p.name,
@@ -99,7 +115,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       const fileName = `catalogo_productos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
-      toast.success(`Catálogo descargado (${products.length.toLocaleString()} productos)`);
+      toast.success(`Catálogo descargado (${allProducts.length.toLocaleString()} productos)`);
     } catch (error) {
       console.error('Error downloading catalog:', error);
       toast.error('Error al descargar el catálogo');
