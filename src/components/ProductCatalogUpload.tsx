@@ -42,6 +42,8 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
   const [statusMessage, setStatusMessage] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadStatusMessage, setDownloadStatusMessage] = useState('');
   const [totalProducts, setTotalProducts] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -67,7 +69,17 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
 
   const handleDownloadCatalog = async () => {
     setIsDownloading(true);
+    setDownloadProgress(0);
+    setDownloadStatusMessage('Iniciando descarga...');
+    
     try {
+      // First get total count for progress calculation
+      const totalCount = totalProducts || 0;
+      if (totalCount === 0) {
+        toast.error('No hay productos en el catálogo');
+        return;
+      }
+
       // Fetch all products in batches to bypass 1000 row limit
       const allProducts: { brand: string; code: string; name: string; price_aereo: number; price_maritimo: number }[] = [];
       const FETCH_BATCH_SIZE = 1000;
@@ -88,6 +100,11 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           allProducts.push(...products);
           offset += FETCH_BATCH_SIZE;
           hasMore = products.length === FETCH_BATCH_SIZE;
+          
+          // Update progress
+          const progressPercent = Math.min(Math.round((allProducts.length / totalCount) * 100), 100);
+          setDownloadProgress(progressPercent);
+          setDownloadStatusMessage(`Descargando ${allProducts.length.toLocaleString()} de ${totalCount.toLocaleString()} productos...`);
         } else {
           hasMore = false;
         }
@@ -97,6 +114,8 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
         toast.error('No hay productos en el catálogo');
         return;
       }
+
+      setDownloadStatusMessage('Generando archivo Excel...');
 
       // Create Excel
       const worksheetData = allProducts.map(p => ({
@@ -121,6 +140,8 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       toast.error('Error al descargar el catálogo');
     } finally {
       setIsDownloading(false);
+      setDownloadProgress(0);
+      setDownloadStatusMessage('');
     }
   };
 
@@ -399,10 +420,12 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           </div>
         </div>
 
-        {isUploading && (
+        {(isUploading || isDownloading) && (
           <div className="mt-4 space-y-2">
-            <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground text-center">{statusMessage}</p>
+            <Progress value={isDownloading ? downloadProgress : progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center">
+              {isDownloading ? downloadStatusMessage : statusMessage}
+            </p>
           </div>
         )}
       </div>
