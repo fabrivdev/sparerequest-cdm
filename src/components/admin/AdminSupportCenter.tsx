@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, User, MapPin, Clock, Check, AlertCircle } from 'lucide-react';
+import { MessageCircle, User, MapPin, Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import AdminChatView from './AdminChatView';
+import NewAdminConversationModal from './NewAdminConversationModal';
 
 interface Conversation {
   id: string;
@@ -29,6 +30,7 @@ const AdminSupportCenter = ({ password }: AdminSupportCenterProps) => {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
 
   useEffect(() => {
     fetchConversations();
@@ -139,8 +141,15 @@ const AdminSupportCenter = ({ password }: AdminSupportCenterProps) => {
     <div className="flex h-[calc(100vh-200px)] gap-4">
       {/* Conversations list */}
       <div className="w-96 border rounded-lg flex flex-col">
-        {/* Filters */}
+        {/* Header with new conversation button */}
         <div className="p-3 border-b bg-muted/30">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">Conversaciones</h3>
+            <Button size="sm" onClick={() => setIsNewConversationOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              Nuevo
+            </Button>
+          </div>
           <div className="flex gap-2">
             <Button
               variant={statusFilter === 'all' ? 'default' : 'outline'}
@@ -230,6 +239,14 @@ const AdminSupportCenter = ({ password }: AdminSupportCenterProps) => {
           </div>
         )}
       </div>
+
+      {/* New conversation modal */}
+      <NewAdminConversationModal
+        isOpen={isNewConversationOpen}
+        onClose={() => setIsNewConversationOpen(false)}
+        password={password}
+        onConversationCreated={fetchConversations}
+      />
     </div>
   );
 };
