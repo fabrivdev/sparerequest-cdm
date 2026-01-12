@@ -372,6 +372,15 @@ const Admin = () => {
               selectedOrdersNeedOrderNumber={orders.some(
                 o => selectedOrders.includes(o.id) && (!o.order_number || o.order_number.trim() === '')
               )}
+              orders={orders}
+              selectedOrders={selectedOrders}
+              onSelectByOrderNumber={(orderNumber) => {
+                const ordersWithSameNumber = orders
+                  .filter(o => o.order_number === orderNumber)
+                  .map(o => o.id);
+                const newSelection = [...new Set([...selectedOrders, ...ordersWithSameNumber])];
+                setSelectedOrders(newSelection);
+              }}
             />
 
             <OrdersTable 
