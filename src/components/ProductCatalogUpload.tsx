@@ -12,7 +12,8 @@ interface Product {
   brand: string;
   code: string;
   name: string;
-  price: number;
+  price_aereo: number;
+  price_maritimo: number;
 }
 
 interface ProductCatalogUploadProps {
@@ -59,18 +60,19 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 
-          // Skip header row
+          // Skip header row - expects 5 columns: Marca, Código, Nombre, AEREO, MARITIMO
           const products: Product[] = [];
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
-            if (row && row.length >= 4) {
+            if (row && row.length >= 5) {
               const brand = String(row[0] || '').trim();
               const code = String(row[1] || '').trim();
               const name = String(row[2] || '').trim();
-              const price = parseFloat(String(row[3] || '0'));
+              const price_aereo = parseFloat(String(row[3] || '0'));
+              const price_maritimo = parseFloat(String(row[4] || '0'));
 
-              if (brand && code && name && !isNaN(price)) {
-                products.push({ brand, code, name, price });
+              if (brand && code && name && !isNaN(price_aereo) && !isNaN(price_maritimo)) {
+                products.push({ brand, code, name, price_aereo, price_maritimo });
               }
             }
           }
@@ -204,7 +206,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
                   {catalogInfo.fileName} • {format(new Date(catalogInfo.uploadedAt), "d 'de' MMMM yyyy, HH:mm", { locale: es })}
                 </span>
               ) : (
-                'Sube un archivo XLSX con marca, código, nombre y precio'
+                'Sube un archivo XLSX con marca, código, nombre, precio aéreo y precio marítimo'
               )}
             </p>
           </div>

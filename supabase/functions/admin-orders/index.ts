@@ -49,20 +49,23 @@ Deno.serve(async (req) => {
         .map(s => JSON.parse(s));
 
       // Fetch prices only for products in orders
-      const priceMap: Record<string, number> = {};
+      const priceMap: Record<string, { aereo: number; maritimo: number }> = {};
       
       if (uniqueProducts.length > 0) {
         // Fetch prices for each unique product (in parallel for efficiency)
         const pricePromises = uniqueProducts.map(async (p: { brand: string; code: string }) => {
           const { data: product } = await supabase
             .from('products')
-            .select('price, brand, code')
+            .select('price_aereo, price_maritimo, brand, code')
             .eq('brand', p.brand)
             .eq('code', p.code)
             .maybeSingle();
           
           if (product) {
-            priceMap[`${product.brand}|${product.code}`] = Number(product.price) || 0;
+            priceMap[`${product.brand}|${product.code}`] = {
+              aereo: Number(product.price_aereo) || 0,
+              maritimo: Number(product.price_maritimo) || 0
+            };
           }
         });
         
@@ -96,10 +99,14 @@ Deno.serve(async (req) => {
       // Create a map of user_id to email
       const emailMap = Object.fromEntries(usersWithEmails.map(u => [u.id, u.email]));
       
-      // Add name, email, and price to each order
+      // Add name, email, and price to each order (using correct price based on shipping method)
       const ordersWithUser = orders?.map(order => {
         const productKey = `${order.brand}|${order.product_code}`;
-        const unitPrice = priceMap[productKey] || 0;
+        const prices = priceMap[productKey];
+        // Use price based on shipping method
+        const unitPrice = order.shipping_method === 'maritimo' 
+          ? (prices?.maritimo || 0) 
+          : (prices?.aereo || 0);
         return {
           ...order,
           user_email: emailMap[order.user_id] || null,
