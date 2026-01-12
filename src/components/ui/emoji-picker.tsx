@@ -6,19 +6,29 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import data from '@emoji-mart/data';
-import Picker from '@emoji-mart/react';
 
 interface EmojiPickerProps {
   onEmojiSelect: (emoji: string) => void;
   disabled?: boolean;
 }
 
+const EMOJI_LIST = [
+  '😀', '😃', '😄', '😁', '😅', '😂', '🤣', '😊', '😇', '🙂',
+  '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛',
+  '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨',
+  '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔',
+  '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵',
+  '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '🤙', '👋', '🤚',
+  '✋', '🖐️', '👏', '🙌', '👐', '🤲', '🙏', '💪', '🦾', '🖕',
+  '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+  '✅', '❌', '⭐', '🌟', '💡', '🔥', '💯', '🎉', '🎊', '🎁',
+];
+
 export const EmojiPicker = ({ onEmojiSelect, disabled }: EmojiPickerProps) => {
   const [open, setOpen] = useState(false);
 
-  const handleEmojiSelect = (emoji: any) => {
-    onEmojiSelect(emoji.native);
+  const handleEmojiClick = (emoji: string) => {
+    onEmojiSelect(emoji);
     setOpen(false);
   };
 
@@ -29,15 +39,19 @@ export const EmojiPicker = ({ onEmojiSelect, disabled }: EmojiPickerProps) => {
           <Smile className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0 border-none" align="start" side="top">
-        <Picker 
-          data={data} 
-          onEmojiSelect={handleEmojiSelect}
-          theme="light"
-          locale="es"
-          previewPosition="none"
-          skinTonePosition="none"
-        />
+      <PopoverContent className="w-72 p-2" align="start" side="top">
+        <div className="grid grid-cols-10 gap-1">
+          {EMOJI_LIST.map((emoji, index) => (
+            <button
+              key={index}
+              type="button"
+              className="text-xl hover:bg-muted p-1 rounded transition-colors cursor-pointer"
+              onClick={() => handleEmojiClick(emoji)}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
