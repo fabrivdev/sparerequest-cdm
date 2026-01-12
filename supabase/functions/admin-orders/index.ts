@@ -13,10 +13,48 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod } = body;
+    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod, type, userId, userName, brand: notifBrand, productCode: notifProductCode, message, notificationId } = body;
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
-    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // createNotification doesn't require admin password (called from user side)
+    if (action === 'createNotification') {
+      if (!type || !userId || !userName || !message) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('admin_notifications')
+        .insert({
+          type,
+          user_id: userId,
+          user_name: userName,
+          brand: notifBrand || null,
+          product_code: notifProductCode || null,
+          message,
+        });
+
+      if (error) {
+        console.error('Error creating notification:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al crear notificación' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // All other actions require admin password
     if (password !== adminPassword) {
       return new Response(
         JSON.stringify({ error: 'Contraseña incorrecta' }),
@@ -24,11 +62,78 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Get notifications
+    if (action === 'getNotifications') {
+      const { data, error } = await supabase
+        .from('admin_notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
 
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener notificaciones' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ notifications: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Mark notification as read
+    if (action === 'markNotificationRead') {
+      if (!notificationId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('admin_notifications')
+        .update({ is_read: true })
+        .eq('id', notificationId);
+
+      if (error) {
+        console.error('Error marking notification as read:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al marcar notificación' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Mark all notifications as read
+    if (action === 'markAllNotificationsRead') {
+      const { error } = await supabase
+        .from('admin_notifications')
+        .update({ is_read: true })
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('Error marking all notifications as read:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al marcar notificaciones' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl2 = Deno.env.get('SUPABASE_URL')!;
     if (action === 'getOrders') {
       // Get orders
       const { data: orders, error } = await supabase

@@ -11,8 +11,17 @@ import ProductCatalogUpload from '@/components/ProductCatalogUpload';
 import BulkActionsBar from '@/components/BulkActionsBar';
 import AdminDashboard from '@/components/AdminDashboard';
 import LoadingScreen from '@/components/LoadingScreen';
+import OnlineUsersIndicator from '@/components/OnlineUsersIndicator';
+import AdminNotifications from '@/components/AdminNotifications';
 
 const ADMIN_SESSION_KEY = 'admin_session';
+
+interface OnlineUser {
+  user_id: string;
+  user_name: string;
+  branch: string;
+  online_at: string;
+}
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -30,6 +39,7 @@ const Admin = () => {
     status: '',
     observation: '',
   });
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
 
   const getAdminSession = () => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -78,6 +88,27 @@ const Admin = () => {
     }
     loadOrders(session.password);
   }, [navigate]);
+
+  // Subscribe to online users presence
+  useEffect(() => {
+    const channel = supabase
+      .channel('online_users')
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const users = Object.values(state).flat().map((u: any) => ({
+          user_id: u.user_id || '',
+          user_name: u.user_name || 'Usuario',
+          branch: u.branch || '',
+          online_at: u.online_at || new Date().toISOString(),
+        })) as OnlineUser[];
+        setOnlineUsers(users);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
@@ -339,10 +370,14 @@ const Admin = () => {
               <p className="text-xs text-muted-foreground">{orders.length} pedidos totales</p>
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Cerrar Sesión
-          </Button>
+          <div className="flex items-center gap-2">
+            <OnlineUsersIndicator users={onlineUsers} />
+            <AdminNotifications password={password} />
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Cerrar Sesión
+            </Button>
+          </div>
         </div>
       </header>
 
