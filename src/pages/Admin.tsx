@@ -247,6 +247,29 @@ const Admin = () => {
     }
   };
 
+  const handleBulkShippingMethodChange = async (shippingMethod: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'bulkUpdateShippingMethod', password, orderIds: selectedOrders, shippingMethod },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al actualizar');
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          selectedOrders.includes(order.id) ? { ...order, shipping_method: shippingMethod } : order
+        )
+      );
+      setSelectedOrders([]);
+      toast.success(`${selectedOrders.length} pedidos actualizados a ${shippingMethod === 'aereo' ? 'Aéreo' : 'Marítimo'}`);
+    } catch (err) {
+      toast.error('Error al actualizar');
+    }
+  };
+
   // Get unique branches for filter dropdown
   const branches = useMemo(() => {
     return [...new Set(orders.map((o) => o.branch_destination))].sort();
@@ -389,6 +412,7 @@ const Admin = () => {
             <BulkActionsBar
               selectedCount={selectedOrders.length}
               onStatusChange={handleBulkStatusChange}
+              onShippingMethodChange={handleBulkShippingMethodChange}
               onDelete={handleBulkDelete}
               onClearSelection={() => setSelectedOrders([])}
               selectedOrdersNeedOrderNumber={orders.some(
