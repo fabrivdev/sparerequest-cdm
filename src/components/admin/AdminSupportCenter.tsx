@@ -104,6 +104,13 @@ const AdminSupportCenter = ({ password }: AdminSupportCenterProps) => {
     }
   };
 
+  const handleDeleteConversation = (conversationId: string) => {
+    setConversations(prev => prev.filter(c => c.id !== conversationId));
+    if (selectedConversation?.id === conversationId) {
+      setSelectedConversation(null);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'open': return 'bg-green-500';
@@ -230,6 +237,7 @@ const AdminSupportCenter = ({ password }: AdminSupportCenterProps) => {
             conversation={selectedConversation}
             password={password}
             onStatusChange={handleStatusChange}
+            onDelete={handleDeleteConversation}
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
