@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Upload, FileSpreadsheet, Loader2, Check } from 'lucide-react';
+import { Upload, FileSpreadsheet, Loader2, Check, Plus, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { ProductFormModal } from './ProductFormModal';
 
 interface Product {
   brand: string;
@@ -39,9 +40,12 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
   const [catalogInfo, setCatalogInfo] = useState<CatalogInfo | null>(null);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [totalProducts, setTotalProducts] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load catalog info from localStorage on mount
+  // Load catalog info and product count on mount
   useEffect(() => {
     const savedInfo = localStorage.getItem(CATALOG_INFO_KEY);
     if (savedInfo) {
@@ -51,7 +55,63 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
         localStorage.removeItem(CATALOG_INFO_KEY);
       }
     }
+    fetchProductCount();
   }, []);
+
+  const fetchProductCount = async () => {
+    const { count } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+    setTotalProducts(count);
+  };
+
+  const handleDownloadCatalog = async () => {
+    setIsDownloading(true);
+    try {
+      // Fetch all products
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('brand, code, name, price_aereo, price_maritimo')
+        .order('brand', { ascending: true })
+        .order('code', { ascending: true });
+
+      if (error) throw error;
+
+      if (!products || products.length === 0) {
+        toast.error('No hay productos en el catálogo');
+        return;
+      }
+
+      // Create Excel
+      const worksheetData = products.map(p => ({
+        'Marca': p.brand,
+        'Código': p.code,
+        'Nombre': p.name,
+        'AEREO': p.price_aereo,
+        'MARITIMO': p.price_maritimo
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(worksheetData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+
+      // Download
+      const fileName = `catalogo_productos_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      toast.success(`Catálogo descargado (${products.length.toLocaleString()} productos)`);
+    } catch (error) {
+      console.error('Error downloading catalog:', error);
+      toast.error('Error al descargar el catálogo');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleProductSuccess = () => {
+    fetchProductCount();
+    onUploadSuccess?.();
+  };
 
   const parseExcel = (file: File): Promise<ParseResult> => {
     return new Promise((resolve, reject) => {
@@ -245,63 +305,98 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
   };
 
   return (
-    <div className="bg-card ios-shadow rounded-xl p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-            <FileSpreadsheet className="w-5 h-5 text-primary" />
+    <>
+      <div className="bg-card ios-shadow rounded-xl p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
+              <FileSpreadsheet className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-foreground text-sm">Catálogo de Productos</h3>
+              <p className="text-xs text-muted-foreground truncate">
+                {catalogInfo && !isUploading ? (
+                  <span className="flex items-center gap-1">
+                    <Check className="w-3 h-3 text-green-500 shrink-0" />
+                    <span className="truncate">{catalogInfo.fileName}</span>
+                    <span className="shrink-0">• {format(new Date(catalogInfo.uploadedAt), "d MMM yyyy", { locale: es })}</span>
+                    {totalProducts !== null && (
+                      <span className="shrink-0">| {totalProducts.toLocaleString()} productos</span>
+                    )}
+                  </span>
+                ) : (
+                  totalProducts !== null ? `${totalProducts.toLocaleString()} productos en catálogo` : 'Cargando...'
+                )}
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-semibold text-foreground text-sm">Catálogo de Productos</h3>
-            <p className="text-xs text-muted-foreground">
-              {catalogInfo && !isUploading ? (
-                <span className="flex items-center gap-1">
-                  <Check className="w-3 h-3 text-green-500" />
-                  {catalogInfo.fileName} • {format(new Date(catalogInfo.uploadedAt), "d 'de' MMMM yyyy, HH:mm", { locale: es })}
-                </span>
-              ) : (
-                'Sube un archivo XLSX con marca, código, nombre, precio aéreo y precio marítimo'
-              )}
-            </p>
-          </div>
-        </div>
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClick}
-            disabled={isUploading}
-            className="h-9 gap-2"
-          >
-            {isUploading ? (
-              <>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsModalOpen(true)}
+              className="h-9 gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Agregar</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadCatalog}
+              disabled={isDownloading || totalProducts === 0}
+              className="h-9 gap-2"
+            >
+              {isDownloading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Cargando...
-              </>
-            ) : (
-              <>
-                <Upload className="w-4 h-4" />
-                {catalogInfo ? 'Reemplazar' : 'Subir Catálogo'}
-              </>
-            )}
-          </Button>
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">Descargar</span>
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClick}
+              disabled={isUploading}
+              className="h-9 gap-2"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="hidden sm:inline">Cargando...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  <span className="hidden sm:inline">{catalogInfo ? 'Reemplazar' : 'Subir'}</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
+
+        {isUploading && (
+          <div className="mt-4 space-y-2">
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center">{statusMessage}</p>
+          </div>
+        )}
       </div>
 
-      {isUploading && (
-        <div className="mt-4 space-y-2">
-          <Progress value={progress} className="h-2" />
-          <p className="text-xs text-muted-foreground text-center">{statusMessage}</p>
-        </div>
-      )}
-    </div>
+      <ProductFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={handleProductSuccess}
+      />
+    </>
   );
 };
 
