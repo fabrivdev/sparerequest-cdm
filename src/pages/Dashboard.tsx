@@ -41,6 +41,7 @@ const Dashboard = () => {
     productCode: '',
     branch: '',
     status: '',
+    observation: '',
   });
 
   const fetchProfile = async () => {
@@ -255,6 +256,7 @@ const Dashboard = () => {
       if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
       if (filters.branch && order.branch_destination !== filters.branch) return false;
       if (filters.status && order.status !== filters.status) return false;
+      if (filters.observation && (!order.observation || !order.observation.toLowerCase().includes(filters.observation.toLowerCase()))) return false;
       
       return true;
     });
