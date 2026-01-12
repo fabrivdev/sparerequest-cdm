@@ -133,6 +133,27 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Delete all read notifications
+    if (action === 'deleteReadNotifications') {
+      const { error } = await supabase
+        .from('admin_notifications')
+        .delete()
+        .eq('is_read', true);
+
+      if (error) {
+        console.error('Error deleting read notifications:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al eliminar notificaciones' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl2 = Deno.env.get('SUPABASE_URL')!;
     if (action === 'getOrders') {
       // Get orders
