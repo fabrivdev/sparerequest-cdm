@@ -580,6 +580,80 @@ Deno.serve(async (req) => {
 
     // ============ SUPPORT CHAT ACTIONS ============
 
+    // Get all registered users for admin to start conversations
+    if (action === 'getAllUsers') {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, branch')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener usuarios' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ users: profiles || [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create conversation (admin side - to start chat with a user)
+    if (action === 'createAdminConversation') {
+      const { targetUserId, targetUserName, targetBranch, subject, initialMessage } = body;
+      
+      if (!targetUserId || !targetUserName || !subject || !initialMessage) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Create conversation
+      const { data: conversation, error: convError } = await supabase
+        .from('support_conversations')
+        .insert({
+          user_id: targetUserId,
+          user_name: targetUserName,
+          branch: targetBranch || 'Sin sucursal',
+          subject,
+          status: 'open',
+        })
+        .select()
+        .single();
+
+      if (convError) {
+        console.error('Error creating conversation:', convError);
+        return new Response(
+          JSON.stringify({ error: 'Error al crear conversación' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Send initial message from admin
+      const { error: msgError } = await supabase
+        .from('support_messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_id: 'admin',
+          sender_name: 'Administrador',
+          sender_type: 'admin',
+          content: initialMessage,
+        });
+
+      if (msgError) {
+        console.error('Error sending initial message:', msgError);
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, conversation }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Get all conversations for admin
     if (action === 'getAdminConversations') {
       const { data: conversations, error } = await supabase
