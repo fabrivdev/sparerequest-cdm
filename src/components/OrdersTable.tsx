@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -48,6 +48,7 @@ export interface Order {
   order_number?: string | null;
   requested_at?: string | null;
   delivered_at?: string | null;
+  shipping_method?: string;
 }
 
 interface Product {
@@ -69,6 +70,7 @@ interface OrdersTableProps {
   }) => Promise<void>;
   onStatusChange?: (orderId: string, newStatus: string) => void;
   onOrderNumberChange?: (orderId: string, orderNumber: string) => void;
+  onShippingMethodChange?: (orderId: string, shippingMethod: string) => void;
   onBulkStatusChange?: (orderIds: string[], newStatus: string) => Promise<void>;
   onBulkDelete?: (orderIds: string[]) => Promise<void>;
   updatingOrderId?: string | null;
@@ -131,6 +133,7 @@ const OrdersTable = ({
   onUpdate,
   onStatusChange,
   onOrderNumberChange,
+  onShippingMethodChange,
   onBulkStatusChange,
   onBulkDelete,
   updatingOrderId,
@@ -241,6 +244,7 @@ const OrdersTable = ({
         'Precio Total': product?.price ? product.price * order.quantity : '',
         'Sucursal': order.branch_destination,
         'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
+        ...(isAdmin && { 'Método Envío': order.shipping_method === 'maritimo' ? 'Marítimo' : 'Aéreo' }),
         ...(isAdmin && { 'Nro. Pedido': order.order_number || '' }),
         ...(isAdmin && { 'F. Solicitud': order.requested_at ? format(new Date(order.requested_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
         ...(isAdmin && { 'F. Entrega': order.delivered_at ? format(new Date(order.delivered_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
@@ -363,6 +367,7 @@ const OrdersTable = ({
                 <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Actualización</TableHead>}
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs text-center">Envío</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Solicitud</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Entrega</TableHead>}
@@ -451,6 +456,43 @@ const OrdersTable = ({
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
+                      </TableCell>
+                    )}
+                    {/* Admin view: Shipping method selector */}
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant={order.shipping_method === 'aereo' || !order.shipping_method ? 'default' : 'ghost'}
+                                  size="icon"
+                                  className={`h-7 w-7 ${order.shipping_method === 'aereo' || !order.shipping_method ? 'bg-blue-500 hover:bg-blue-600 text-white' : 'text-muted-foreground hover:text-blue-500'}`}
+                                  onClick={() => onShippingMethodChange?.(order.id, 'aereo')}
+                                >
+                                  <Plane className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Aéreo</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant={order.shipping_method === 'maritimo' ? 'default' : 'ghost'}
+                                  size="icon"
+                                  className={`h-7 w-7 ${order.shipping_method === 'maritimo' ? 'bg-cyan-600 hover:bg-cyan-700 text-white' : 'text-muted-foreground hover:text-cyan-600'}`}
+                                  onClick={() => onShippingMethodChange?.(order.id, 'maritimo')}
+                                >
+                                  <Ship className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Marítimo</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
                       </TableCell>
                     )}
                     {/* Admin view: Order number editable field */}

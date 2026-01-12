@@ -12,7 +12,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { action, password, orderId, orderIds, newStatus, orderNumber } = await req.json();
+    const body = await req.json();
+    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod } = body;
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     
@@ -214,6 +215,41 @@ Deno.serve(async (req) => {
         console.error('Error updating order number:', error);
         return new Response(
           JSON.stringify({ error: 'Error al actualizar número de pedido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'updateShippingMethod') {
+      if (!orderId || !shippingMethod) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validMethods = ['aereo', 'maritimo'];
+      if (!validMethods.includes(shippingMethod)) {
+        return new Response(
+          JSON.stringify({ error: 'Método de envío inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ shipping_method: shippingMethod })
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error updating shipping method:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar método de envío' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
