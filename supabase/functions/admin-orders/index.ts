@@ -248,6 +248,13 @@ Deno.serve(async (req) => {
         );
       }
 
+      // First get the order to calculate new price
+      const { data: orderData } = await supabase
+        .from('orders')
+        .select('brand, product_code, quantity')
+        .eq('id', orderId)
+        .single();
+
       const { error } = await supabase
         .from('orders')
         .update({ shipping_method: shippingMethod })
@@ -261,8 +268,28 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Calculate new price based on shipping method
+      let unitPrice = 0;
+      let totalPrice = 0;
+      
+      if (orderData) {
+        const { data: product } = await supabase
+          .from('products')
+          .select('price_aereo, price_maritimo')
+          .eq('brand', orderData.brand)
+          .eq('code', orderData.product_code)
+          .maybeSingle();
+        
+        if (product) {
+          unitPrice = shippingMethod === 'maritimo' 
+            ? Number(product.price_maritimo) || 0 
+            : Number(product.price_aereo) || 0;
+          totalPrice = unitPrice * orderData.quantity;
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, unit_price: unitPrice, total_price: totalPrice }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
