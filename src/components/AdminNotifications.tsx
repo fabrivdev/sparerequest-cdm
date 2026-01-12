@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, DollarSign, Check, CheckCheck } from 'lucide-react';
+import { Bell, AlertTriangle, DollarSign, Check, CheckCheck, Trash2 } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -113,7 +113,23 @@ const AdminNotifications = ({ password }: AdminNotificationsProps) => {
     }
   };
 
+  const handleDeleteReadNotifications = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'deleteReadNotifications', password },
+      });
+
+      if (!error) {
+        setNotifications((prev) => prev.filter((n) => !n.is_read));
+        toast.success('Notificaciones leídas eliminadas');
+      }
+    } catch (err) {
+      console.error('Error deleting read notifications:', err);
+    }
+  };
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const readCount = notifications.filter((n) => n.is_read).length;
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -146,17 +162,30 @@ const AdminNotifications = ({ password }: AdminNotificationsProps) => {
               {unreadCount === 0 ? 'Sin notificaciones nuevas' : `${unreadCount} sin leer`}
             </p>
           </div>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs h-7"
-              onClick={handleMarkAllAsRead}
-            >
-              <CheckCheck className="w-3 h-3 mr-1" />
-              Marcar todas
-            </Button>
-          )}
+          <div className="flex gap-1">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7"
+                onClick={handleMarkAllAsRead}
+              >
+                <CheckCheck className="w-3 h-3 mr-1" />
+                Marcar todas
+              </Button>
+            )}
+            {readCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs h-7 text-destructive hover:text-destructive"
+                onClick={handleDeleteReadNotifications}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Eliminar leídas
+              </Button>
+            )}
+          </div>
         </div>
         
         <div className="max-h-80 overflow-y-auto">
