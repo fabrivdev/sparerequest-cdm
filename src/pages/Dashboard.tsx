@@ -140,6 +140,31 @@ const Dashboard = () => {
     }
   }, [profile, view]);
 
+  // Track user presence for admin to see online users
+  useEffect(() => {
+    if (!user || !profile) return;
+
+    const channel = supabase
+      .channel('online_users')
+      .on('presence', { event: 'sync' }, () => {
+        // We don't need to do anything with the presence state on user side
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({
+            user_id: user.id,
+            user_name: profile.full_name || 'Usuario',
+            branch: profile.branch,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, profile]);
+
   const handleCreateOrder = async (orderData: {
     brand: string;
     productCode: string;

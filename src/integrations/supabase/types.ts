@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_notifications: {
+        Row: {
+          brand: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          product_code: string | null
+          type: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          brand?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          product_code?: string | null
+          type: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          brand?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          product_code?: string | null
+          type?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           branch_destination: string

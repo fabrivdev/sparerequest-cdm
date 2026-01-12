@@ -63,6 +63,8 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [closeAnimation, setCloseAnimation] = useState<'pack' | 'trash' | null>(null);
+  const [notificationSent, setNotificationSent] = useState<string | null>(null);
+  const [productPrice, setProductPrice] = useState<number>(0);
 
   // Update default branch when form opens
   useEffect(() => {
@@ -79,6 +81,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     if (!code.trim() || !selectedBrand) {
       setProductName('');
       setProductNotFound(false);
+      setProductPrice(0);
       return;
     }
 
@@ -87,7 +90,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('name')
+        .select('name, price_aereo, price_maritimo')
         .ilike('code', code.trim())
         .ilike('brand', selectedBrand)
         .maybeSingle();
@@ -95,13 +98,17 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
       if (data && !error) {
         setProductName(data.name);
         setProductNotFound(false);
+        setProductPrice(Number(data.price_aereo) || 0);
+        setNotificationSent(null); // Reset notification flag when product found
       } else {
         setProductName('');
         setProductNotFound(true);
+        setProductPrice(0);
       }
     } catch {
       setProductName('');
       setProductNotFound(true);
+      setProductPrice(0);
     }
     setIsSearching(false);
   }, []);
@@ -115,6 +122,46 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     return () => clearTimeout(timer);
   }, [productCode, brand, searchProductByCodeAndBrand]);
 
+  // Send notification for product not found (debounced)
+  useEffect(() => {
+    if (!productNotFound || !brand || !productCode || productCode.length < 3) return;
+    
+    const notificationKey = `${brand}|${productCode}`;
+    if (notificationSent === notificationKey) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        // Get current user info
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        await supabase.functions.invoke('admin-orders', {
+          body: {
+            action: 'createNotification',
+            type: 'product_not_found',
+            userId: user.id,
+            userName: profile?.full_name || user.email || 'Usuario',
+            brand,
+            productCode,
+            message: `${profile?.full_name || 'Un usuario'} buscó el código "${productCode}" para ${brand} (no existe en el catálogo)`,
+          },
+        });
+
+        setNotificationSent(notificationKey);
+      } catch (err) {
+        console.error('Error sending notification:', err);
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [productNotFound, brand, productCode, notificationSent]);
+
   const resetForm = () => {
     setBrand('');
     setProductCode('');
@@ -126,6 +173,8 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     setObservation('');
     setError(null);
     setIsLoading(false);
+    setNotificationSent(null);
+    setProductPrice(0);
     setCloseAnimation(null);
   };
 
@@ -166,6 +215,34 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
         shippingMethod,
         observation: observation || '',
       });
+
+      // Send notification if product has price 0
+      if (productPrice === 0) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            await supabase.functions.invoke('admin-orders', {
+              body: {
+                action: 'createNotification',
+                type: 'zero_price_order',
+                userId: user.id,
+                userName: profile?.full_name || user.email || 'Usuario',
+                brand,
+                productCode,
+                message: `${profile?.full_name || 'Un usuario'} creó un pedido para ${brand} código "${productCode}" con precio $0`,
+              },
+            });
+          }
+        } catch (err) {
+          console.error('Error sending zero price notification:', err);
+        }
+      }
       
       // Trigger pack animation
       setCloseAnimation('pack');
