@@ -1,9 +1,36 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useEffect } from 'react';
 
 export const useNotificationSound = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
+  const isInitializedRef = useRef(false);
 
-  const playNotificationSound = useCallback(() => {
+  // Initialize audio context on first user interaction
+  useEffect(() => {
+    const initializeAudio = () => {
+      if (!isInitializedRef.current) {
+        try {
+          audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+          isInitializedRef.current = true;
+        } catch (error) {
+          console.log('Could not initialize audio context:', error);
+        }
+      }
+    };
+
+    // Listen for user interaction to enable audio
+    const events = ['click', 'touchstart', 'keydown'];
+    events.forEach(event => {
+      document.addEventListener(event, initializeAudio, { once: true, passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, initializeAudio);
+      });
+    };
+  }, []);
+
+  const playNotificationSound = useCallback(async () => {
     try {
       // Create audio context if needed
       if (!audioContextRef.current) {
@@ -14,7 +41,7 @@ export const useNotificationSound = () => {
       
       // Resume context if suspended (required for some browsers)
       if (ctx.state === 'suspended') {
-        ctx.resume();
+        await ctx.resume();
       }
 
       // Create oscillator for notification sound
@@ -30,7 +57,7 @@ export const useNotificationSound = () => {
 
       // Quick fade in/out for pleasant sound
       gainNode.gain.setValueAtTime(0, ctx.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.05);
+      gainNode.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.05);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
 
       oscillator.start(ctx.currentTime);
@@ -47,7 +74,7 @@ export const useNotificationSound = () => {
       oscillator2.type = 'sine';
       
       gainNode2.gain.setValueAtTime(0, ctx.currentTime + 0.15);
-      gainNode2.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.2);
+      gainNode2.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.2);
       gainNode2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
       
       oscillator2.start(ctx.currentTime + 0.15);

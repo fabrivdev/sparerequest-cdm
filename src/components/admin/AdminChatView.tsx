@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
+import EmojiPicker from '@/components/ui/emoji-picker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -425,6 +426,10 @@ const AdminChatView = ({ conversation, password, onStatusChange, onDelete }: Adm
                 <Image className="h-4 w-4" />
               )}
             </Button>
+            <EmojiPicker 
+              onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)}
+              disabled={sending}
+            />
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
