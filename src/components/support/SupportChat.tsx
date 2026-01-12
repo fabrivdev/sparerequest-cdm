@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Send, ArrowLeft, Image, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { X, Plus, Send, ArrowLeft, Image, Check, CheckCheck, Loader2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -9,7 +9,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import NewConversationModal from './NewConversationModal';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
-import { MessageCircle } from 'lucide-react';
+import EmojiPicker from '@/components/ui/emoji-picker';
 
 interface Conversation {
   id: string;
@@ -385,6 +385,10 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
                       <Image className="h-4 w-4" />
                     )}
                   </Button>
+                  <EmojiPicker 
+                    onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)}
+                    disabled={sending}
+                  />
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
