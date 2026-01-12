@@ -54,7 +54,8 @@ export interface Order {
 interface Product {
   code: string;
   name: string;
-  price: number;
+  price_aereo: number;
+  price_maritimo: number;
 }
 
 interface OrdersTableProps {
@@ -222,7 +223,7 @@ const OrdersTable = ({
     const productCodes = [...new Set(orders.map(o => o.product_code))];
     const { data: products } = await supabase
       .from('products')
-      .select('code, name, price')
+      .select('code, name, price_aereo, price_maritimo')
       .in('code', productCodes);
     
     // Create a map for quick lookup (case-insensitive)
@@ -233,6 +234,10 @@ const OrdersTable = ({
 
     const exportData = orders.map((order) => {
       const product = productMap.get(order.product_code.toLowerCase());
+      // Use price based on shipping method
+      const unitPrice = order.shipping_method === 'maritimo' 
+        ? (product?.price_maritimo || 0) 
+        : (product?.price_aereo || 0);
       return {
         'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
         ...((isAdmin || showUserColumn) && { 'Solicitante': getUserDisplay(order) }),
@@ -240,8 +245,8 @@ const OrdersTable = ({
         'Código': order.product_code,
         'Nombre': product?.name || '',
         'Cantidad': order.quantity,
-        'Precio Unitario': product?.price || '',
-        'Precio Total': product?.price ? product.price * order.quantity : '',
+        'Precio Unitario': unitPrice || '',
+        'Precio Total': unitPrice ? unitPrice * order.quantity : '',
         'Sucursal': order.branch_destination,
         'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
         ...(isAdmin && { 'Método Envío': order.shipping_method === 'maritimo' ? 'Marítimo' : 'Aéreo' }),
