@@ -16,6 +16,11 @@ interface Product {
   price_maritimo: number;
 }
 
+interface ParseResult {
+  products: Product[];
+  productsWithMissingPrices: string[]; // codes with missing/invalid prices
+}
+
 interface ProductCatalogUploadProps {
   onUploadSuccess?: () => void;
 }
@@ -48,7 +53,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
     }
   }, []);
 
-  const parseExcel = (file: File): Promise<Product[]> => {
+  const parseExcel = (file: File): Promise<ParseResult> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -62,22 +67,38 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
 
           // Skip header row - expects 5 columns: Marca, Código, Nombre, AEREO, MARITIMO
           const products: Product[] = [];
+          const productsWithMissingPrices: string[] = [];
+          
           for (let i = 1; i < jsonData.length; i++) {
             const row = jsonData[i];
-            if (row && row.length >= 5) {
+            if (row && row.length >= 3) {
               const brand = String(row[0] || '').trim();
               const code = String(row[1] || '').trim();
               const name = String(row[2] || '').trim();
-              const price_aereo = parseFloat(String(row[3] || '0'));
-              const price_maritimo = parseFloat(String(row[4] || '0'));
+              
+              // Parse prices - treat invalid/empty as 0
+              const rawAereo = row[3];
+              const rawMaritimo = row[4];
+              const price_aereo = typeof rawAereo === 'number' ? rawAereo : parseFloat(String(rawAereo || '0')) || 0;
+              const price_maritimo = typeof rawMaritimo === 'number' ? rawMaritimo : parseFloat(String(rawMaritimo || '0')) || 0;
+              
+              // Track products with missing/zero prices
+              const hasMissingPrice = price_aereo === 0 || price_maritimo === 0 || 
+                rawAereo === '' || rawAereo === null || rawAereo === undefined ||
+                rawMaritimo === '' || rawMaritimo === null || rawMaritimo === undefined ||
+                (typeof rawAereo === 'string' && rawAereo.includes('#')) ||
+                (typeof rawMaritimo === 'string' && rawMaritimo.includes('#'));
 
-              if (brand && code && name && !isNaN(price_aereo) && !isNaN(price_maritimo)) {
+              if (brand && code && name) {
                 products.push({ brand, code, name, price_aereo, price_maritimo });
+                if (hasMissingPrice) {
+                  productsWithMissingPrices.push(code);
+                }
               }
             }
           }
 
-          resolve(products);
+          resolve({ products, productsWithMissingPrices });
         } catch (error) {
           reject(error);
         }
@@ -130,6 +151,21 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
     return { successCount, errorCount };
   };
 
+  const checkProductsWithOrders = async (productCodes: string[]): Promise<string[]> => {
+    if (productCodes.length === 0) return [];
+    
+    // Get distinct product codes from orders
+    const { data: ordersWithProducts } = await supabase
+      .from('orders')
+      .select('product_code')
+      .in('product_code', productCodes);
+    
+    if (!ordersWithProducts) return [];
+    
+    const codesWithOrders = [...new Set(ordersWithProducts.map(o => o.product_code))];
+    return codesWithOrders;
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -144,7 +180,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
     setStatusMessage('Leyendo archivo...');
 
     try {
-      const products = await parseExcel(file);
+      const { products, productsWithMissingPrices } = await parseExcel(file);
 
       if (products.length === 0) {
         toast.error('No se encontraron productos válidos en el archivo');
@@ -161,6 +197,24 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
         toast.success(`Se cargaron ${successCount.toLocaleString()} productos correctamente`);
       } else {
         toast.warning(`Cargados ${successCount.toLocaleString()} productos. ${errorCount.toLocaleString()} fallaron.`);
+      }
+
+      // Check for products with missing prices that have orders
+      if (productsWithMissingPrices.length > 0) {
+        setStatusMessage('Verificando productos con precios faltantes...');
+        const codesWithOrders = await checkProductsWithOrders(productsWithMissingPrices);
+        
+        if (codesWithOrders.length > 0) {
+          toast.warning(
+            `⚠️ ${codesWithOrders.length} producto(s) con precio faltante tienen pedidos: ${codesWithOrders.slice(0, 5).join(', ')}${codesWithOrders.length > 5 ? ` y ${codesWithOrders.length - 5} más` : ''}`,
+            { duration: 10000 }
+          );
+        } else if (productsWithMissingPrices.length > 0) {
+          toast.info(
+            `ℹ️ ${productsWithMissingPrices.length} producto(s) con precio vacío/error (sin pedidos aún)`,
+            { duration: 5000 }
+          );
+        }
       }
 
       // Save catalog info to localStorage
