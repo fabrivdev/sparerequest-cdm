@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod, type, userId, userName, brand: notifBrand, productCode: notifProductCode, message, notificationId } = body;
+    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod, type, userId, userName, brand: notifBrand, productCode: notifProductCode, message, notificationId, conversationId, senderId, senderName, senderType, content, status, readerType } = body;
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -574,6 +574,194 @@ Deno.serve(async (req) => {
 
       return new Response(
         JSON.stringify({ success: true, updated: orderIds.length }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ============ SUPPORT CHAT ACTIONS ============
+
+    // Get all conversations for admin
+    if (action === 'getAdminConversations') {
+      const { data: conversations, error } = await supabase
+        .from('support_conversations')
+        .select('*')
+        .order('last_message_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener conversaciones' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get unread count for each conversation
+      const conversationsWithUnread = await Promise.all(
+        (conversations || []).map(async (conv) => {
+          const { count } = await supabase
+            .from('support_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .eq('sender_type', 'user')
+            .eq('is_read', false);
+
+          return { ...conv, unread_count: count || 0 };
+        })
+      );
+
+      return new Response(
+        JSON.stringify({ conversations: conversationsWithUnread }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get messages for a conversation
+    if (action === 'getConversationMessages') {
+      if (!conversationId) {
+        return new Response(
+          JSON.stringify({ error: 'Falta conversationId' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: messages, error } = await supabase
+        .from('support_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener mensajes' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ messages }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Send message (admin side)
+    if (action === 'sendMessage') {
+      if (!conversationId || !senderId || !senderName || !senderType || !content) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error: msgError } = await supabase
+        .from('support_messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: senderId,
+          sender_name: senderName,
+          sender_type: senderType,
+          content,
+        });
+
+      if (msgError) {
+        console.error('Error sending message:', msgError);
+        return new Response(
+          JSON.stringify({ error: 'Error al enviar mensaje' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Update last_message_at
+      await supabase
+        .from('support_conversations')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', conversationId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update conversation status
+    if (action === 'updateConversationStatus') {
+      if (!conversationId || !status) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('support_conversations')
+        .update({ status })
+        .eq('id', conversationId);
+
+      if (error) {
+        console.error('Error updating conversation status:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar estado' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Mark messages as read
+    if (action === 'markMessagesAsRead') {
+      if (!conversationId || !readerType) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Mark messages from the opposite type as read
+      const senderTypeToMark = readerType === 'admin' ? 'user' : 'admin';
+      
+      const { error } = await supabase
+        .from('support_messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', senderTypeToMark)
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('Error marking messages as read:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al marcar mensajes' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get admin unread count (total unread messages from users)
+    if (action === 'getAdminUnreadCount') {
+      const { count, error } = await supabase
+        .from('support_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('sender_type', 'user')
+        .eq('is_read', false);
+
+      if (error) {
+        console.error('Error getting unread count:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener conteo' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ count: count || 0 }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

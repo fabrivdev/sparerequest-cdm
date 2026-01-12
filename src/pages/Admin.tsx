@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List } from 'lucide-react';
+import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -13,6 +13,8 @@ import AdminDashboard from '@/components/AdminDashboard';
 import LoadingScreen from '@/components/LoadingScreen';
 import OnlineUsersIndicator from '@/components/OnlineUsersIndicator';
 import AdminNotifications from '@/components/AdminNotifications';
+import AdminSupportIndicator from '@/components/AdminSupportIndicator';
+import AdminSupportCenter from '@/components/admin/AdminSupportCenter';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -40,6 +42,7 @@ const Admin = () => {
     observation: '',
   });
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [activeTab, setActiveTab] = useState('orders');
 
   const getAdminSession = () => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -373,6 +376,7 @@ const Admin = () => {
           <div className="flex items-center gap-2">
             <OnlineUsersIndicator users={onlineUsers} />
             <AdminNotifications password={password} />
+            <AdminSupportIndicator password={password} onOpenSupport={() => setActiveTab('support')} />
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Cerrar Sesión
@@ -428,9 +432,9 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* Tabs for Dashboard and Orders */}
-        <Tabs defaultValue="orders" className="space-y-4">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+        {/* Tabs for Dashboard, Orders, and Support */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <List className="w-4 h-4" />
               Pedidos
@@ -438,6 +442,10 @@ const Admin = () => {
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
               Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="support" className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" />
+              Soporte
             </TabsTrigger>
           </TabsList>
 
@@ -490,6 +498,10 @@ const Admin = () => {
               branches={branches}
             />
             <AdminDashboard orders={filteredOrders} />
+          </TabsContent>
+
+          <TabsContent value="support" className="space-y-4">
+            <AdminSupportCenter password={password} />
           </TabsContent>
         </Tabs>
       </main>
