@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Plus, Send, ArrowLeft } from 'lucide-react';
+import { X, Plus, Send, ArrowLeft, Image, Check, CheckCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import NewConversationModal from './NewConversationModal';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
+import { MessageCircle } from 'lucide-react';
 
 interface Conversation {
   id: string;
@@ -24,6 +26,7 @@ interface Message {
   content: string;
   created_at: string;
   is_read: boolean;
+  image_url?: string;
 }
 
 interface SupportChatProps {
@@ -42,7 +45,10 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
   const [newMessage, setNewMessage] = useState('');
   const [isNewConversationOpen, setIsNewConversationOpen] = useState(false);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { playNotificationSound } = useNotificationSound();
 
   useEffect(() => {
     if (isOpen) {
@@ -70,8 +76,22 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
             const newMsg = payload.new as Message;
             setMessages(prev => [...prev, newMsg]);
             if (newMsg.sender_type === 'admin') {
+              playNotificationSound();
               markMessagesAsRead(selectedConversation.id);
             }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'support_messages',
+            filter: `conversation_id=eq.${selectedConversation.id}`,
+          },
+          (payload) => {
+            const updatedMsg = payload.new as Message;
+            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
           }
         )
         .subscribe();
@@ -80,7 +100,7 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
         supabase.removeChannel(channel);
       };
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, playNotificationSound]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -136,8 +156,35 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation || sending) return;
+  const handleImageUpload = async (file: File) => {
+    if (!selectedConversation) return null;
+    
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${selectedConversation.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('support-images')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('support-images')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSendMessage = async (imageUrl?: string) => {
+    if ((!newMessage.trim() && !imageUrl) || !selectedConversation || sending) return;
 
     setSending(true);
     const { error } = await supabase.from('support_messages').insert({
@@ -145,7 +192,8 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
       sender_id: userId,
       sender_name: userName,
       sender_type: 'user',
-      content: newMessage.trim(),
+      content: newMessage.trim() || (imageUrl ? 'Imagen adjunta' : ''),
+      image_url: imageUrl || null,
     });
 
     if (!error) {
@@ -158,6 +206,33 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
       setNewMessage('');
     }
     setSending(false);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se permiten imágenes');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no puede superar 5MB');
+      return;
+    }
+
+    const imageUrl = await handleImageUpload(file);
+    if (imageUrl) {
+      await handleSendMessage(imageUrl);
+    }
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleCreateConversation = async (subject: string, initialMessage: string) => {
@@ -206,6 +281,16 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
     }
   };
 
+  const renderReadStatus = (message: Message) => {
+    if (message.sender_type !== 'user') return null;
+    
+    return message.is_read ? (
+      <CheckCheck className="h-3 w-3 text-blue-500" />
+    ) : (
+      <Check className="h-3 w-3 text-muted-foreground" />
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -252,11 +337,25 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
                           : 'bg-muted'
                       }`}
                     >
-                      <p className="text-sm">{message.content}</p>
+                      {message.image_url && (
+                        <a href={message.image_url} target="_blank" rel="noopener noreferrer">
+                          <img 
+                            src={message.image_url} 
+                            alt="Imagen adjunta" 
+                            className="max-w-full rounded-md mb-2 cursor-pointer hover:opacity-90"
+                          />
+                        </a>
+                      )}
+                      {message.content && message.content !== 'Imagen adjunta' && (
+                        <p className="text-sm">{message.content}</p>
+                      )}
                     </div>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: es })}
-                    </span>
+                    <div className="flex items-center gap-1 mt-1">
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(message.created_at), { addSuffix: true, locale: es })}
+                      </span>
+                      {renderReadStatus(message)}
+                    </div>
                   </div>
                 ))}
                 <div ref={messagesEndRef} />
@@ -267,13 +366,32 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
             {selectedConversation.status !== 'resolved' && (
               <div className="p-4 border-t">
                 <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Image className="h-4 w-4" />
+                    )}
+                  </Button>
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Escribe un mensaje..."
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                   />
-                  <Button size="icon" onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
+                  <Button size="icon" onClick={() => handleSendMessage()} disabled={sending || !newMessage.trim()}>
                     <Send className="h-4 w-4" />
                   </Button>
                 </div>
@@ -330,8 +448,5 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
     </>
   );
 };
-
-// Need to import MessageCircle for the empty state
-import { MessageCircle } from 'lucide-react';
 
 export default SupportChat;

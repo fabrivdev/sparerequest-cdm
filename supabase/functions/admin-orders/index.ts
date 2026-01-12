@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod, type, userId, userName, brand: notifBrand, productCode: notifProductCode, message, notificationId, conversationId, senderId, senderName, senderType, content, status, readerType } = body;
+    const { action, password, orderId, orderIds, newStatus, orderNumber, shippingMethod, type, userId, userName, brand: notifBrand, productCode: notifProductCode, message, notificationId, conversationId, senderId, senderName, senderType, content, status, readerType, imageUrl, fileName, fileBase64, contentType } = body;
     
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -718,9 +718,47 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Upload support image (admin side - uses service role)
+    if (action === 'uploadSupportImage') {
+      if (!fileName || !fileBase64 || !contentType) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Decode base64 to binary
+      const binaryString = atob(fileBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('support-images')
+        .upload(fileName, bytes, { contentType });
+
+      if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        return new Response(
+          JSON.stringify({ error: 'Error al subir imagen' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('support-images')
+        .getPublicUrl(fileName);
+
+      return new Response(
+        JSON.stringify({ success: true, publicUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Send message (admin side)
     if (action === 'sendMessage') {
-      if (!conversationId || !senderId || !senderName || !senderType || !content) {
+      if (!conversationId || !senderId || !senderName || !senderType || (!content && !imageUrl)) {
         return new Response(
           JSON.stringify({ error: 'Faltan parámetros' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -734,7 +772,8 @@ Deno.serve(async (req) => {
           sender_id: senderId,
           sender_name: senderName,
           sender_type: senderType,
-          content,
+          content: content || 'Imagen adjunta',
+          image_url: imageUrl || null,
         });
 
       if (msgError) {
@@ -750,6 +789,41 @@ Deno.serve(async (req) => {
         .from('support_conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversationId);
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Delete conversation and all its messages
+    if (action === 'deleteConversation') {
+      if (!conversationId) {
+        return new Response(
+          JSON.stringify({ error: 'Falta conversationId' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Delete messages first (due to FK constraint)
+      await supabase
+        .from('support_messages')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      // Delete conversation
+      const { error } = await supabase
+        .from('support_conversations')
+        .delete()
+        .eq('id', conversationId);
+
+      if (error) {
+        console.error('Error deleting conversation:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al eliminar conversación' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       return new Response(
         JSON.stringify({ success: true }),

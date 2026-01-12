@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, User, MapPin, Check, Clock, AlertCircle } from 'lucide-react';
+import { Send, User, MapPin, Check, Clock, AlertCircle, Trash2, Image, CheckCheck, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,18 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
 import { formatDistanceToNow, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface Message {
   id: string;
@@ -15,6 +27,7 @@ interface Message {
   content: string;
   created_at: string;
   is_read: boolean;
+  image_url?: string;
 }
 
 interface Conversation {
@@ -31,13 +44,17 @@ interface AdminChatViewProps {
   conversation: Conversation;
   password: string;
   onStatusChange: (conversationId: string, newStatus: string) => void;
+  onDelete?: (conversationId: string) => void;
 }
 
-const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatViewProps) => {
+const AdminChatView = ({ conversation, password, onStatusChange, onDelete }: AdminChatViewProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { playNotificationSound } = useNotificationSound();
 
   useEffect(() => {
     fetchMessages();
@@ -58,8 +75,22 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
           const newMsg = payload.new as Message;
           setMessages(prev => [...prev, newMsg]);
           if (newMsg.sender_type === 'user') {
+            playNotificationSound();
             markMessagesAsRead();
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'support_messages',
+          filter: `conversation_id=eq.${conversation.id}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as Message;
+          setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
         }
       )
       .subscribe();
@@ -67,7 +98,7 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [conversation.id]);
+  }, [conversation.id, playNotificationSound]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -106,8 +137,48 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return;
+  const handleImageUpload = async (file: File) => {
+    setUploadingImage(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `admin/${conversation.id}/${Date.now()}.${fileExt}`;
+      
+      // Admin uses service role through edge function for upload
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: {
+          action: 'uploadSupportImage',
+          password,
+          fileName,
+          fileBase64: await fileToBase64(file),
+          contentType: file.type,
+        },
+      });
+
+      if (error) throw error;
+      return data?.publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleSendMessage = async (imageUrl?: string) => {
+    if ((!newMessage.trim() && !imageUrl) || sending) return;
 
     setSending(true);
     try {
@@ -119,7 +190,8 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
           senderId: 'admin',
           senderName: 'Administrador',
           senderType: 'admin',
-          content: newMessage.trim()
+          content: newMessage.trim() || (imageUrl ? 'Imagen adjunta' : ''),
+          imageUrl: imageUrl || null,
         },
       });
 
@@ -130,6 +202,48 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
       console.error('Error sending message:', err);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Solo se permiten imágenes');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('La imagen no puede superar 5MB');
+      return;
+    }
+
+    const imageUrl = await handleImageUpload(file);
+    if (imageUrl) {
+      await handleSendMessage(imageUrl);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    try {
+      const { error } = await supabase.functions.invoke('admin-orders', {
+        body: {
+          action: 'deleteConversation',
+          password,
+          conversationId: conversation.id,
+        },
+      });
+
+      if (!error && onDelete) {
+        onDelete(conversation.id);
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
     }
   };
 
@@ -149,6 +263,16 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
       case 'resolved': return 'outline';
       default: return 'outline';
     }
+  };
+
+  const renderReadStatus = (message: Message) => {
+    if (message.sender_type !== 'admin') return null;
+    
+    return message.is_read ? (
+      <CheckCheck className="h-3 w-3 text-blue-500" />
+    ) : (
+      <Check className="h-3 w-3 text-muted-foreground" />
+    );
   };
 
   return (
@@ -173,9 +297,32 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
               </div>
             </div>
           </div>
-          <Badge variant={getStatusVariant(conversation.status)}>
-            {getStatusLabel(conversation.status)}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={getStatusVariant(conversation.status)}>
+              {getStatusLabel(conversation.status)}
+            </Badge>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar conversación?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción eliminará la conversación y todos los mensajes de forma permanente.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteConversation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         {/* Status actions */}
@@ -233,7 +380,21 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
                     : 'bg-muted'
                 }`}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                {message.image_url && (
+                  <a href={message.image_url} target="_blank" rel="noopener noreferrer">
+                    <img 
+                      src={message.image_url} 
+                      alt="Imagen adjunta" 
+                      className="max-w-full rounded-md mb-2 cursor-pointer hover:opacity-90"
+                    />
+                  </a>
+                )}
+                {message.content && message.content !== 'Imagen adjunta' && (
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-1 mt-1">
+                {renderReadStatus(message)}
               </div>
             </div>
           ))}
@@ -245,13 +406,32 @@ const AdminChatView = ({ conversation, password, onStatusChange }: AdminChatView
       {conversation.status !== 'resolved' && (
         <div className="p-4 border-t">
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage}
+            >
+              {uploadingImage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Image className="h-4 w-4" />
+              )}
+            </Button>
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Escribe una respuesta..."
               onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             />
-            <Button onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
+            <Button onClick={() => handleSendMessage()} disabled={sending || !newMessage.trim()}>
               <Send className="h-4 w-4 mr-2" />
               Enviar
             </Button>
