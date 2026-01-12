@@ -164,7 +164,12 @@ const Admin = () => {
 
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === orderId ? { ...order, shipping_method: shippingMethod } : order
+          order.id === orderId ? { 
+            ...order, 
+            shipping_method: shippingMethod,
+            unit_price: data.unit_price,
+            total_price: data.total_price
+          } : order
         )
       );
       toast.success('Método de envío actualizado');
