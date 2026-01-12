@@ -26,6 +26,7 @@ export type Database = {
           product_code: string
           quantity: number
           requested_at: string | null
+          shipping_method: string
           status: string
           updated_at: string
           user_id: string
@@ -41,6 +42,7 @@ export type Database = {
           product_code: string
           quantity: number
           requested_at?: string | null
+          shipping_method?: string
           status?: string
           updated_at?: string
           user_id: string
@@ -56,6 +58,7 @@ export type Database = {
           product_code?: string
           quantity?: number
           requested_at?: string | null
+          shipping_method?: string
           status?: string
           updated_at?: string
           user_id?: string

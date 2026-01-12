@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts';
-import { Timer, TrendingUp, MapPin, Users, Package, Tag, DollarSign, UserCheck } from 'lucide-react';
+import { Timer, TrendingUp, MapPin, Users, Package, Tag, DollarSign, UserCheck, Plane, Ship } from 'lucide-react';
 import { Order } from '@/components/OrdersTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -215,14 +215,33 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     return Array.from(monthsWithData).sort((a, b) => a - b);
   }, [orders]);
 
-  // Calculate total value and active sellers
+  // Calculate total value, active sellers, and shipping method stats
   const summaryStats = useMemo(() => {
     const totalValue = orders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     const activeSellers = new Set(orders.map(o => (o as any).user_id || (o as any).user_email)).size;
     const totalUnits = orders.reduce((acc, o) => acc + o.quantity, 0);
     const activeBranches = new Set(orders.map(o => o.branch_destination)).size;
     
-    return { totalValue, activeSellers, totalUnits, activeBranches };
+    // Shipping method stats
+    const aereoOrders = orders.filter(o => (o as any).shipping_method === 'aereo' || !(o as any).shipping_method);
+    const maritimoOrders = orders.filter(o => (o as any).shipping_method === 'maritimo');
+    const aereoUnits = aereoOrders.reduce((sum, o) => sum + o.quantity, 0);
+    const maritimoUnits = maritimoOrders.reduce((sum, o) => sum + o.quantity, 0);
+    const aereoValue = aereoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const maritimoValue = maritimoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    
+    return { 
+      totalValue, 
+      activeSellers, 
+      totalUnits, 
+      activeBranches,
+      aereoCount: aereoOrders.length,
+      maritimoCount: maritimoOrders.length,
+      aereoUnits,
+      maritimoUnits,
+      aereoValue,
+      maritimoValue
+    };
   }, [orders]);
 
   const formatHours = (hours: number) => {
@@ -518,6 +537,55 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Shipping Method Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+                <Plane className="w-7 h-7 text-blue-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Envíos Aéreos</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20 mt-1" />
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-foreground">{summaryStats.aereoCount} pedidos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {summaryStats.aereoUnits.toLocaleString()} unidades • ${summaryStats.aereoValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-cyan-500/10 rounded-2xl flex items-center justify-center">
+                <Ship className="w-7 h-7 text-cyan-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Envíos Marítimos</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20 mt-1" />
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-foreground">{summaryStats.maritimoCount} pedidos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {summaryStats.maritimoUnits.toLocaleString()} unidades • ${summaryStats.maritimoValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

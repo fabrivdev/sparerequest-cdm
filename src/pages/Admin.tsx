@@ -151,6 +151,28 @@ const Admin = () => {
     }
   };
 
+  const handleShippingMethodChange = async (orderId: string, shippingMethod: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'updateShippingMethod', password, orderId, shippingMethod },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al actualizar');
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, shipping_method: shippingMethod } : order
+        )
+      );
+      toast.success('Método de envío actualizado');
+    } catch (err) {
+      toast.error('Error al actualizar');
+    }
+  };
+
   const handleBulkStatusChange = async (newStatus: string, orderNumber?: string) => {
     // Validate on frontend that 'entregado' requires order_number for all selected
     if (newStatus === 'entregado') {
@@ -388,6 +410,7 @@ const Admin = () => {
               isAdmin
               onStatusChange={handleStatusChange}
               onOrderNumberChange={handleOrderNumberChange}
+              onShippingMethodChange={handleShippingMethodChange}
               updatingOrderId={updatingOrderId}
               showExport
               selectable
