@@ -10,6 +10,7 @@ import ProfileSetup from '@/components/ProfileSetup';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import ViewToggle from '@/components/ViewToggle';
 import LoadingScreen from '@/components/LoadingScreen';
+import SupportButton from '@/components/support/SupportButton';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -363,6 +364,15 @@ const Dashboard = () => {
           onClose={() => setShowProfileEdit(false)}
           profile={profile}
           onUpdate={handleProfileUpdate}
+        />
+      )}
+
+      {/* Support Chat Button */}
+      {profile && user && (
+        <SupportButton
+          userId={user.id}
+          userName={profile.full_name || 'Usuario'}
+          branch={profile.branch}
         />
       )}
     </div>
