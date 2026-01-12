@@ -145,6 +145,7 @@ const Dashboard = () => {
     productCode: string;
     quantity: number;
     branchDestination: string;
+    shippingMethod: string;
     observation: string;
   }) => {
     if (!user) return;
@@ -155,6 +156,7 @@ const Dashboard = () => {
       product_code: orderData.productCode,
       quantity: orderData.quantity,
       branch_destination: orderData.branchDestination,
+      shipping_method: orderData.shippingMethod,
       observation: orderData.observation || null,
     });
 
