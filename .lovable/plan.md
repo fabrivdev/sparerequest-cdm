@@ -1,15 +1,14 @@
 
-# Plan de Implementación: Nuevas Funcionalidades del Sistema de Pedidos
+# Plan: Mejoras en la Gestión de Pedidos
 
-## Resumen de los Cambios Solicitados
+## Resumen de Cambios Solicitados
 
-1. **Agregar opción de envío terrestre** con icono de camión
-2. **Adaptar todos los informes** a este nuevo dato
-3. **Agregar configuración de admin** para proveedores (ej: CLAAS-ARG)
-4. **Agregar dos nuevos estados**: "Pte. de envío" y "Cancelado"
-5. **Actualizar flujo de estados**: Solicitado → Pte. de envío → Entregado (Cancelado desde cualquier estado)
-6. **Mostrar número de pedido a usuarios** una vez asignado por admin
-7. **Vista de pedidos entregados** con opción de facturación para usuarios
+1. **Mostrar Nro. Pedido en "Mis Pedidos"** - No solo en Entregados
+2. **Validar cantidad facturada** - No puede superar la cantidad pedida
+3. **Nuevo campo "Destino del pedido"** al crear - Cliente, Stock, o Ambos
+4. **Lógica de facturación inteligente**:
+   - Si destino = "Stock" -> se marca automáticamente como facturado
+   - Si destino = "Cliente" o "Ambos" -> mostrar icono de alerta (!) hasta que se complete la facturación
 
 ---
 
@@ -17,212 +16,200 @@
 
 ### Migración SQL
 ```sql
--- 1. Agregar columnas de facturación a la tabla orders
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_invoiced boolean DEFAULT false;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_number text;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoiced_quantity integer;
-ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_observation text;
-
--- 2. Crear tabla de configuración de proveedores
-CREATE TABLE IF NOT EXISTS providers (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  name text NOT NULL UNIQUE,
-  color text NOT NULL DEFAULT '#888888',
-  text_color text NOT NULL DEFAULT 'text-white',
-  is_active boolean NOT NULL DEFAULT true,
-  created_at timestamp with time zone DEFAULT now() NOT NULL,
-  updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
--- Insertar proveedores existentes
-INSERT INTO providers (name, color, text_color) VALUES 
-  ('CLAAS', '#B4C618', 'text-black'),
-  ('HORSCH', '#A01B1B', 'text-white')
-ON CONFLICT (name) DO NOTHING;
-
--- Habilitar RLS en providers
-ALTER TABLE providers ENABLE ROW LEVEL SECURITY;
-
--- Política de lectura para todos los usuarios autenticados
-CREATE POLICY "Authenticated users can view providers" ON providers
-FOR SELECT USING (true);
-
--- Política para admin (via service role)
-CREATE POLICY "Service role can manage providers" ON providers
-FOR ALL USING (true) WITH CHECK (true);
+-- Agregar columna para tipo de destino del pedido
+ALTER TABLE orders 
+ADD COLUMN IF NOT EXISTS order_destination text 
+NOT NULL DEFAULT 'cliente'
+CHECK (order_destination IN ('cliente', 'stock', 'ambos'));
 ```
 
 ---
 
 ## Arquitectura de Cambios
 
-### 1. Nuevo Método de Envío: Terrestre
+### 1. Mostrar Número de Pedido en Vista de Usuario
 
-**Archivos a modificar:**
-- `src/components/OrderForm.tsx` - Agregar botón "Terrestre" con icono de camión
-- `src/components/OrdersTable.tsx` - Mostrar icono de camión para envío terrestre
-- `src/components/OrderEditModal.tsx` - Incluir opción terrestre en edición
-- `src/components/BulkActionsBar.tsx` - Agregar opción de envío terrestre en acciones masivas
-- `src/components/AdminDashboard.tsx` - Agregar estadísticas de envío terrestre
-- `supabase/functions/admin-orders/index.ts` - Validar nuevo método de envío
+**Archivo:** `src/components/OrdersTable.tsx`
 
-**Cambios visuales:**
-- Usar icono `Truck` de lucide-react
-- Color: Naranja (#F97316) para diferenciarlo de aéreo (azul) y marítimo (cian)
+Cambios:
+- Agregar columna "Nro. Pedido" en la vista de usuario (no admin)
+- Mostrar el valor de `order_number` cuando exista, o "-" si no
+- Agregar la columna en la vista móvil también
 
-### 2. Nuevos Estados del Pedido
-
-**Estados actuales:** `pending` → `solicitado` → `entregado`
-
-**Estados nuevos:** 
-- `pending` (Pendiente)
-- `solicitado` (Solicitado)
-- `pte_envio` (Pte. de envío) - NUEVO
-- `entregado` (Entregado)
-- `cancelado` (Cancelado) - NUEVO
-
-**Flujo:**
-```text
-pending → solicitado → pte_envio → entregado
-           ↓            ↓           ↓
-        cancelado    cancelado   cancelado
-```
-
-**Archivos a modificar:**
-- `src/components/OrdersTable.tsx` - Agregar colores para nuevos estados
-- `src/components/OrderFilters.tsx` - Agregar filtros para nuevos estados
-- `src/components/BulkActionsBar.tsx` - Agregar opciones de estado
-- `src/components/OrderDetailModal.tsx` - Mostrar nuevos estados
-- `src/pages/Admin.tsx` - Actualizar estadísticas con nuevos estados
-- `supabase/functions/admin-orders/index.ts` - Validar transiciones de estado
-
-**Colores propuestos:**
-- `pte_envio`: Azul (bg-blue-500/10 text-blue-600)
-- `cancelado`: Gris (bg-gray-500/10 text-gray-600)
-
-### 3. Panel de Configuración Admin
-
-**Nuevo componente:** `src/components/AdminSettings.tsx`
-
-**Funcionalidades:**
-- CRUD de proveedores (agregar, editar, eliminar)
-- Cada proveedor tiene: nombre, color, color de texto, estado activo
-
-**Integración:**
-- Nueva pestaña "Configuración" en Admin.tsx
-- Los proveedores se cargan dinámicamente en OrderForm y OrdersTable
-
-**Edge function updates:**
-- Agregar acciones: `getProviders`, `createProvider`, `updateProvider`, `deleteProvider`
-
-### 4. Mostrar Número de Pedido a Usuarios
-
-**Archivos a modificar:**
-- `src/components/OrdersTable.tsx` - Agregar columna "Nro. Pedido" para usuarios (solo lectura)
-- `src/components/OrderDetailModal.tsx` - Mostrar número de pedido en modal de detalle
-
-### 5. Vista de Pedidos Entregados con Facturación
-
-**Nuevo componente:** `src/components/DeliveredOrdersView.tsx`
-
-**Funcionalidades:**
-- Tabla de pedidos con status `entregado`
-- Checkbox "¿Facturado al cliente?"
-- Campos condicionales: número de factura, cantidad facturada, observación
-- Botón guardar cambios de facturación
-
-**Integración en Dashboard:**
-- Nueva opción en ViewToggle: "Entregados"
-- Filtro automático para mostrar solo pedidos entregados
-
-**Edge function updates:**
-- Nueva acción: `updateInvoiceInfo` - Para guardar datos de facturación
+**Ubicación en el código:**
+- Línea ~376: Agregar `<TableHead>` para "Nro. Pedido" (cuando `!isAdmin`)
+- Agregar la celda correspondiente en el body de la tabla
 
 ---
 
-## Detalles Técnicos
+### 2. Validación de Cantidad Facturada
 
-### Constantes de Estados
-```typescript
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pendiente', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
-  { value: 'solicitado', label: 'Solicitado', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
-  { value: 'pte_envio', label: 'Pte. de envío', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
-  { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
-];
-```
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
 
-### Constantes de Métodos de Envío
-```typescript
-const SHIPPING_METHODS = [
-  { value: 'aereo', label: 'Aéreo', icon: Plane, color: 'blue-500' },
-  { value: 'maritimo', label: 'Marítimo', icon: Ship, color: 'cyan-600' },
-  { value: 'terrestre', label: 'Terrestre', icon: Truck, color: 'orange-500' },
-];
-```
+Cambios en `handleSaveInvoice`:
+- Validar que `invoicedQuantity` no sea mayor que `order.quantity`
+- Mostrar mensaje de error si se excede
 
-### Interface de Facturación
 ```typescript
-interface InvoiceData {
-  is_invoiced: boolean;
-  invoice_number: string | null;
-  invoiced_quantity: number | null;
-  invoice_observation: string | null;
+if (modalData.isInvoiced) {
+  const qty = parseInt(modalData.invoicedQuantity) || 0;
+  if (qty > modalData.order.quantity) {
+    toast.error(`La cantidad facturada no puede superar ${modalData.order.quantity}`);
+    return;
+  }
 }
 ```
 
 ---
 
-## Orden de Implementación
+### 3. Nuevo Campo "Destino del Pedido" en OrderForm
 
-1. **Fase 1: Base de Datos**
-   - Ejecutar migración SQL para nuevas columnas y tabla de proveedores
+**Archivo:** `src/components/OrderForm.tsx`
 
-2. **Fase 2: Envío Terrestre**
-   - Actualizar OrderForm, OrdersTable, OrderEditModal
-   - Actualizar BulkActionsBar y AdminDashboard
-   - Actualizar edge function
+Cambios:
+- Agregar estado `orderDestination` con valores: `'cliente' | 'stock' | 'ambos'`
+- Agregar selector visual con 3 botones (similar al método de envío)
+- Incluir iconos: `User` (Cliente), `Warehouse` (Stock), `Users` (Ambos)
+- Actualizar la interfaz `OrderFormProps` para incluir el nuevo campo
+- Actualizar el schema de validación
 
-3. **Fase 3: Nuevos Estados**
-   - Actualizar todas las constantes de estado
-   - Modificar validaciones de transición en edge function
-   - Actualizar UI en todos los componentes afectados
-
-4. **Fase 4: Configuración de Proveedores**
-   - Crear AdminSettings component
-   - Agregar acciones en edge function
-   - Integrar en Admin.tsx
-
-5. **Fase 5: Número de Pedido para Usuarios**
-   - Actualizar OrdersTable para mostrar columna
-   - Actualizar OrderDetailModal
-
-6. **Fase 6: Vista de Facturación**
-   - Crear DeliveredOrdersView component
-   - Agregar nueva vista en Dashboard
-   - Implementar lógica de guardado de facturación
+Diseño visual (3 botones):
+| Cliente | Stock | Ambos |
+|---------|-------|-------|
+| Usuario | Almacén | Ambos iconos |
 
 ---
 
-## Archivos a Crear
+### 4. Actualizar Dashboard para Pasar el Nuevo Campo
 
-| Archivo | Descripción |
-|---------|-------------|
-| `src/components/AdminSettings.tsx` | Panel de configuración para proveedores |
-| `src/components/DeliveredOrdersView.tsx` | Vista de pedidos entregados con facturación |
+**Archivo:** `src/pages/Dashboard.tsx`
+
+Cambios en `handleCreateOrder`:
+- Incluir `orderDestination` en el insert a la base de datos
+
+---
+
+### 5. Lógica de Facturación Automática para Stock
+
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
+
+Cambios:
+- Agregar lógica para determinar si necesita facturación:
+  - `order_destination = 'stock'` -> automáticamente "facturado" (sin necesidad de acción)
+  - `order_destination = 'cliente' | 'ambos'` -> requiere que el usuario complete la facturación
+
+Indicador visual:
+- Si `order_destination` es 'cliente' o 'ambos' Y `is_invoiced` es false:
+  - Mostrar icono `AlertTriangle` (!) en amarillo junto a "No" en columna Facturado
+- Si `order_destination` es 'stock':
+  - Mostrar Badge "N/A" o "Stock" en gris (no requiere facturación)
+
+---
+
+### 6. Actualizar Tipo Order
+
+**Archivo:** `src/components/OrdersTable.tsx` (interfaz Order)
+
+Agregar:
+```typescript
+order_destination?: 'cliente' | 'stock' | 'ambos';
+```
+
+---
+
+### 7. Mostrar Destino en Vista de Entregados
+
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
+
+- Agregar columna "Destino" que muestre Cliente/Stock/Ambos
+- Usar badges con colores distintivos:
+  - Cliente: Azul
+  - Stock: Verde
+  - Ambos: Púrpura
+
+---
+
+### 8. Actualizar Modal de Detalle de Pedido
+
+**Archivo:** `src/components/OrderDetailModal.tsx`
+
+- Mostrar el campo "Nro. Pedido" cuando exista
+- Mostrar el campo "Destino" (Cliente/Stock/Ambos)
+
+---
+
+## Flujo de Usuario Actualizado
+
+```text
+CREAR PEDIDO:
+Usuario → Selecciona Marca, Código, Cantidad, Sucursal, Envío
+       → Nuevo: Selecciona Destino (Cliente/Stock/Ambos)
+       → Guarda pedido
+
+VER MIS PEDIDOS:
+Usuario → Ve tabla con nueva columna "Nro. Pedido" (solo lectura)
+       → Puede ver el número asignado por admin
+
+PEDIDOS ENTREGADOS:
+Si Destino = Stock:
+  → Se muestra como "N/A" en facturación (no requiere acción)
+  
+Si Destino = Cliente o Ambos:
+  → Si is_invoiced = false: Icono de alerta (!) amarillo
+  → Usuario debe completar datos de factura
+  → Validación: cantidad facturada <= cantidad pedida
+```
+
+---
 
 ## Archivos a Modificar
 
 | Archivo | Cambios |
 |---------|---------|
-| `src/components/OrderForm.tsx` | Agregar envío terrestre, cargar proveedores dinámicos |
-| `src/components/OrdersTable.tsx` | Nuevos estados, icono terrestre, columna nro pedido |
-| `src/components/OrderEditModal.tsx` | Agregar opción terrestre |
-| `src/components/OrderFilters.tsx` | Agregar filtros para nuevos estados |
-| `src/components/OrderDetailModal.tsx` | Mostrar nuevos estados y nro pedido |
-| `src/components/BulkActionsBar.tsx` | Nuevos estados y envío terrestre |
-| `src/components/AdminDashboard.tsx` | Estadísticas de terrestre y nuevos estados |
-| `src/pages/Admin.tsx` | Nueva pestaña configuración, stats nuevos estados |
-| `src/pages/Dashboard.tsx` | Nueva vista "Entregados" |
-| `supabase/functions/admin-orders/index.ts` | Nuevas acciones y validaciones |
+| `src/components/OrderForm.tsx` | Agregar selector de destino (Cliente/Stock/Ambos) |
+| `src/components/OrdersTable.tsx` | Mostrar columna "Nro. Pedido" para usuarios |
+| `src/components/DeliveredOrdersView.tsx` | Validar cantidad, lógica stock vs cliente, icono alerta |
+| `src/components/OrderDetailModal.tsx` | Mostrar Nro. Pedido y Destino |
+| `src/components/OrderEditModal.tsx` | Agregar edición del campo Destino |
+| `src/pages/Dashboard.tsx` | Pasar orderDestination al crear pedido |
+
+---
+
+## Constantes de Destino
+
+```typescript
+const ORDER_DESTINATIONS = [
+  { value: 'cliente', label: 'Cliente', icon: User, color: 'blue-500' },
+  { value: 'stock', label: 'Stock', icon: Warehouse, color: 'green-500' },
+  { value: 'ambos', label: 'Ambos', icon: Users, color: 'purple-500' },
+];
+```
+
+---
+
+## Resumen Visual
+
+### Vista "Mis Pedidos" - Nueva columna
+
+| Fecha | Marca | Código | Cant. | Sucursal | Estado | **Nro. Pedido** | Actualización |
+|-------|-------|--------|-------|----------|--------|-----------------|---------------|
+
+### Vista "Entregados" - Indicadores
+
+| Entrega | Nro. Pedido | Marca | Código | Cant. | **Destino** | Facturado | Nro. Factura |
+|---------|-------------|-------|--------|-------|-------------|-----------|--------------|
+| 25/01   | ORD-001     | CLAAS | ABC    | 10    | Cliente     | ⚠️ No     | -            |
+| 24/01   | ORD-002     | HORSCH| XYZ    | 5     | Stock       | N/A       | -            |
+
+### Formulario Nuevo Pedido - Nuevo campo
+
+```
+┌──────────────────────────────────────────┐
+│  Destino del Pedido *                    │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ │
+│  │ 👤       │ │ 🏭       │ │ 👥       │ │
+│  │ Cliente  │ │ Stock    │ │ Ambos    │ │
+│  └──────────┘ └──────────┘ └──────────┘ │
+└──────────────────────────────────────────┘
+```
+
