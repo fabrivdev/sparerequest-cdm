@@ -80,6 +80,7 @@ export type Database = {
           brand: string
           created_at: string
           delivered_at: string | null
+          estimated_delivery_date: string | null
           id: string
           invoice_number: string | null
           invoice_observation: string | null
@@ -102,6 +103,7 @@ export type Database = {
           brand: string
           created_at?: string
           delivered_at?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           invoice_number?: string | null
           invoice_observation?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           brand?: string
           created_at?: string
           delivered_at?: string | null
+          estimated_delivery_date?: string | null
           id?: string
           invoice_number?: string | null
           invoice_observation?: string | null

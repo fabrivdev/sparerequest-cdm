@@ -337,6 +337,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'updateOrderNumber') {
+      const { estimatedDeliveryDate } = body;
+      
       if (!orderId) {
         return new Response(
           JSON.stringify({ error: 'Faltan parámetros' }),
@@ -344,9 +346,14 @@ Deno.serve(async (req) => {
         );
       }
 
+      const updateData: Record<string, any> = { 
+        order_number: orderNumber || null,
+        estimated_delivery_date: estimatedDeliveryDate || null
+      };
+
       const { error } = await supabase
         .from('orders')
-        .update({ order_number: orderNumber || null })
+        .update(updateData)
         .eq('id', orderId);
 
       if (error) {
@@ -426,6 +433,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'bulkUpdateStatus') {
+      const { estimatedDeliveryDate } = body;
+      
       if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0 || !newStatus) {
         return new Response(
           JSON.stringify({ error: 'Faltan parámetros' }),
@@ -466,6 +475,7 @@ Deno.serve(async (req) => {
         updateData.requested_at = null;
         updateData.delivered_at = null;
         updateData.order_number = null;
+        updateData.estimated_delivery_date = null;
       } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
         // Clear delivered_at when going back to solicitado
@@ -473,12 +483,14 @@ Deno.serve(async (req) => {
         // orderNumber is required for solicitado (validated on frontend)
         if (orderNumber && orderNumber.trim() !== '') {
           updateData.order_number = orderNumber.trim();
+          updateData.estimated_delivery_date = estimatedDeliveryDate || null;
         }
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
         // orderNumber is required (validated before this point)
         if (orderNumber && orderNumber.trim() !== '') {
           updateData.order_number = orderNumber.trim();
+          updateData.estimated_delivery_date = estimatedDeliveryDate || null;
         }
         // For orders jumping directly to entregado, we need to update requested_at individually
         const { data: ordersWithoutRequested } = await supabase
