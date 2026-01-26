@@ -54,6 +54,7 @@ export interface Order {
   invoice_number?: string | null;
   invoiced_quantity?: number | null;
   invoice_observation?: string | null;
+  not_invoiced_reason?: string | null;
 }
 
 interface Product {

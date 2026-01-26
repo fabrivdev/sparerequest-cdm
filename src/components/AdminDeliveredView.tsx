@@ -241,12 +241,13 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
                   <TableHead className="text-xs">Nro. Factura</TableHead>
                   <TableHead className="text-xs text-center">Cant. Fact.</TableHead>
                   <TableHead className="text-xs">Obs. Factura</TableHead>
+                  <TableHead className="text-xs">Motivo No Fact.</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {deliveredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={14} className="text-center py-8 text-muted-foreground">
                       No hay pedidos entregados
                     </TableCell>
                   </TableRow>
@@ -334,6 +335,24 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
                       </TableCell>
                       <TableCell className="text-xs max-w-[150px] truncate">
                         {order.invoice_observation || '-'}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[150px]">
+                        {order.order_destination !== 'stock' && !order.is_invoiced && order.not_invoiced_reason ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block cursor-help text-orange-600">
+                                  {order.not_invoiced_reason}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">{order.not_invoiced_reason}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
