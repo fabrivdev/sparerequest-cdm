@@ -1,11 +1,10 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users } from 'lucide-react';
+import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -36,10 +35,11 @@ interface DeliveredOrdersViewProps {
 
 interface InvoiceModalData {
   order: Order;
-  isInvoiced: boolean;
+  invoiceChoice: 'yes' | 'no' | null;
   invoiceNumber: string;
   invoicedQuantity: string;
   invoiceObservation: string;
+  notInvoicedReason: string;
 }
 
 const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => {
@@ -52,25 +52,38 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
   }, [orders]);
 
   const openInvoiceModal = (order: Order) => {
+    // Determine initial choice based on existing data
+    let initialChoice: 'yes' | 'no' | null = null;
+    if (order.is_invoiced) {
+      initialChoice = 'yes';
+    } else if (order.not_invoiced_reason) {
+      initialChoice = 'no';
+    }
+
     setModalData({
       order,
-      isInvoiced: (order as any).is_invoiced || false,
-      invoiceNumber: (order as any).invoice_number || '',
-      invoicedQuantity: (order as any).invoiced_quantity?.toString() || order.quantity.toString(),
-      invoiceObservation: (order as any).invoice_observation || '',
+      invoiceChoice: initialChoice,
+      invoiceNumber: order.invoice_number || '',
+      invoicedQuantity: order.invoiced_quantity?.toString() || order.quantity.toString(),
+      invoiceObservation: order.invoice_observation || '',
+      notInvoicedReason: order.not_invoiced_reason || '',
     });
   };
 
   const handleSaveInvoice = async () => {
     if (!modalData) return;
 
-    if (modalData.isInvoiced && !modalData.invoiceNumber.trim()) {
-      toast.error('Ingresa el número de factura');
+    // Validate based on choice
+    if (modalData.invoiceChoice === null) {
+      toast.error('Selecciona si fue facturado o no');
       return;
     }
 
-    // Validate invoiced quantity doesn't exceed ordered quantity
-    if (modalData.isInvoiced) {
+    if (modalData.invoiceChoice === 'yes') {
+      if (!modalData.invoiceNumber.trim()) {
+        toast.error('Ingresa el número de factura');
+        return;
+      }
       const qty = parseInt(modalData.invoicedQuantity) || 0;
       if (qty > modalData.order.quantity) {
         toast.error(`La cantidad facturada no puede superar ${modalData.order.quantity}`);
@@ -78,17 +91,35 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
       }
     }
 
+    if (modalData.invoiceChoice === 'no') {
+      if (!modalData.notInvoicedReason.trim()) {
+        toast.error('Ingresa el motivo de no facturación');
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     try {
+      const updateData = modalData.invoiceChoice === 'yes'
+        ? {
+            is_invoiced: true,
+            invoice_number: modalData.invoiceNumber.trim(),
+            invoiced_quantity: parseInt(modalData.invoicedQuantity) || null,
+            invoice_observation: modalData.invoiceObservation.trim() || null,
+            not_invoiced_reason: null,
+          }
+        : {
+            is_invoiced: false,
+            invoice_number: null,
+            invoiced_quantity: null,
+            invoice_observation: null,
+            not_invoiced_reason: modalData.notInvoicedReason.trim(),
+          };
+
       const { error } = await supabase
         .from('orders')
-        .update({
-          is_invoiced: modalData.isInvoiced,
-          invoice_number: modalData.isInvoiced ? modalData.invoiceNumber.trim() : null,
-          invoiced_quantity: modalData.isInvoiced ? parseInt(modalData.invoicedQuantity) || null : null,
-          invoice_observation: modalData.isInvoiced ? modalData.invoiceObservation.trim() || null : null,
-        })
+        .update(updateData)
         .eq('id', modalData.order.id);
 
       if (error) {
@@ -262,20 +293,33 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
 
           {modalData && (
             <div className="space-y-4 py-4">
-              <div className="flex items-center space-x-3">
-                <Checkbox
-                  id="is-invoiced"
-                  checked={modalData.isInvoiced}
-                  onCheckedChange={(checked) =>
-                    setModalData({ ...modalData, isInvoiced: !!checked })
-                  }
-                />
-                <Label htmlFor="is-invoiced" className="font-medium">
-                  ¿Facturado al cliente?
-                </Label>
+              {/* Yes/No Toggle Buttons */}
+              <div className="space-y-2">
+                <Label className="font-medium">¿Facturado al cliente?</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={modalData.invoiceChoice === 'yes' ? 'default' : 'outline'}
+                    className={`flex-1 gap-2 ${modalData.invoiceChoice === 'yes' ? 'bg-green-600 hover:bg-green-700' : ''}`}
+                    onClick={() => setModalData({ ...modalData, invoiceChoice: 'yes' })}
+                  >
+                    <Check className="w-4 h-4" />
+                    Sí
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={modalData.invoiceChoice === 'no' ? 'default' : 'outline'}
+                    className={`flex-1 gap-2 ${modalData.invoiceChoice === 'no' ? 'bg-red-600 hover:bg-red-700' : ''}`}
+                    onClick={() => setModalData({ ...modalData, invoiceChoice: 'no' })}
+                  >
+                    <X className="w-4 h-4" />
+                    No
+                  </Button>
+                </div>
               </div>
 
-              {modalData.isInvoiced && (
+              {/* Fields when "Yes" is selected */}
+              {modalData.invoiceChoice === 'yes' && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="invoice-number">
@@ -322,6 +366,24 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                     />
                   </div>
                 </>
+              )}
+
+              {/* Field when "No" is selected */}
+              {modalData.invoiceChoice === 'no' && (
+                <div className="space-y-2">
+                  <Label htmlFor="not-invoiced-reason">
+                    Motivo de no facturación <span className="text-destructive">*</span>
+                  </Label>
+                  <Textarea
+                    id="not-invoiced-reason"
+                    value={modalData.notInvoicedReason}
+                    onChange={(e) =>
+                      setModalData({ ...modalData, notInvoicedReason: e.target.value })
+                    }
+                    placeholder="Ej: Cliente no requiere factura, muestra gratuita, etc."
+                    className="min-h-[80px] resize-none"
+                  />
+                </div>
               )}
             </div>
           )}
