@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { User, Loader2, MapPin } from 'lucide-react';
-import { BRANCHES } from '@/constants/branches';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,11 +19,34 @@ interface ProfileSetupProps {
   onComplete: () => void;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 const ProfileSetup = ({ userId, onComplete }: ProfileSetupProps) => {
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      
+      if (data && !error) {
+        setBranches(data);
+      }
+    };
+    
+    fetchBranches();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,9 +134,9 @@ const ProfileSetup = ({ userId, onComplete }: ProfileSetupProps) => {
                       <SelectValue placeholder="Selecciona tu sucursal" />
                     </SelectTrigger>
                     <SelectContent>
-                      {BRANCHES.map((b) => (
-                        <SelectItem key={b} value={b}>
-                          {b}
+                      {branches.map((b) => (
+                        <SelectItem key={b.id} value={b.name}>
+                          {b.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
