@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CalendarIcon, Search, X, Filter, ChevronDown, ChevronUp } from 'lucide-react';
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface OrderFiltersState {
   dateFrom: Date | undefined;
@@ -31,13 +32,18 @@ export interface OrderFiltersState {
   observation: string;
 }
 
+interface Provider {
+  id: string;
+  name: string;
+  color: string;
+  is_active: boolean;
+}
+
 interface OrderFiltersProps {
   filters: OrderFiltersState;
   onFiltersChange: (filters: OrderFiltersState) => void;
   branches: string[];
 }
-
-const BRAND_OPTIONS = ['CLAAS', 'HORSCH'];
 const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos' },
   { value: 'pending', label: 'Pendiente' },
@@ -49,6 +55,24 @@ const STATUS_OPTIONS = [
 
 const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [providers, setProviders] = useState<Provider[]>([]);
+
+  // Fetch providers from database
+  useEffect(() => {
+    const fetchProviders = async () => {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      
+      if (data && !error) {
+        setProviders(data);
+      }
+    };
+    
+    fetchProviders();
+  }, []);
 
   const updateFilter = (key: keyof OrderFiltersState, value: any) => {
     onFiltersChange({ ...filters, [key]: value });
@@ -185,8 +209,16 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
-                    {BRAND_OPTIONS.map((brand) => (
-                      <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                    {providers.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.name}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-2.5 h-2.5 rounded-full" 
+                            style={{ backgroundColor: provider.color }}
+                          />
+                          {provider.name}
+                        </div>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -341,8 +373,16 @@ const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps)
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {BRAND_OPTIONS.map((brand) => (
-                  <SelectItem key={brand} value={brand}>{brand}</SelectItem>
+                {providers.map((provider) => (
+                  <SelectItem key={provider.id} value={provider.name}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2.5 h-2.5 rounded-full" 
+                        style={{ backgroundColor: provider.color }}
+                      />
+                      {provider.name}
+                    </div>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
