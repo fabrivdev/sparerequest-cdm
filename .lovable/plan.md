@@ -1,172 +1,188 @@
 
-# Plan: Mejoras en Facturación y Lógica de Estados
+# Plan: Facturación Masiva y Mejoras en Vista de Entregados
 
-## Resumen de Cambios
-
-1. **Modal de facturación con opciones Sí/No**
-   - Cambiar checkbox por botones de selección (Sí / No)
-   - Si es "Sí": mostrar campos de número de factura, cantidad, observación
-   - Si es "No": mostrar campo de "Motivo de no facturación"
-
-2. **Corregir lógica de cambio de estados del admin**
-   - Cuando retrocede a "pending": limpiar order_number, requested_at, delivered_at (ya funciona)
-   - Verificar que la fecha de solicitud se asigne correctamente en todos los casos
-
-3. **Nuevo campo en base de datos**: `not_invoiced_reason` para almacenar el motivo
+## Resumen
+Agregar funcionalidad de selección múltiple y facturación masiva para pedidos entregados, mostrar la observación del pedido, y añadir un panel de filtros a la sección de entregados.
 
 ---
 
-## Cambios en Base de Datos
+## Cambios a Implementar
 
-### Migración SQL
-```sql
--- Agregar columna para motivo de no facturación
-ALTER TABLE orders 
-ADD COLUMN IF NOT EXISTS not_invoiced_reason text;
+### 1. Agregar Panel de Filtros a Pedidos Entregados
+
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
+
+- Crear un componente de filtros específico para entregados (más simple que OrderFilters) con:
+  - Filtro por fecha de entrega (desde/hasta)
+  - Filtro por marca (dropdown desde providers)
+  - Filtro por código de producto (búsqueda texto)
+  - Filtro por estado de facturación (Todos, Pendiente, Facturado, N/A)
+  - Filtro por observación (búsqueda texto)
+
+---
+
+### 2. Agregar Columna de Observación a la Tabla
+
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
+
+- Agregar columna "Observación" en la tabla entre "Destino" y "Facturado"
+- Mostrar texto truncado con Tooltip para observaciones largas (igual que en AdminDeliveredView)
+- Esto permite al usuario ver a qué cliente va el pedido
+
+---
+
+### 3. Implementar Selección Múltiple de Pedidos
+
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
+
+- Agregar estado `selectedOrders: string[]` para gestionar los pedidos seleccionados
+- Agregar checkboxes en cada fila (como en OrdersTable)
+- Agregar checkbox "seleccionar todos" en el header
+- Solo permitir seleccionar pedidos que no sean "stock only" (ya que esos no requieren facturación)
+
+---
+
+### 4. Crear Barra de Acciones Masivas para Facturación
+
+**Archivo nuevo:** `src/components/BulkInvoiceBar.tsx`
+
+Crear una barra de acciones similar a BulkActionsBar pero específica para facturación:
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│ 5 pedidos seleccionados   [X Deseleccionar]                         │
+│                                                                     │
+│ ¿Facturado?  [Sí] [No]                                             │
+│                                                                     │
+│ [Si "Sí"]:  Nro. Factura: [__________]  Cant. total: [info]        │
+│                                                                     │
+│ [Si "No"]:  Motivo: [__________________________]                   │
+│                                                                     │
+│                                          [Confirmar Facturación]   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
+**Funcionalidad:**
+- Toggle Sí/No para facturación
+- Si "Sí": campo obligatorio para número de factura (se aplicará a todos los seleccionados)
+- Si "No": campo obligatorio para motivo de no facturación
+- Mostrar resumen de cantidad total de ítems a facturar
+- Al confirmar, actualizar todos los pedidos seleccionados con el mismo número de factura
+
 ---
 
-## Cambios en el Modal de Facturación de Usuario
+### 5. Actualizar DeliveredOrdersView para Integrar Todo
 
-### Archivo: `src/components/DeliveredOrdersView.tsx`
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
 
-**Cambios en InvoiceModalData:**
+Cambios principales:
+
+1. **Importar** nuevos componentes (BulkInvoiceBar, Checkbox, filtros)
+
+2. **Nuevo estado:**
+   ```typescript
+   // Selección múltiple
+   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+   
+   // Filtros
+   const [filters, setFilters] = useState({
+     dateFrom: undefined,
+     dateTo: undefined,
+     brand: '',
+     productCode: '',
+     invoiceStatus: '', // 'pending', 'invoiced', 'na'
+     observation: '',
+   });
+   ```
+
+3. **Función de facturación masiva:**
+   ```typescript
+   const handleBulkInvoice = async (data: {
+     invoiceChoice: 'yes' | 'no';
+     invoiceNumber?: string;
+     notInvoicedReason?: string;
+   }) => {
+     // Actualizar todos los pedidos seleccionados en la BD
+     // Limpiar selección al completar
+   };
+   ```
+
+4. **Renderizado actualizado:**
+   - Mostrar panel de filtros arriba de la tabla
+   - Mostrar BulkInvoiceBar cuando hay selección
+   - Agregar checkboxes en cada fila
+   - Agregar columna de observación
+
+---
+
+## Detalles Técnicos
+
+### Estructura de Filtros para Entregados
+
 ```typescript
-interface InvoiceModalData {
-  order: Order;
-  invoiceChoice: 'yes' | 'no' | null;  // Nuevo: Sí o No
-  invoiceNumber: string;
-  invoicedQuantity: string;
-  invoiceObservation: string;
-  notInvoicedReason: string;  // Nuevo: motivo de no facturación
+interface DeliveredFiltersState {
+  dateFrom: Date | undefined;
+  dateTo: Date | undefined;
+  brand: string;
+  productCode: string;
+  invoiceStatus: '' | 'pending' | 'invoiced' | 'na';
+  observation: string;
 }
 ```
 
-**Cambios en el UI del modal:**
+### Lógica de Facturación Masiva
 
-1. Reemplazar checkbox por dos botones estilo toggle:
-```
-┌─────────────────────────────────────────────┐
-│  ¿Facturado al cliente?                     │
-│                                             │
-│  ┌──────────────┐  ┌──────────────┐        │
-│  │     Sí ✓     │  │     No ✗     │        │
-│  └──────────────┘  └──────────────┘        │
-└─────────────────────────────────────────────┘
-```
-
-2. Si selecciona "Sí":
-   - Mostrar: Número de factura (obligatorio), Cantidad facturada, Observación
-
-3. Si selecciona "No":
-   - Mostrar: Campo de texto "Motivo de no facturación" (obligatorio)
-
-**Lógica de guardado:**
 ```typescript
-// Si invoiceChoice === 'yes'
-{
-  is_invoiced: true,
-  invoice_number: modalData.invoiceNumber,
-  invoiced_quantity: parseInt(modalData.invoicedQuantity),
-  invoice_observation: modalData.invoiceObservation,
-  not_invoiced_reason: null
-}
+const handleBulkInvoice = async (data) => {
+  const updateData = data.invoiceChoice === 'yes'
+    ? {
+        is_invoiced: true,
+        invoice_number: data.invoiceNumber,
+        // invoiced_quantity se calculará por pedido (igual a quantity)
+        not_invoiced_reason: null,
+      }
+    : {
+        is_invoiced: false,
+        invoice_number: null,
+        invoiced_quantity: null,
+        not_invoiced_reason: data.notInvoicedReason,
+      };
 
-// Si invoiceChoice === 'no'
-{
-  is_invoiced: false,
-  invoice_number: null,
-  invoiced_quantity: null,
-  invoice_observation: null,
-  not_invoiced_reason: modalData.notInvoicedReason
-}
+  // Actualizar cada pedido seleccionado
+  for (const orderId of selectedOrders) {
+    const order = deliveredOrders.find(o => o.id === orderId);
+    await supabase.from('orders').update({
+      ...updateData,
+      invoiced_quantity: data.invoiceChoice === 'yes' ? order.quantity : null,
+    }).eq('id', orderId);
+  }
+};
 ```
 
----
+### Restricciones de Selección
 
-## Verificación de Lógica de Estados (Edge Function)
-
-### Archivo: `supabase/functions/admin-orders/index.ts`
-
-La lógica actual en el action `updateStatus`:
-
-| Estado Destino | Acción |
-|----------------|--------|
-| `pending` | Limpia: `requested_at`, `delivered_at`, `order_number` |
-| `solicitado` | Asigna: `requested_at = now`, Limpia: `delivered_at` |
-| `pte_envio` | Si no hay `requested_at`: asigna `now`, Limpia: `delivered_at` |
-| `entregado` | Asigna: `delivered_at = now`, Si no hay `requested_at`: asigna `now` |
-| `cancelado` | Sin cambios en fechas |
-
-Esta lógica ya está correctamente implementada. Si hay un error al cambiar estados, puede ser un problema de despliegue del edge function o un error en el frontend.
+- Solo se pueden seleccionar pedidos donde `order_destination !== 'stock'`
+- Los pedidos "stock" muestran el checkbox deshabilitado o sin checkbox
+- Esto evita intentar facturar pedidos que no lo requieren
 
 ---
 
-## Actualizar Tipo Order
+## Archivos Modificados
 
-### Archivo: `src/components/OrdersTable.tsx`
-
-Agregar a la interfaz Order:
-```typescript
-not_invoiced_reason?: string | null;
-```
+| Archivo | Cambio |
+|---------|--------|
+| `src/components/DeliveredOrdersView.tsx` | Agregar filtros, selección múltiple, columna observación, integrar barra de acciones |
+| `src/components/BulkInvoiceBar.tsx` | **NUEVO** - Componente para acciones masivas de facturación |
 
 ---
 
-## Actualizar Vista Admin de Entregados
+## Flujo de Usuario
 
-### Archivo: `src/components/AdminDeliveredView.tsx`
-
-Agregar columna "Motivo no fact." que muestre el campo `not_invoiced_reason` cuando `is_invoiced = false` y no sea destino "stock".
-
----
-
-## Resumen de Archivos a Modificar
-
-| Archivo | Cambios |
-|---------|---------|
-| BD (migración) | Agregar columna `not_invoiced_reason` |
-| `src/components/DeliveredOrdersView.tsx` | Nuevo UI modal con Sí/No y campo motivo |
-| `src/components/OrdersTable.tsx` | Agregar `not_invoiced_reason` a interfaz Order |
-| `src/components/AdminDeliveredView.tsx` | Mostrar columna "Motivo no fact." |
-
----
-
-## Flujo Actualizado del Modal de Facturación
-
-```
-Usuario abre modal de facturación
-  │
-  ├─► ¿Facturado al cliente?
-  │     │
-  │     ├─► [Sí]
-  │     │     │
-  │     │     └─► Mostrar:
-  │     │           - Nro. Factura (obligatorio)
-  │     │           - Cantidad Facturada
-  │     │           - Observación (opcional)
-  │     │
-  │     └─► [No]
-  │           │
-  │           └─► Mostrar:
-  │                 - Motivo de no facturación (obligatorio)
-  │
-  └─► [Guardar]
-        │
-        ├─► Si "Sí": Validar factura, guardar datos
-        └─► Si "No": Guardar motivo, limpiar datos de factura
-```
-
----
-
-## Nota sobre Lógica de Estados
-
-La lógica de cambio de estados en el edge function ya está correctamente implementada:
-
-- **Pending → Entregado directo**: Se asigna `requested_at = now` automáticamente
-- **Retroceso a Pending**: Se limpia `order_number`, `requested_at`, `delivered_at`
-
-Si hay errores al cambiar estados, es necesario verificar:
-1. Que el edge function esté desplegado correctamente
-2. Revisar los logs del edge function para errores específicos
+1. Usuario navega a "Pedidos Entregados"
+2. Ve un panel de filtros para buscar pedidos específicos
+3. Puede filtrar por fecha, marca, código, estado de facturación, observación
+4. Marca uno o varios pedidos con checkboxes
+5. Aparece la barra de acciones masivas
+6. Selecciona "Sí" para facturar
+7. Ingresa el número de factura común
+8. Confirma y todos los pedidos se actualizan con ese número
