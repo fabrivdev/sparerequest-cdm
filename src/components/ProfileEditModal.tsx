@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { User, Loader2, MapPin } from 'lucide-react';
-import { BRANCHES } from '@/constants/branches';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -26,6 +25,12 @@ interface Profile {
   user_id: string;
   full_name: string | null;
   branch: string;
+}
+
+interface Branch {
+  id: string;
+  name: string;
+  is_active: boolean;
 }
 
 interface ProfileEditModalProps {
@@ -40,11 +45,30 @@ const ProfileEditModal = ({ isOpen, onClose, profile, onUpdate }: ProfileEditMod
   const [branch, setBranch] = useState(profile.branch);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   useEffect(() => {
     setFullName(profile.full_name || '');
     setBranch(profile.branch);
   }, [profile]);
+
+  useEffect(() => {
+    const fetchBranches = async () => {
+      const { data, error } = await supabase
+        .from('branches')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      
+      if (data && !error) {
+        setBranches(data);
+      }
+    };
+    
+    if (isOpen) {
+      fetchBranches();
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,10 +153,10 @@ const ProfileEditModal = ({ isOpen, onClose, profile, onUpdate }: ProfileEditMod
                 <SelectTrigger className="h-11 bg-secondary/50 border-0 pl-10">
                   <SelectValue placeholder="Selecciona tu sucursal" />
                 </SelectTrigger>
-                <SelectContent>
-                  {BRANCHES.map((b) => (
-                    <SelectItem key={b} value={b}>
-                      {b}
+              <SelectContent>
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.name}>
+                      {b.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

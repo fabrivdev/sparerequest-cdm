@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Package, Check, AlertCircle, Trash2, Plane, Ship, Truck, User, Warehouse, Users } from 'lucide-react';
 import { z } from 'zod';
-import { BRANCHES } from '@/constants/branches';
+// Branches are now fetched dynamically from database
 import { supabase } from '@/integrations/supabase/client';
 
 const orderSchema = z.object({
@@ -55,6 +55,12 @@ interface Provider {
   is_active: boolean;
 }
 
+interface Branch {
+  id: string;
+  name: string;
+  is_active: boolean;
+}
+
 const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
   const [productCode, setProductCode] = useState('');
@@ -72,23 +78,34 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [notificationSent, setNotificationSent] = useState<string | null>(null);
   const [productPrice, setProductPrice] = useState<number>(0);
   const [providers, setProviders] = useState<Provider[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
-  // Fetch providers from database
+  // Fetch providers and branches from database
   useEffect(() => {
-    const fetchProviders = async () => {
-      const { data, error } = await supabase
-        .from('providers')
-        .select('*')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
+    const fetchData = async () => {
+      const [providersRes, branchesRes] = await Promise.all([
+        supabase
+          .from('providers')
+          .select('*')
+          .eq('is_active', true)
+          .order('name', { ascending: true }),
+        supabase
+          .from('branches')
+          .select('*')
+          .eq('is_active', true)
+          .order('name', { ascending: true }),
+      ]);
       
-      if (data && !error) {
-        setProviders(data);
+      if (providersRes.data && !providersRes.error) {
+        setProviders(providersRes.data);
+      }
+      if (branchesRes.data && !branchesRes.error) {
+        setBranches(branchesRes.data);
       }
     };
     
     if (isOpen) {
-      fetchProviders();
+      fetchData();
     }
   }, [isOpen]);
 
@@ -459,9 +476,9 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
                   <SelectValue placeholder="Selecciona una sucursal" />
                 </SelectTrigger>
                 <SelectContent>
-                  {BRANCHES.map((branch) => (
-                    <SelectItem key={branch} value={branch}>
-                      {branch}
+                  {branches.map((b) => (
+                    <SelectItem key={b.id} value={b.name}>
+                      {b.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
