@@ -1,188 +1,162 @@
 
-# Plan: Facturación Masiva y Mejoras en Vista de Entregados
+# Plan: Fecha de Entrega Estimada
 
 ## Resumen
-Agregar funcionalidad de selección múltiple y facturación masiva para pedidos entregados, mostrar la observación del pedido, y añadir un panel de filtros a la sección de entregados.
+Agregar un campo de "Fecha Estimada de Entrega" que el admin pueda ingresar cuando asigna un número de pedido. Esta fecha será visible para los usuarios en sus vistas de pedidos.
 
 ---
 
 ## Cambios a Implementar
 
-### 1. Agregar Panel de Filtros a Pedidos Entregados
+### 1. Agregar Nueva Columna en la Base de Datos
 
-**Archivo:** `src/components/DeliveredOrdersView.tsx`
-
-- Crear un componente de filtros específico para entregados (más simple que OrderFilters) con:
-  - Filtro por fecha de entrega (desde/hasta)
-  - Filtro por marca (dropdown desde providers)
-  - Filtro por código de producto (búsqueda texto)
-  - Filtro por estado de facturación (Todos, Pendiente, Facturado, N/A)
-  - Filtro por observación (búsqueda texto)
-
----
-
-### 2. Agregar Columna de Observación a la Tabla
-
-**Archivo:** `src/components/DeliveredOrdersView.tsx`
-
-- Agregar columna "Observación" en la tabla entre "Destino" y "Facturado"
-- Mostrar texto truncado con Tooltip para observaciones largas (igual que en AdminDeliveredView)
-- Esto permite al usuario ver a qué cliente va el pedido
-
----
-
-### 3. Implementar Selección Múltiple de Pedidos
-
-**Archivo:** `src/components/DeliveredOrdersView.tsx`
-
-- Agregar estado `selectedOrders: string[]` para gestionar los pedidos seleccionados
-- Agregar checkboxes en cada fila (como en OrdersTable)
-- Agregar checkbox "seleccionar todos" en el header
-- Solo permitir seleccionar pedidos que no sean "stock only" (ya que esos no requieren facturación)
-
----
-
-### 4. Crear Barra de Acciones Masivas para Facturación
-
-**Archivo nuevo:** `src/components/BulkInvoiceBar.tsx`
-
-Crear una barra de acciones similar a BulkActionsBar pero específica para facturación:
-
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│ 5 pedidos seleccionados   [X Deseleccionar]                         │
-│                                                                     │
-│ ¿Facturado?  [Sí] [No]                                             │
-│                                                                     │
-│ [Si "Sí"]:  Nro. Factura: [__________]  Cant. total: [info]        │
-│                                                                     │
-│ [Si "No"]:  Motivo: [__________________________]                   │
-│                                                                     │
-│                                          [Confirmar Facturación]   │
-└─────────────────────────────────────────────────────────────────────┘
+**Migración SQL:**
+```sql
+ALTER TABLE orders ADD COLUMN estimated_delivery_date DATE NULL;
 ```
 
-**Funcionalidad:**
-- Toggle Sí/No para facturación
-- Si "Sí": campo obligatorio para número de factura (se aplicará a todos los seleccionados)
-- Si "No": campo obligatorio para motivo de no facturación
-- Mostrar resumen de cantidad total de ítems a facturar
-- Al confirmar, actualizar todos los pedidos seleccionados con el mismo número de factura
+Esta columna almacenará la fecha estimada de entrega que el admin ingresa.
 
 ---
 
-### 5. Actualizar DeliveredOrdersView para Integrar Todo
+### 2. Actualizar BulkActionsBar para Incluir Fecha Estimada
 
-**Archivo:** `src/components/DeliveredOrdersView.tsx`
+**Archivo:** `src/components/BulkActionsBar.tsx`
 
-Cambios principales:
+Cuando el admin ingresa un número de pedido para cambiar el estado a "Solicitado", "Pte. de envío" o "Entregado", se agregará un campo adicional para la fecha estimada de entrega:
 
-1. **Importar** nuevos componentes (BulkInvoiceBar, Checkbox, filtros)
+```text
+Estado actual:
+┌─────────────────────────────────────────────────────────┐
+│ Solicitado: [Nro. Pedido (obligatorio)] [Confirmar]    │
+└─────────────────────────────────────────────────────────┘
 
-2. **Nuevo estado:**
-   ```typescript
-   // Selección múltiple
-   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-   
-   // Filtros
-   const [filters, setFilters] = useState({
-     dateFrom: undefined,
-     dateTo: undefined,
-     brand: '',
-     productCode: '',
-     invoiceStatus: '', // 'pending', 'invoiced', 'na'
-     observation: '',
-   });
-   ```
+Nuevo diseño:
+┌───────────────────────────────────────────────────────────────────────┐
+│ Solicitado:                                                           │
+│ Nro. Pedido: [__________]  F. Estimada: [📅 dd/mm/yyyy]  [Confirmar] │
+└───────────────────────────────────────────────────────────────────────┘
+```
 
-3. **Función de facturación masiva:**
-   ```typescript
-   const handleBulkInvoice = async (data: {
-     invoiceChoice: 'yes' | 'no';
-     invoiceNumber?: string;
-     notInvoicedReason?: string;
-   }) => {
-     // Actualizar todos los pedidos seleccionados en la BD
-     // Limpiar selección al completar
-   };
-   ```
+Cambios:
+- Agregar estado `estimatedDate` (Date | undefined)
+- Agregar componente DatePicker (Popover + Calendar) para seleccionar la fecha
+- La fecha estimada es opcional (no obligatoria)
+- Pasar `estimatedDeliveryDate` al llamar `onStatusChange`
 
-4. **Renderizado actualizado:**
-   - Mostrar panel de filtros arriba de la tabla
-   - Mostrar BulkInvoiceBar cuando hay selección
-   - Agregar checkboxes en cada fila
-   - Agregar columna de observación
+---
+
+### 3. Actualizar OrdersTable para Edición Individual
+
+**Archivo:** `src/components/OrdersTable.tsx`
+
+Cuando el admin edita el número de pedido de forma individual en la tabla, agregar también un campo para fecha estimada:
+- En el modo de edición de `order_number`, agregar un DatePicker al lado
+- Actualizar la función de guardado para incluir la fecha
+
+---
+
+### 4. Actualizar Edge Function para Guardar Fecha Estimada
+
+**Archivo:** `supabase/functions/admin-orders/index.ts`
+
+Modificar las acciones que manejan el número de pedido:
+
+**`updateOrderNumber`:**
+```typescript
+// Agregar parámetro estimatedDeliveryDate
+const { estimatedDeliveryDate } = body;
+
+const { error } = await supabase
+  .from('orders')
+  .update({ 
+    order_number: orderNumber || null,
+    estimated_delivery_date: estimatedDeliveryDate || null
+  })
+  .eq('id', orderId);
+```
+
+**`bulkUpdateStatus`:**
+```typescript
+// Cuando se asigna un orderNumber, también guardar estimated_delivery_date
+if (orderNumber && orderNumber.trim() !== '') {
+  updateData.order_number = orderNumber.trim();
+  updateData.estimated_delivery_date = estimatedDeliveryDate || null;
+}
+```
+
+---
+
+### 5. Mostrar Fecha Estimada en Vista de Usuario
+
+**Archivo:** `src/components/OrdersTable.tsx`
+
+Agregar columna "F. Estimada" en la tabla de usuarios (no admin):
+
+```text
+| Estado | Nro. Pedido | F. Estimada | Actualización |
+```
+
+- Si hay `estimated_delivery_date`, mostrarla formateada como "dd/MM/yyyy"
+- Si no hay fecha, mostrar "-"
+- Resaltar visualmente si está próxima (ej: fondo verde claro si es esta semana)
+
+---
+
+### 6. Actualizar Interfaz Order
+
+**Archivos:** `src/components/OrdersTable.tsx`
+
+Agregar al interface Order:
+```typescript
+estimated_delivery_date?: string | null;
+```
 
 ---
 
 ## Detalles Técnicos
 
-### Estructura de Filtros para Entregados
+### Estructura de Datos
 
 ```typescript
-interface DeliveredFiltersState {
-  dateFrom: Date | undefined;
-  dateTo: Date | undefined;
-  brand: string;
-  productCode: string;
-  invoiceStatus: '' | 'pending' | 'invoiced' | 'na';
-  observation: string;
+interface Order {
+  // ... campos existentes
+  estimated_delivery_date?: string | null; // formato 'YYYY-MM-DD'
 }
 ```
 
-### Lógica de Facturación Masiva
+### Flujo de Usuario (Admin)
 
-```typescript
-const handleBulkInvoice = async (data) => {
-  const updateData = data.invoiceChoice === 'yes'
-    ? {
-        is_invoiced: true,
-        invoice_number: data.invoiceNumber,
-        // invoiced_quantity se calculará por pedido (igual a quantity)
-        not_invoiced_reason: null,
-      }
-    : {
-        is_invoiced: false,
-        invoice_number: null,
-        invoiced_quantity: null,
-        not_invoiced_reason: data.notInvoicedReason,
-      };
+1. Admin selecciona uno o varios pedidos
+2. Cambia el estado a "Solicitado" o similar
+3. Ingresa el número de pedido (obligatorio)
+4. Opcionalmente selecciona una fecha estimada de entrega
+5. Confirma y se guarda todo junto
 
-  // Actualizar cada pedido seleccionado
-  for (const orderId of selectedOrders) {
-    const order = deliveredOrders.find(o => o.id === orderId);
-    await supabase.from('orders').update({
-      ...updateData,
-      invoiced_quantity: data.invoiceChoice === 'yes' ? order.quantity : null,
-    }).eq('id', orderId);
-  }
-};
-```
+### Flujo de Usuario (Usuario Regular)
 
-### Restricciones de Selección
-
-- Solo se pueden seleccionar pedidos donde `order_destination !== 'stock'`
-- Los pedidos "stock" muestran el checkbox deshabilitado o sin checkbox
-- Esto evita intentar facturar pedidos que no lo requieren
+1. Usuario ve sus pedidos en "Mis Pedidos" o "Pedidos Sucursal"
+2. Ve la columna "F. Estimada" que muestra la fecha cuando el admin la haya asignado
+3. Puede planificar en base a esa fecha estimada
 
 ---
 
-## Archivos Modificados
+## Archivos a Modificar
 
 | Archivo | Cambio |
 |---------|--------|
-| `src/components/DeliveredOrdersView.tsx` | Agregar filtros, selección múltiple, columna observación, integrar barra de acciones |
-| `src/components/BulkInvoiceBar.tsx` | **NUEVO** - Componente para acciones masivas de facturación |
+| **Migración SQL** | Agregar columna `estimated_delivery_date` |
+| `src/components/BulkActionsBar.tsx` | Agregar DatePicker para fecha estimada al asignar número de pedido |
+| `src/components/OrdersTable.tsx` | Agregar columna "F. Estimada" en vista usuario + edición en admin |
+| `supabase/functions/admin-orders/index.ts` | Manejar `estimated_delivery_date` en updateOrderNumber y bulkUpdateStatus |
 
 ---
 
-## Flujo de Usuario
+## Ejemplo Visual
 
-1. Usuario navega a "Pedidos Entregados"
-2. Ve un panel de filtros para buscar pedidos específicos
-3. Puede filtrar por fecha, marca, código, estado de facturación, observación
-4. Marca uno o varios pedidos con checkboxes
-5. Aparece la barra de acciones masivas
-6. Selecciona "Sí" para facturar
-7. Ingresa el número de factura común
-8. Confirma y todos los pedidos se actualizan con ese número
+**Vista de Usuario con Fecha Estimada:**
+
+| Fecha | Marca | Código | Cant. | Sucursal | Estado | Nro. Pedido | F. Estimada | Actualización |
+|-------|-------|--------|-------|----------|--------|-------------|-------------|---------------|
+| 26/01/26 | CLAAS | ABC123 | 5 | Sucursal A | Solicitado | PED-001 | 15/02/26 | 26/01/26 10:30 |
+| 25/01/26 | HORSCH | XYZ789 | 2 | Sucursal B | Pte. envío | PED-002 | - | 25/01/26 14:00 |
