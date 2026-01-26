@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users, X } from 'lucide-react';
@@ -38,10 +38,13 @@ import { toast } from 'sonner';
 import { Order } from './OrdersTable';
 import DeliveredFilters, { DeliveredFiltersState } from './DeliveredFilters';
 import BulkInvoiceBar from './BulkInvoiceBar';
+import DelegateSelector from './DelegateSelector';
+import DelegateManager from './DelegateManager';
 
 interface DeliveredOrdersViewProps {
   orders: Order[];
   onUpdate: () => void;
+  userId: string;
 }
 
 interface InvoiceModalData {
@@ -53,10 +56,13 @@ interface InvoiceModalData {
   notInvoicedReason: string;
 }
 
-const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => {
+const DeliveredOrdersView = ({ orders, onUpdate, userId }: DeliveredOrdersViewProps) => {
   const [modalData, setModalData] = useState<InvoiceModalData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
+  const [showDelegateManager, setShowDelegateManager] = useState(false);
+  const [delegatedOrders, setDelegatedOrders] = useState<Order[]>([]);
   const [filters, setFilters] = useState<DeliveredFiltersState>({
     dateFrom: undefined,
     dateTo: undefined,
@@ -67,10 +73,39 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
     observation: '',
   });
 
-  // Filter only delivered orders
+  // Fetch delegated orders when viewing another user's orders
+  const fetchDelegatedOrders = async () => {
+    if (!selectedOwner) {
+      setDelegatedOrders([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', selectedOwner)
+      .eq('status', 'entregado')
+      .order('delivered_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching delegated orders:', error);
+      toast.error('Error al cargar pedidos delegados');
+    } else {
+      setDelegatedOrders(data || []);
+    }
+  };
+
+  useEffect(() => {
+    fetchDelegatedOrders();
+  }, [selectedOwner]);
+
+  // Filter only delivered orders - use delegated orders if viewing another user
   const deliveredOrders = useMemo(() => {
+    if (selectedOwner) {
+      return delegatedOrders;
+    }
     return orders.filter(o => o.status === 'entregado');
-  }, [orders]);
+  }, [orders, selectedOwner, delegatedOrders]);
 
   // Apply filters
   const preFilteredOrders = useMemo(() => {
@@ -284,19 +319,88 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
     }
   };
 
-  if (deliveredOrders.length === 0) {
+  const handleRefresh = () => {
+    if (selectedOwner) {
+      fetchDelegatedOrders();
+    } else {
+      onUpdate();
+    }
+  };
+
+  if (deliveredOrders.length === 0 && !selectedOwner) {
     return (
-      <Card className="rounded-2xl border-0 shadow-sm">
-        <CardContent className="py-12 text-center">
-          <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No hay pedidos entregados</p>
-        </CardContent>
-      </Card>
+      <TooltipProvider>
+        {/* Delegate Selector */}
+        <div className="mb-4">
+          <DelegateSelector
+            userId={userId}
+            selectedOwner={selectedOwner}
+            onOwnerChange={setSelectedOwner}
+            onManageDelegates={() => setShowDelegateManager(true)}
+          />
+        </div>
+
+        <Card className="rounded-2xl border-0 shadow-sm">
+          <CardContent className="py-12 text-center">
+            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No hay pedidos entregados</p>
+          </CardContent>
+        </Card>
+
+        {/* Delegate Manager Modal */}
+        <DelegateManager
+          isOpen={showDelegateManager}
+          onClose={() => setShowDelegateManager(false)}
+          userId={userId}
+          onUpdate={handleRefresh}
+        />
+      </TooltipProvider>
+    );
+  }
+
+  if (deliveredOrders.length === 0 && selectedOwner) {
+    return (
+      <TooltipProvider>
+        {/* Delegate Selector */}
+        <div className="mb-4">
+          <DelegateSelector
+            userId={userId}
+            selectedOwner={selectedOwner}
+            onOwnerChange={setSelectedOwner}
+            onManageDelegates={() => setShowDelegateManager(true)}
+          />
+        </div>
+
+        <Card className="rounded-2xl border-0 shadow-sm">
+          <CardContent className="py-12 text-center">
+            <Package className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">Este usuario no tiene pedidos entregados</p>
+          </CardContent>
+        </Card>
+
+        {/* Delegate Manager Modal */}
+        <DelegateManager
+          isOpen={showDelegateManager}
+          onClose={() => setShowDelegateManager(false)}
+          userId={userId}
+          onUpdate={handleRefresh}
+        />
+      </TooltipProvider>
     );
   }
 
   return (
     <TooltipProvider>
+      {/* Delegate Selector */}
+      <div className="mb-4">
+        <DelegateSelector
+          userId={userId}
+          selectedOwner={selectedOwner}
+          onOwnerChange={setSelectedOwner}
+          onManageDelegates={() => setShowDelegateManager(true)}
+        />
+      </div>
+
       {/* Filters */}
       <DeliveredFilters filters={filters} onFiltersChange={setFilters} />
 
@@ -611,6 +715,14 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delegate Manager Modal */}
+      <DelegateManager
+        isOpen={showDelegateManager}
+        onClose={() => setShowDelegateManager(false)}
+        userId={userId}
+        onUpdate={handleRefresh}
+      />
     </TooltipProvider>
   );
 };
