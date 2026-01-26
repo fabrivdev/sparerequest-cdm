@@ -57,6 +57,10 @@ export type Database = {
           created_at: string
           delivered_at: string | null
           id: string
+          invoice_number: string | null
+          invoice_observation: string | null
+          invoiced_quantity: number | null
+          is_invoiced: boolean | null
           observation: string | null
           order_number: string | null
           product_code: string
@@ -73,6 +77,10 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           id?: string
+          invoice_number?: string | null
+          invoice_observation?: string | null
+          invoiced_quantity?: number | null
+          is_invoiced?: boolean | null
           observation?: string | null
           order_number?: string | null
           product_code: string
@@ -89,6 +97,10 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           id?: string
+          invoice_number?: string | null
+          invoice_observation?: string | null
+          invoiced_quantity?: number | null
+          is_invoiced?: boolean | null
           observation?: string | null
           order_number?: string | null
           product_code?: string
@@ -158,6 +170,36 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      providers: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          text_color: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          text_color?: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          text_color?: string
+          updated_at?: string
         }
         Relationships: []
       }

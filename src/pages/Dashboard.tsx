@@ -11,6 +11,7 @@ import ProfileEditModal from '@/components/ProfileEditModal';
 import ViewToggle from '@/components/ViewToggle';
 import LoadingScreen from '@/components/LoadingScreen';
 import SupportButton from '@/components/support/SupportButton';
+import DeliveredOrdersView from '@/components/DeliveredOrdersView';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -34,7 +35,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
-  const [view, setView] = useState<'my-orders' | 'branch-orders'>('my-orders');
+  const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
   const [filters, setFilters] = useState<OrderFiltersState>({
     dateFrom: undefined,
     dateTo: undefined,
@@ -300,7 +301,7 @@ const Dashboard = () => {
     return <ProfileSetup userId={user.id} onComplete={handleProfileComplete} />;
   }
 
-  const currentOrders = view === 'my-orders' ? orders : branchOrders;
+  const currentOrders = view === 'my-orders' ? orders : view === 'branch-orders' ? branchOrders : orders.filter(o => o.status === 'entregado');
 
   return (
     <div className="min-h-screen bg-background">
@@ -319,7 +320,7 @@ const Dashboard = () => {
         {/* Stats */}
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground mb-1">
-            {view === 'my-orders' ? 'Mis Pedidos' : `Pedidos en ${profile?.branch}`}
+            {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? `Pedidos en ${profile?.branch}` : 'Pedidos Entregados'}
           </h2>
           <p className="text-sm text-muted-foreground">
             {currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}
@@ -331,6 +332,8 @@ const Dashboard = () => {
           <LoadingScreen />
         ) : currentOrders.length === 0 ? (
           <EmptyState onNewOrder={() => setIsFormOpen(true)} />
+        ) : view === 'delivered' ? (
+          <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} />
         ) : (
           <>
             <OrderFilters 

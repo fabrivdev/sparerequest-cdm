@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Package, Check, AlertCircle, Trash2, Plane, Ship } from 'lucide-react';
+import { Loader2, Package, Check, AlertCircle, Trash2, Plane, Ship, Truck } from 'lucide-react';
 import { z } from 'zod';
 import { BRANCHES } from '@/constants/branches';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,7 +27,7 @@ const orderSchema = z.object({
   productCode: z.string().min(1, 'El código es requerido').max(100),
   quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
   branchDestination: z.string().min(1, 'Selecciona una sucursal'),
-  shippingMethod: z.enum(['aereo', 'maritimo']),
+  shippingMethod: z.enum(['aereo', 'maritimo', 'terrestre']),
   observation: z.string().max(500).optional(),
 });
 
@@ -57,7 +57,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [productNotFound, setProductNotFound] = useState(false);
   const [quantity, setQuantity] = useState<string>('1');
   const [branchDestination, setBranchDestination] = useState(defaultBranch);
-  const [shippingMethod, setShippingMethod] = useState<'aereo' | 'maritimo'>('aereo');
+  const [shippingMethod, setShippingMethod] = useState<'aereo' | 'maritimo' | 'terrestre'>('aereo');
   const [observation, setObservation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -429,35 +429,50 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
             {/* Shipping Method */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Método de Envío <span className="text-destructive">*</span></Label>
-              <div className="flex gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setShippingMethod('aereo')}
-                  className={`flex-1 h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-2 ${
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
                     shippingMethod === 'aereo' 
                       ? 'bg-blue-500 text-white border-blue-500 ring-2 ring-offset-2 ring-blue-500 scale-[1.02] shadow-md' 
                       : 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
                   }`}
                 >
-                  <Plane className="w-5 h-5" />
+                  <Plane className="w-4 h-4" />
                   <div className="flex flex-col items-start">
                     <span>Aéreo</span>
-                    <span className="text-[10px] opacity-75 font-normal">Urgente</span>
+                    <span className="text-[9px] opacity-75 font-normal">Urgente</span>
                   </div>
                 </button>
                 <button
                   type="button"
                   onClick={() => setShippingMethod('maritimo')}
-                  className={`flex-1 h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-2 ${
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
                     shippingMethod === 'maritimo' 
                       ? 'bg-cyan-600 text-white border-cyan-600 ring-2 ring-offset-2 ring-cyan-600 scale-[1.02] shadow-md' 
                       : 'bg-cyan-600/10 text-cyan-600 border-cyan-600/30 hover:bg-cyan-600/20'
                   }`}
                 >
-                  <Ship className="w-5 h-5" />
+                  <Ship className="w-4 h-4" />
                   <div className="flex flex-col items-start">
                     <span>Marítimo</span>
-                    <span className="text-[10px] opacity-75 font-normal">Puede esperar</span>
+                    <span className="text-[9px] opacity-75 font-normal">Espera</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShippingMethod('terrestre')}
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
+                    shippingMethod === 'terrestre' 
+                      ? 'bg-orange-500 text-white border-orange-500 ring-2 ring-offset-2 ring-orange-500 scale-[1.02] shadow-md' 
+                      : 'bg-orange-500/10 text-orange-600 border-orange-500/30 hover:bg-orange-500/20'
+                  }`}
+                >
+                  <Truck className="w-4 h-4" />
+                  <div className="flex flex-col items-start">
+                    <span>Terrestre</span>
+                    <span className="text-[9px] opacity-75 font-normal">Local</span>
                   </div>
                 </button>
               </div>

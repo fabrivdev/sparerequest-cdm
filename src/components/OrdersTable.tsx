@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship, Truck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -86,7 +86,9 @@ interface OrdersTableProps {
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendiente', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
   { value: 'solicitado', label: 'Solicitado', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+  { value: 'pte_envio', label: 'Pte. de envío', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
 ];
 
 // Brand colors
@@ -249,7 +251,7 @@ const OrdersTable = ({
         'Precio Total': unitPrice ? unitPrice * order.quantity : '',
         'Sucursal': order.branch_destination,
         'Estado': STATUS_OPTIONS.find(s => s.value === order.status)?.label || order.status,
-        ...(isAdmin && { 'Método Envío': order.shipping_method === 'maritimo' ? 'Marítimo' : 'Aéreo' }),
+        ...(isAdmin && { 'Método Envío': order.shipping_method === 'maritimo' ? 'Marítimo' : order.shipping_method === 'terrestre' ? 'Terrestre' : 'Aéreo' }),
         ...(isAdmin && { 'Nro. Pedido': order.order_number || '' }),
         ...(isAdmin && { 'F. Solicitud': order.requested_at ? format(new Date(order.requested_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
         ...(isAdmin && { 'F. Entrega': order.delivered_at ? format(new Date(order.delivered_at), "dd/MM/yyyy HH:mm", { locale: es }) : '' }),
@@ -495,6 +497,21 @@ const OrdersTable = ({
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Marítimo</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant={order.shipping_method === 'terrestre' ? 'default' : 'ghost'}
+                                  size="icon"
+                                  className={`h-7 w-7 ${order.shipping_method === 'terrestre' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'text-muted-foreground hover:text-orange-500'}`}
+                                  onClick={() => onShippingMethodChange?.(order.id, 'terrestre')}
+                                >
+                                  <Truck className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Terrestre</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </div>
