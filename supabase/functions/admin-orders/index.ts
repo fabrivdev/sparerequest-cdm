@@ -1096,6 +1096,120 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ============ BRANCH MANAGEMENT ACTIONS ============
+
+    // Create branch
+    if (action === 'createBranch') {
+      const { branchData } = body;
+      
+      if (!branchData?.name) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from('branches')
+        .insert({
+          name: branchData.name.toUpperCase(),
+          is_active: branchData.is_active ?? true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating branch:', error);
+        if (error.code === '23505') {
+          return new Response(
+            JSON.stringify({ error: 'Ya existe una sucursal con ese nombre' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: 'Error al crear sucursal' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ branch: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update branch
+    if (action === 'updateBranch') {
+      const { branchId, branchData } = body;
+      
+      if (!branchId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateData: Record<string, any> = {};
+      if (branchData.name !== undefined) updateData.name = branchData.name.toUpperCase();
+      if (branchData.is_active !== undefined) updateData.is_active = branchData.is_active;
+
+      const { data, error } = await supabase
+        .from('branches')
+        .update(updateData)
+        .eq('id', branchId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating branch:', error);
+        if (error.code === '23505') {
+          return new Response(
+            JSON.stringify({ error: 'Ya existe una sucursal con ese nombre' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar sucursal' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ branch: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Delete branch
+    if (action === 'deleteBranch') {
+      const { branchId } = body;
+      
+      if (!branchId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('branches')
+        .delete()
+        .eq('id', branchId);
+
+      if (error) {
+        console.error('Error deleting branch:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al eliminar sucursal' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Acción no válida' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
