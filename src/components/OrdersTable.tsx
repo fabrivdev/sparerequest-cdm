@@ -49,6 +49,11 @@ export interface Order {
   requested_at?: string | null;
   delivered_at?: string | null;
   shipping_method?: string;
+  order_destination?: string;
+  is_invoiced?: boolean;
+  invoice_number?: string | null;
+  invoiced_quantity?: number | null;
+  invoice_observation?: string | null;
 }
 
 interface Product {
@@ -373,6 +378,7 @@ const OrdersTable = ({
                 <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
+                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Actualización</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs text-center">Envío</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
@@ -448,6 +454,12 @@ const OrdersTable = ({
                         getStatusBadge(order.status)
                       )}
                     </TableCell>
+                    {/* User view: Order number column */}
+                    {!isAdmin && (
+                      <TableCell className="text-xs font-mono font-medium">
+                        {order.order_number || <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                    )}
                     {/* User view: Update date column */}
                     {!isAdmin && (
                       <TableCell className="text-xs">

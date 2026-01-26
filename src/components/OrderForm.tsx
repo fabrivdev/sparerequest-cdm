@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2, Package, Check, AlertCircle, Trash2, Plane, Ship, Truck } from 'lucide-react';
+import { Loader2, Package, Check, AlertCircle, Trash2, Plane, Ship, Truck, User, Warehouse, Users } from 'lucide-react';
 import { z } from 'zod';
 import { BRANCHES } from '@/constants/branches';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ const orderSchema = z.object({
   quantity: z.number().min(1, 'La cantidad debe ser al menos 1'),
   branchDestination: z.string().min(1, 'Selecciona una sucursal'),
   shippingMethod: z.enum(['aereo', 'maritimo', 'terrestre']),
+  orderDestination: z.enum(['cliente', 'stock', 'ambos']),
   observation: z.string().max(500).optional(),
 });
 
@@ -40,6 +41,7 @@ interface OrderFormProps {
     quantity: number;
     branchDestination: string;
     shippingMethod: string;
+    orderDestination: string;
     observation: string;
   }) => Promise<void>;
   defaultBranch?: string;
@@ -61,6 +63,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [quantity, setQuantity] = useState<string>('1');
   const [branchDestination, setBranchDestination] = useState(defaultBranch);
   const [shippingMethod, setShippingMethod] = useState<'aereo' | 'maritimo' | 'terrestre'>('aereo');
+  const [orderDestination, setOrderDestination] = useState<'cliente' | 'stock' | 'ambos'>('cliente');
   const [observation, setObservation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -193,6 +196,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     setQuantity('1');
     setBranchDestination(defaultBranch);
     setShippingMethod('aereo');
+    setOrderDestination('cliente');
     setObservation('');
     setError(null);
     setIsLoading(false);
@@ -213,6 +217,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
       quantity: quantityNum,
       branchDestination,
       shippingMethod,
+      orderDestination,
       observation,
     });
 
@@ -236,6 +241,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
         quantity: quantityNum,
         branchDestination,
         shippingMethod,
+        orderDestination,
         observation: observation || '',
       });
 
@@ -495,6 +501,49 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
                     <span>Terrestre</span>
                     <span className="text-[9px] opacity-75 font-normal">Local</span>
                   </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Order Destination */}
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Destino del Pedido <span className="text-destructive">*</span></Label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderDestination('cliente')}
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
+                    orderDestination === 'cliente' 
+                      ? 'bg-blue-500 text-white border-blue-500 ring-2 ring-offset-2 ring-blue-500 scale-[1.02] shadow-md' 
+                      : 'bg-blue-500/10 text-blue-600 border-blue-500/30 hover:bg-blue-500/20'
+                  }`}
+                >
+                  <User className="w-4 h-4" />
+                  <span>Cliente</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderDestination('stock')}
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
+                    orderDestination === 'stock' 
+                      ? 'bg-green-500 text-white border-green-500 ring-2 ring-offset-2 ring-green-500 scale-[1.02] shadow-md' 
+                      : 'bg-green-500/10 text-green-600 border-green-500/30 hover:bg-green-500/20'
+                  }`}
+                >
+                  <Warehouse className="w-4 h-4" />
+                  <span>Stock</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderDestination('ambos')}
+                  className={`h-12 rounded-xl font-semibold text-xs transition-all duration-200 border-2 flex items-center justify-center gap-1.5 ${
+                    orderDestination === 'ambos' 
+                      ? 'bg-purple-500 text-white border-purple-500 ring-2 ring-offset-2 ring-purple-500 scale-[1.02] shadow-md' 
+                      : 'bg-purple-500/10 text-purple-600 border-purple-500/30 hover:bg-purple-500/20'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Ambos</span>
                 </button>
               </div>
             </div>
