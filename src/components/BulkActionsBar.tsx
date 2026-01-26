@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -18,7 +20,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship, Truck } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship, Truck, CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface Order {
   id: string;
@@ -28,7 +37,7 @@ interface Order {
 
 interface BulkActionsBarProps {
   selectedCount: number;
-  onStatusChange: (status: string, orderNumber?: string) => Promise<void>;
+  onStatusChange: (status: string, orderNumber?: string, estimatedDeliveryDate?: string) => Promise<void>;
   onShippingMethodChange?: (shippingMethod: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onClearSelection: () => void;
@@ -62,6 +71,7 @@ const BulkActionsBar = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState('');
+  const [estimatedDate, setEstimatedDate] = useState<Date | undefined>(undefined);
   const [showDeleteWarning, setShowDeleteWarning] = useState(false);
 
   // Find order numbers from selected orders
@@ -99,24 +109,27 @@ const BulkActionsBar = ({
     }
   };
 
-  const handleStatusChange = async (status: string, number?: string) => {
+  const handleStatusChange = async (status: string, number?: string, estDate?: string) => {
     setIsUpdating(true);
-    await onStatusChange(status, number);
+    await onStatusChange(status, number, estDate);
     setIsUpdating(false);
     setPendingStatus(null);
     setOrderNumber('');
+    setEstimatedDate(undefined);
   };
 
   const handleConfirmStatus = async () => {
     if (!orderNumber.trim()) {
       return; // Don't allow empty order number
     }
-    await handleStatusChange(pendingStatus!, orderNumber);
+    const estDateStr = estimatedDate ? format(estimatedDate, 'yyyy-MM-dd') : undefined;
+    await handleStatusChange(pendingStatus!, orderNumber, estDateStr);
   };
 
   const handleCancelStatus = () => {
     setPendingStatus(null);
     setOrderNumber('');
+    setEstimatedDate(undefined);
   };
 
   const handleShippingMethodChange = async (method: string) => {
@@ -187,7 +200,7 @@ const BulkActionsBar = ({
       <div className="flex items-center gap-3">
         {/* Bulk Status Change */}
         {pendingStatus ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-muted-foreground">
               {pendingStatus === 'solicitado' ? 'Solicitado' : pendingStatus === 'pte_envio' ? 'Pte. de envío' : 'Entregado'}:
             </span>
@@ -197,6 +210,30 @@ const BulkActionsBar = ({
               onChange={(e) => setOrderNumber(e.target.value)}
               className="w-44 h-9"
             />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "h-9 w-40 justify-start text-left font-normal",
+                    !estimatedDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {estimatedDate ? format(estimatedDate, "dd/MM/yyyy", { locale: es }) : "F. Estimada"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={estimatedDate}
+                  onSelect={setEstimatedDate}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
             <Button
               variant="default"
               size="sm"

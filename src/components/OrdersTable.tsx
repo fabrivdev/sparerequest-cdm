@@ -48,6 +48,7 @@ export interface Order {
   order_number?: string | null;
   requested_at?: string | null;
   delivered_at?: string | null;
+  estimated_delivery_date?: string | null;
   shipping_method?: string;
   order_destination?: string;
   is_invoiced?: boolean;
@@ -380,9 +381,11 @@ const OrdersTable = ({
                 <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
                 <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
+                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Estimada</TableHead>}
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Actualización</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs text-center">Envío</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Estimada</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Solicitud</TableHead>}
                 {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Entrega</TableHead>}
                 <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
@@ -459,6 +462,18 @@ const OrdersTable = ({
                     {!isAdmin && (
                       <TableCell className="text-xs font-mono font-medium">
                         {order.order_number || <span className="text-muted-foreground">-</span>}
+                      </TableCell>
+                    )}
+                    {/* User view: Estimated delivery date column */}
+                    {!isAdmin && (
+                      <TableCell className="text-xs">
+                        {order.estimated_delivery_date ? (
+                          <span className="font-medium text-primary">
+                            {format(new Date(order.estimated_delivery_date), "dd/MM/yyyy", { locale: es })}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                     )}
                     {/* User view: Update date column */}
@@ -572,6 +587,18 @@ const OrdersTable = ({
                           >
                             {order.order_number || <span className="text-muted-foreground italic">Agregar...</span>}
                           </span>
+                        )}
+                      </TableCell>
+                    )}
+                    {/* Admin view: Estimated delivery date */}
+                    {isAdmin && (
+                      <TableCell className="text-xs">
+                        {order.estimated_delivery_date ? (
+                          <span className="font-medium text-primary">
+                            {format(new Date(order.estimated_delivery_date), "dd/MM/yyyy", { locale: es })}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     )}

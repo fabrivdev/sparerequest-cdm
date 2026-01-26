@@ -218,7 +218,7 @@ const Admin = () => {
     }
   };
 
-  const handleBulkStatusChange = async (newStatus: string, orderNumber?: string) => {
+  const handleBulkStatusChange = async (newStatus: string, orderNumber?: string, estimatedDeliveryDate?: string) => {
     // Validate on frontend that 'entregado' requires order_number for all selected
     if (newStatus === 'entregado') {
       const ordersWithoutNumber = orders.filter(
@@ -232,7 +232,7 @@ const Admin = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('admin-orders', {
-        body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus, orderNumber },
+        body: { action: 'bulkUpdateStatus', password, orderIds: selectedOrders, newStatus, orderNumber, estimatedDeliveryDate },
       });
 
       if (error || data.error) {
@@ -253,6 +253,7 @@ const Admin = () => {
               updates.requested_at = null;
               updates.delivered_at = null;
               updates.order_number = null;
+              updates.estimated_delivery_date = null;
             }
             // For solicitado, clear delivered_at
             if (newStatus === 'solicitado') {
@@ -260,6 +261,7 @@ const Admin = () => {
             }
             if (data.order_number) {
               updates.order_number = data.order_number;
+              updates.estimated_delivery_date = estimatedDeliveryDate || null;
             }
             return { ...order, ...updates };
           }
