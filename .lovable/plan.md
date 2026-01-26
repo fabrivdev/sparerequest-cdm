@@ -1,271 +1,208 @@
 
-# Plan: Ordenamiento en Todas las Tablas
+# Plan: Delegación de Facturación y Vista Global de Pedidos
 
 ## Resumen
-Implementar la funcionalidad de ordenamiento al tocar cualquier encabezado de columna en todas las tablas del sistema. Al tocar una columna, debe ordenar de mayor a menor; al tocar de nuevo, de menor a mayor. Se mostrará una flecha indicando la dirección actual del ordenamiento.
+Implementar dos funcionalidades principales:
+1. **Delegación de Facturación**: Un usuario puede asignar a otro usuario para que edite/facture sus pedidos entregados
+2. **Vista Global de Pedidos**: Todos los usuarios pueden ver pedidos de todas las sucursales, con filtro predeterminado a su propia sucursal
 
 ---
 
-## Tablas a Modificar
+## Parte 1: Delegación de Facturación
 
-| Componente | Ubicación | Uso |
-|------------|-----------|-----|
-| `OrdersTable` | Usuario + Admin | Vista principal de pedidos |
-| `DeliveredOrdersView` | Usuario | Pedidos entregados del usuario |
-| `AdminDeliveredView` | Admin | Control de facturación de entregados |
+### Concepto
+Un usuario puede delegar la gestión de facturación de sus pedidos entregados a otro usuario. Esto aparecerá como una opción adicional en la vista "Entregados".
 
----
+### Base de Datos
 
-## Cambios a Implementar
+**Nueva tabla: `invoice_delegates`**
+```sql
+CREATE TABLE public.invoice_delegates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_user_id UUID NOT NULL,        -- Usuario que delega
+  delegate_user_id UUID NOT NULL,     -- Usuario delegado
+  created_at TIMESTAMPTZ DEFAULT now(),
+  is_active BOOLEAN DEFAULT true,
+  UNIQUE(owner_user_id, delegate_user_id)
+);
 
-### 1. Crear Hook/Utilidad Reutilizable para Ordenamiento
+-- RLS Policies
+ALTER TABLE invoice_delegates ENABLE ROW LEVEL SECURITY;
 
-**Archivo nuevo:** `src/hooks/useSortableTable.ts`
+-- El dueño puede ver/crear/eliminar sus delegaciones
+CREATE POLICY "Users can manage their own delegates"
+  ON invoice_delegates FOR ALL
+  USING (auth.uid() = owner_user_id)
+  WITH CHECK (auth.uid() = owner_user_id);
 
-```typescript
-interface SortConfig {
-  key: string;
-  direction: 'asc' | 'desc';
-}
-
-function useSortableTable<T>(
-  data: T[],
-  defaultSort?: SortConfig
-): {
-  sortedData: T[];
-  sortConfig: SortConfig | null;
-  requestSort: (key: string) => void;
-}
+-- El delegado puede ver las delegaciones donde está asignado
+CREATE POLICY "Delegates can view their assignments"
+  ON invoice_delegates FOR SELECT
+  USING (auth.uid() = delegate_user_id);
 ```
 
-Este hook manejara:
-- Estado del ordenamiento actual (columna + direccion)
-- Funcion para cambiar el ordenamiento al tocar un header
-- Logica para ordenar los datos
-
----
-
-### 2. Crear Componente de Header Ordenable
-
-**Archivo nuevo:** `src/components/ui/sortable-table-head.tsx`
-
-Un componente reutilizable para headers de tabla que:
-- Muestra el texto del header
-- Muestra una flecha (ArrowUp/ArrowDown) cuando esta ordenado por esa columna
-- Cambia el cursor a pointer
-- Llama a `onSort` al hacer click
+### Flujo de Delegación
 
 ```text
-┌─────────────────┐
-│ Fecha    ▼     │  <- Columna activa, ordenando descendente
-├─────────────────┤
-│ Marca          │  <- Columna inactiva, sin flecha
-└─────────────────┘
+Vista Entregados
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│  [Mis Entregados ▼]  [Gestionar Delegados]                │
+│                                                             │
+│  Opciones del dropdown:                                     │
+│  ├── Mis Entregados (predeterminado)                       │
+│  ├── ────────────────                                       │
+│  ├── Ver: Juan Pérez (delegado)                            │
+│  └── Ver: María García (delegado)                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
----
+### Interfaz de Gestión de Delegados
 
-### 3. Actualizar OrdersTable
-
-**Archivo:** `src/components/OrdersTable.tsx`
-
-Cambios:
-1. Importar el hook `useSortableTable` y el componente `SortableTableHead`
-2. Envolver `paginatedOrders` con el hook de ordenamiento
-3. Reemplazar los `TableHead` estaticos por `SortableTableHead`
-4. Definir las columnas ordenables:
-   - Fecha (created_at)
-   - Solicitante (user_name) - solo cuando showUserColumn
-   - Marca (brand)
-   - Codigo (product_code)
-   - Cantidad (quantity)
-   - Sucursal (branch_destination)
-   - Estado (status)
-   - Nro. Pedido (order_number)
-   - F. Estimada (estimated_delivery_date)
-   - Actualizacion (updated_at)
-   - F. Solicitud (requested_at) - solo admin
-   - F. Entrega (delivered_at) - solo admin
+Un modal donde el usuario puede:
+- Ver lista de usuarios delegados actuales
+- Agregar nuevo delegado (seleccionando de una lista de usuarios)
+- Eliminar delegado existente
 
 ---
 
-### 4. Actualizar DeliveredOrdersView
+## Parte 2: Vista Global de Pedidos con Filtro de Sucursal
 
-**Archivo:** `src/components/DeliveredOrdersView.tsx`
+### Concepto
+Actualmente los usuarios solo ven pedidos de su sucursal. Ahora podrán ver pedidos de TODAS las sucursales, pero con su sucursal como filtro predeterminado.
 
-Cambios:
-1. Importar el hook y componente de ordenamiento
-2. Aplicar ordenamiento a `filteredOrders`
-3. Columnas ordenables:
-   - Fecha Entrega (delivered_at)
-   - Nro. Pedido (order_number)
-   - Marca (brand)
-   - Codigo (product_code)
-   - Cantidad (quantity)
-   - Destino (order_destination)
-   - Observacion (observation)
-   - Facturado (is_invoiced)
-   - Nro. Factura (invoice_number)
+### Cambios en RLS
+La política actual ya permite ver pedidos de la sucursal del usuario. Necesitamos agregar una política que permita ver TODOS los pedidos a usuarios autenticados:
+
+```sql
+-- Actualizar política de SELECT en orders
+CREATE POLICY "Users can view all orders"
+  ON orders FOR SELECT
+  USING (true);  -- Cualquier usuario autenticado puede ver todos los pedidos
+
+-- Mantener políticas existentes para INSERT, UPDATE, DELETE
+-- (solo pueden modificar sus propios pedidos)
+```
+
+### Cambios en la UI
+
+**ViewToggle actualizado:**
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ [Mis Pedidos] [Pedidos Sucursal ▼] [Entregados]             │
+│                   └── Dropdown con todas las sucursales     │
+│                       ✓ SANTA RITA (mi sucursal)            │
+│                         CAMPO 9                              │
+│                         ITAPUA                               │
+│                         KATUETE                              │
+│                         ...                                  │
+│                         TODAS LAS SUCURSALES                 │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Cambios en Dashboard
+
+1. El estado `view` ahora incluirá la sucursal seleccionada cuando es `branch-orders`
+2. Nuevo estado para `selectedBranch` (predeterminado: sucursal del usuario)
+3. Fetch de pedidos ahora puede traer por cualquier sucursal o todas
 
 ---
 
-### 5. Actualizar AdminDeliveredView
+## Archivos a Modificar/Crear
 
-**Archivo:** `src/components/AdminDeliveredView.tsx`
-
-Cambios:
-1. Importar el hook y componente de ordenamiento
-2. Aplicar ordenamiento a `deliveredOrders`
-3. Columnas ordenables:
-   - Entrega (delivered_at)
-   - Nro. Pedido (order_number)
-   - Usuario (user_name)
-   - Marca (brand)
-   - Codigo (product_code)
-   - Cantidad (quantity)
-   - Sucursal (branch_destination)
-   - Observacion (observation)
-   - Destino (order_destination)
-   - Facturado (is_invoiced)
-   - Nro. Factura (invoice_number)
-   - Cant. Fact. (invoiced_quantity)
+| Archivo | Acción | Descripción |
+|---------|--------|-------------|
+| **Migración SQL** | Crear | Nueva tabla `invoice_delegates` + actualizar RLS de `orders` |
+| `src/components/ViewToggle.tsx` | Modificar | Agregar dropdown de sucursales en "Pedidos Sucursal" |
+| `src/pages/Dashboard.tsx` | Modificar | Lógica para fetch de pedidos por sucursal variable |
+| `src/components/DeliveredOrdersView.tsx` | Modificar | Agregar selector de delegados y vista de pedidos delegados |
+| `src/components/DelegateManager.tsx` | **Nuevo** | Modal para gestionar delegados |
+| `src/components/DelegateSelector.tsx` | **Nuevo** | Dropdown para seleccionar vista de entregados |
 
 ---
 
-## Detalles Tecnicos
+## Detalles Técnicos
 
-### Hook useSortableTable
+### Estructura de Datos para Delegación
 
 ```typescript
-import { useState, useMemo } from 'react';
-
-export interface SortConfig {
-  key: string;
-  direction: 'asc' | 'desc';
+interface InvoiceDelegate {
+  id: string;
+  owner_user_id: string;
+  delegate_user_id: string;
+  created_at: string;
+  is_active: boolean;
 }
 
-export function useSortableTable<T extends Record<string, any>>(
-  data: T[],
-  defaultSort?: SortConfig
-) {
-  const [sortConfig, setSortConfig] = useState<SortConfig | null>(defaultSort || null);
-
-  const sortedData = useMemo(() => {
-    if (!sortConfig) return data;
-    
-    return [...data].sort((a, b) => {
-      const aVal = a[sortConfig.key];
-      const bVal = b[sortConfig.key];
-      
-      // Handle nulls
-      if (aVal == null && bVal == null) return 0;
-      if (aVal == null) return sortConfig.direction === 'asc' ? 1 : -1;
-      if (bVal == null) return sortConfig.direction === 'asc' ? -1 : 1;
-      
-      // Handle dates
-      if (typeof aVal === 'string' && !isNaN(Date.parse(aVal))) {
-        const dateA = new Date(aVal).getTime();
-        const dateB = new Date(bVal).getTime();
-        return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
-      }
-      
-      // Handle numbers
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
-      }
-      
-      // Handle strings
-      const strA = String(aVal).toLowerCase();
-      const strB = String(bVal).toLowerCase();
-      if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [data, sortConfig]);
-
-  const requestSort = (key: string) => {
-    setSortConfig(prev => {
-      if (prev?.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-      }
-      return { key, direction: 'desc' }; // Default: mayor a menor primero
-    });
-  };
-
-  return { sortedData, sortConfig, requestSort };
+// Con información del usuario para mostrar
+interface DelegateWithProfile extends InvoiceDelegate {
+  owner_name?: string;
+  delegate_name?: string;
 }
 ```
 
-### Componente SortableTableHead
+### Lógica de Vista Entregados con Delegación
 
 ```typescript
-import { TableHead } from '@/components/ui/table';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+// Estados nuevos en DeliveredOrdersView
+const [viewMode, setViewMode] = useState<'own' | 'delegated'>('own');
+const [selectedDelegator, setSelectedDelegator] = useState<string | null>(null);
+const [delegators, setDelegators] = useState<DelegateWithProfile[]>([]);
 
-interface SortableTableHeadProps {
-  children: React.ReactNode;
-  sortKey: string;
-  currentSort: SortConfig | null;
-  onSort: (key: string) => void;
-  className?: string;
-}
-
-export const SortableTableHead = ({
-  children,
-  sortKey,
-  currentSort,
-  onSort,
-  className,
-}: SortableTableHeadProps) => {
-  const isActive = currentSort?.key === sortKey;
-  const isAsc = isActive && currentSort?.direction === 'asc';
-
-  return (
-    <TableHead 
-      className={`cursor-pointer select-none hover:bg-muted/80 ${className}`}
-      onClick={() => onSort(sortKey)}
-    >
-      <div className="flex items-center gap-1">
-        {children}
-        {isActive && (
-          isAsc ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-        )}
-      </div>
-    </TableHead>
-  );
+// Fetch de pedidos según modo
+const fetchDeliveredOrders = async () => {
+  if (viewMode === 'own') {
+    // Fetch pedidos del usuario actual
+    return orders.filter(o => o.status === 'entregado');
+  } else if (selectedDelegator) {
+    // Fetch pedidos del usuario que delegó
+    const { data } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('user_id', selectedDelegator)
+      .eq('status', 'entregado');
+    return data;
+  }
 };
+```
+
+### ViewToggle con Selector de Sucursal
+
+```typescript
+interface ViewToggleProps {
+  view: 'my-orders' | 'branch-orders' | 'delivered';
+  onViewChange: (view: 'my-orders' | 'branch-orders' | 'delivered') => void;
+  selectedBranch: string;
+  onBranchChange: (branch: string) => void;
+  userBranch: string;
+  branches: { name: string; is_active: boolean }[];
+}
 ```
 
 ---
 
 ## Flujo de Usuario
 
-1. Usuario ve la tabla con headers normales
-2. Al tocar un header (ej: "Nro. Pedido"), se ordena descendente (mayor a menor)
-3. Aparece una flecha hacia abajo en el header
-4. Al tocar de nuevo el mismo header, cambia a ascendente (menor a mayor)
-5. La flecha cambia a hacia arriba
-6. Al tocar otro header, ese se vuelve el nuevo criterio de ordenamiento
+### Delegación de Facturación
+1. Usuario A va a "Entregados"
+2. Click en "Gestionar Delegados"
+3. Selecciona Usuario B de la lista
+4. Usuario B ahora ve en su dropdown de Entregados la opción "Ver: Usuario A"
+5. Usuario B puede ver y facturar los pedidos entregados de Usuario A
+
+### Vista de Todas las Sucursales
+1. Usuario entra al dashboard
+2. Por defecto ve "Pedidos Sucursal" con su sucursal filtrada
+3. Puede hacer click en el dropdown y seleccionar otra sucursal
+4. O seleccionar "Todas" para ver pedidos de todas las sucursales
+5. Los pedidos de otras sucursales son de solo lectura
 
 ---
 
-## Archivos a Crear/Modificar
+## Consideraciones de Seguridad
 
-| Archivo | Accion |
-|---------|--------|
-| `src/hooks/useSortableTable.ts` | **NUEVO** - Hook reutilizable |
-| `src/components/ui/sortable-table-head.tsx` | **NUEVO** - Componente de header |
-| `src/components/OrdersTable.tsx` | Agregar ordenamiento |
-| `src/components/DeliveredOrdersView.tsx` | Agregar ordenamiento |
-| `src/components/AdminDeliveredView.tsx` | Agregar ordenamiento |
+1. **RLS para delegación**: Solo el dueño puede crear/eliminar delegados
+2. **RLS para orders**: Al actualizar RLS, mantener que UPDATE/DELETE solo funcione para pedidos propios
+3. **Validación en UI**: Si está viendo pedidos delegados, puede facturar pero no otras acciones
 
----
-
-## Consideraciones
-
-- El ordenamiento se aplica DESPUES del filtrado pero ANTES de la paginacion
-- Los valores null/undefined se ordenan al final
-- Las fechas se comparan como timestamps
-- Los numeros se comparan numericamente
-- Los strings se comparan alfabeticamente (case-insensitive)
-- El ordenamiento por defecto inicial sera por fecha de creacion descendente (mas recientes primero)
