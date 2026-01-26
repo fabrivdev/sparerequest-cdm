@@ -525,6 +525,7 @@ const Admin = () => {
             <OrdersTable 
               orders={filteredOrders}
               isAdmin
+              adminPassword={password}
               onStatusChange={handleStatusChange}
               onOrderNumberChange={handleOrderNumberChange}
               onShippingMethodChange={handleShippingMethodChange}
@@ -533,6 +534,7 @@ const Admin = () => {
               selectable
               selectedOrders={selectedOrders}
               onSelectionChange={setSelectedOrders}
+              onAdminEdit={() => loadOrders(password)}
             />
           </TabsContent>
 

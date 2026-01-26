@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/tooltip';
 import OrderDetailModal from './OrderDetailModal';
 import OrderEditModal from './OrderEditModal';
+import AdminOrderEditModal from './AdminOrderEditModal';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -70,6 +71,7 @@ interface Product {
 interface OrdersTableProps {
   orders: Order[];
   isAdmin?: boolean;
+  adminPassword?: string;
   onDelete?: (id: string) => void;
   onUpdate?: (orderId: string, data: {
     brand: string;
@@ -90,6 +92,7 @@ interface OrdersTableProps {
   selectedOrders?: string[];
   onSelectionChange?: (selected: string[]) => void;
   currentUserId?: string;
+  onAdminEdit?: () => void;
 }
 
 const STATUS_OPTIONS = [
@@ -141,6 +144,7 @@ const getModifyBlockReason = (order: Order, currentUserId?: string): string => {
 const OrdersTable = ({ 
   orders, 
   isAdmin = false, 
+  adminPassword = '',
   onDelete,
   onUpdate,
   onStatusChange,
@@ -155,11 +159,14 @@ const OrdersTable = ({
   selectedOrders = [],
   onSelectionChange,
   currentUserId,
+  onAdminEdit,
 }: OrdersTableProps) => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isAdminEditOpen, setIsAdminEditOpen] = useState(false);
+  const [adminEditingOrder, setAdminEditingOrder] = useState<Order | null>(null);
   const [editingOrderNumber, setEditingOrderNumber] = useState<string | null>(null);
   const [orderNumberValue, setOrderNumberValue] = useState('');
   const [rowsPerPage, setRowsPerPage] = useState(50);
@@ -217,6 +224,12 @@ const OrdersTable = ({
   const handleDeleteClick = (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation();
     onDelete?.(orderId);
+  };
+
+  const handleAdminEditClick = (e: React.MouseEvent, order: Order) => {
+    e.stopPropagation();
+    setAdminEditingOrder(order);
+    setIsAdminEditOpen(true);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -397,6 +410,7 @@ const OrdersTable = ({
                 {isAdmin && <SortableTableHead sortKey="requested_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Solicitud</SortableTableHead>}
                 {isAdmin && <SortableTableHead sortKey="delivered_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Entrega</SortableTableHead>}
                 <SortableTableHead sortKey="observation" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Observación</SortableTableHead>
+                {isAdmin && <TableHead className="font-semibold text-foreground text-xs text-center">Editar</TableHead>}
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs text-right pr-4">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
@@ -647,6 +661,25 @@ const OrdersTable = ({
                     <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
                       {order.observation || '-'}
                     </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-center">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => handleAdminEditClick(e, order)}
+                                className="h-7 w-7 text-muted-foreground hover:text-primary"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Editar pedido</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
+                    )}
                     {!isAdmin && (
                       <TableCell className="text-right pr-4">
                         <div className="flex items-center justify-end gap-1">
@@ -768,6 +801,22 @@ const OrdersTable = ({
             setEditingOrder(null);
           }}
           onUpdate={onUpdate}
+        />
+      )}
+
+      {/* Admin Order Edit Modal */}
+      {isAdmin && adminPassword && (
+        <AdminOrderEditModal
+          order={adminEditingOrder}
+          isOpen={isAdminEditOpen}
+          onClose={() => {
+            setIsAdminEditOpen(false);
+            setAdminEditingOrder(null);
+          }}
+          password={adminPassword}
+          onUpdate={() => {
+            onAdminEdit?.();
+          }}
         />
       )}
     </>

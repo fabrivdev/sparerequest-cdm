@@ -560,6 +560,50 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Admin full order update
+    if (action === 'adminUpdateOrder') {
+      const { orderId: editOrderId, brand: editBrand, productCode: editProductCode, quantity: editQuantity, branchDestination: editBranchDestination, observation: editObservation, orderNumber: editOrderNumber, shippingMethod: editShippingMethod, orderDestination: editOrderDestination } = body;
+      
+      if (!editOrderId || !editBrand || !editProductCode || !editQuantity || !editBranchDestination) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros requeridos' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validMethods = ['aereo', 'maritimo', 'terrestre'];
+      const validDestinations = ['cliente', 'stock', 'ambos'];
+
+      const updateData: Record<string, any> = {
+        brand: editBrand.trim(),
+        product_code: editProductCode.trim(),
+        quantity: parseInt(editQuantity) || 1,
+        branch_destination: editBranchDestination.trim(),
+        observation: editObservation?.trim() || null,
+        order_number: editOrderNumber?.trim() || null,
+        shipping_method: validMethods.includes(editShippingMethod) ? editShippingMethod : 'aereo',
+        order_destination: validDestinations.includes(editOrderDestination) ? editOrderDestination : 'cliente',
+      };
+
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('id', editOrderId);
+
+      if (error) {
+        console.error('Error updating order:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar el pedido' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'bulkUpdateShippingMethod') {
       if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0 || !shippingMethod) {
         return new Response(
