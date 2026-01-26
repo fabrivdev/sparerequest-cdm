@@ -1,162 +1,271 @@
 
-# Plan: Fecha de Entrega Estimada
+# Plan: Ordenamiento en Todas las Tablas
 
 ## Resumen
-Agregar un campo de "Fecha Estimada de Entrega" que el admin pueda ingresar cuando asigna un número de pedido. Esta fecha será visible para los usuarios en sus vistas de pedidos.
+Implementar la funcionalidad de ordenamiento al tocar cualquier encabezado de columna en todas las tablas del sistema. Al tocar una columna, debe ordenar de mayor a menor; al tocar de nuevo, de menor a mayor. Se mostrará una flecha indicando la dirección actual del ordenamiento.
+
+---
+
+## Tablas a Modificar
+
+| Componente | Ubicación | Uso |
+|------------|-----------|-----|
+| `OrdersTable` | Usuario + Admin | Vista principal de pedidos |
+| `DeliveredOrdersView` | Usuario | Pedidos entregados del usuario |
+| `AdminDeliveredView` | Admin | Control de facturación de entregados |
 
 ---
 
 ## Cambios a Implementar
 
-### 1. Agregar Nueva Columna en la Base de Datos
+### 1. Crear Hook/Utilidad Reutilizable para Ordenamiento
 
-**Migración SQL:**
-```sql
-ALTER TABLE orders ADD COLUMN estimated_delivery_date DATE NULL;
+**Archivo nuevo:** `src/hooks/useSortableTable.ts`
+
+```typescript
+interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc';
+}
+
+function useSortableTable<T>(
+  data: T[],
+  defaultSort?: SortConfig
+): {
+  sortedData: T[];
+  sortConfig: SortConfig | null;
+  requestSort: (key: string) => void;
+}
 ```
 
-Esta columna almacenará la fecha estimada de entrega que el admin ingresa.
+Este hook manejara:
+- Estado del ordenamiento actual (columna + direccion)
+- Funcion para cambiar el ordenamiento al tocar un header
+- Logica para ordenar los datos
 
 ---
 
-### 2. Actualizar BulkActionsBar para Incluir Fecha Estimada
+### 2. Crear Componente de Header Ordenable
 
-**Archivo:** `src/components/BulkActionsBar.tsx`
+**Archivo nuevo:** `src/components/ui/sortable-table-head.tsx`
 
-Cuando el admin ingresa un número de pedido para cambiar el estado a "Solicitado", "Pte. de envío" o "Entregado", se agregará un campo adicional para la fecha estimada de entrega:
+Un componente reutilizable para headers de tabla que:
+- Muestra el texto del header
+- Muestra una flecha (ArrowUp/ArrowDown) cuando esta ordenado por esa columna
+- Cambia el cursor a pointer
+- Llama a `onSort` al hacer click
 
 ```text
-Estado actual:
-┌─────────────────────────────────────────────────────────┐
-│ Solicitado: [Nro. Pedido (obligatorio)] [Confirmar]    │
-└─────────────────────────────────────────────────────────┘
-
-Nuevo diseño:
-┌───────────────────────────────────────────────────────────────────────┐
-│ Solicitado:                                                           │
-│ Nro. Pedido: [__________]  F. Estimada: [📅 dd/mm/yyyy]  [Confirmar] │
-└───────────────────────────────────────────────────────────────────────┘
+┌─────────────────┐
+│ Fecha    ▼     │  <- Columna activa, ordenando descendente
+├─────────────────┤
+│ Marca          │  <- Columna inactiva, sin flecha
+└─────────────────┘
 ```
+
+---
+
+### 3. Actualizar OrdersTable
+
+**Archivo:** `src/components/OrdersTable.tsx`
 
 Cambios:
-- Agregar estado `estimatedDate` (Date | undefined)
-- Agregar componente DatePicker (Popover + Calendar) para seleccionar la fecha
-- La fecha estimada es opcional (no obligatoria)
-- Pasar `estimatedDeliveryDate` al llamar `onStatusChange`
+1. Importar el hook `useSortableTable` y el componente `SortableTableHead`
+2. Envolver `paginatedOrders` con el hook de ordenamiento
+3. Reemplazar los `TableHead` estaticos por `SortableTableHead`
+4. Definir las columnas ordenables:
+   - Fecha (created_at)
+   - Solicitante (user_name) - solo cuando showUserColumn
+   - Marca (brand)
+   - Codigo (product_code)
+   - Cantidad (quantity)
+   - Sucursal (branch_destination)
+   - Estado (status)
+   - Nro. Pedido (order_number)
+   - F. Estimada (estimated_delivery_date)
+   - Actualizacion (updated_at)
+   - F. Solicitud (requested_at) - solo admin
+   - F. Entrega (delivered_at) - solo admin
 
 ---
 
-### 3. Actualizar OrdersTable para Edición Individual
+### 4. Actualizar DeliveredOrdersView
 
-**Archivo:** `src/components/OrdersTable.tsx`
+**Archivo:** `src/components/DeliveredOrdersView.tsx`
 
-Cuando el admin edita el número de pedido de forma individual en la tabla, agregar también un campo para fecha estimada:
-- En el modo de edición de `order_number`, agregar un DatePicker al lado
-- Actualizar la función de guardado para incluir la fecha
+Cambios:
+1. Importar el hook y componente de ordenamiento
+2. Aplicar ordenamiento a `filteredOrders`
+3. Columnas ordenables:
+   - Fecha Entrega (delivered_at)
+   - Nro. Pedido (order_number)
+   - Marca (brand)
+   - Codigo (product_code)
+   - Cantidad (quantity)
+   - Destino (order_destination)
+   - Observacion (observation)
+   - Facturado (is_invoiced)
+   - Nro. Factura (invoice_number)
 
 ---
 
-### 4. Actualizar Edge Function para Guardar Fecha Estimada
+### 5. Actualizar AdminDeliveredView
 
-**Archivo:** `supabase/functions/admin-orders/index.ts`
+**Archivo:** `src/components/AdminDeliveredView.tsx`
 
-Modificar las acciones que manejan el número de pedido:
+Cambios:
+1. Importar el hook y componente de ordenamiento
+2. Aplicar ordenamiento a `deliveredOrders`
+3. Columnas ordenables:
+   - Entrega (delivered_at)
+   - Nro. Pedido (order_number)
+   - Usuario (user_name)
+   - Marca (brand)
+   - Codigo (product_code)
+   - Cantidad (quantity)
+   - Sucursal (branch_destination)
+   - Observacion (observation)
+   - Destino (order_destination)
+   - Facturado (is_invoiced)
+   - Nro. Factura (invoice_number)
+   - Cant. Fact. (invoiced_quantity)
 
-**`updateOrderNumber`:**
+---
+
+## Detalles Tecnicos
+
+### Hook useSortableTable
+
 ```typescript
-// Agregar parámetro estimatedDeliveryDate
-const { estimatedDeliveryDate } = body;
+import { useState, useMemo } from 'react';
 
-const { error } = await supabase
-  .from('orders')
-  .update({ 
-    order_number: orderNumber || null,
-    estimated_delivery_date: estimatedDeliveryDate || null
-  })
-  .eq('id', orderId);
-```
+export interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc';
+}
 
-**`bulkUpdateStatus`:**
-```typescript
-// Cuando se asigna un orderNumber, también guardar estimated_delivery_date
-if (orderNumber && orderNumber.trim() !== '') {
-  updateData.order_number = orderNumber.trim();
-  updateData.estimated_delivery_date = estimatedDeliveryDate || null;
+export function useSortableTable<T extends Record<string, any>>(
+  data: T[],
+  defaultSort?: SortConfig
+) {
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(defaultSort || null);
+
+  const sortedData = useMemo(() => {
+    if (!sortConfig) return data;
+    
+    return [...data].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      // Handle nulls
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return sortConfig.direction === 'asc' ? 1 : -1;
+      if (bVal == null) return sortConfig.direction === 'asc' ? -1 : 1;
+      
+      // Handle dates
+      if (typeof aVal === 'string' && !isNaN(Date.parse(aVal))) {
+        const dateA = new Date(aVal).getTime();
+        const dateB = new Date(bVal).getTime();
+        return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+      
+      // Handle numbers
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      
+      // Handle strings
+      const strA = String(aVal).toLowerCase();
+      const strB = String(bVal).toLowerCase();
+      if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
+
+  const requestSort = (key: string) => {
+    setSortConfig(prev => {
+      if (prev?.key === key) {
+        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+      }
+      return { key, direction: 'desc' }; // Default: mayor a menor primero
+    });
+  };
+
+  return { sortedData, sortConfig, requestSort };
 }
 ```
 
----
-
-### 5. Mostrar Fecha Estimada en Vista de Usuario
-
-**Archivo:** `src/components/OrdersTable.tsx`
-
-Agregar columna "F. Estimada" en la tabla de usuarios (no admin):
-
-```text
-| Estado | Nro. Pedido | F. Estimada | Actualización |
-```
-
-- Si hay `estimated_delivery_date`, mostrarla formateada como "dd/MM/yyyy"
-- Si no hay fecha, mostrar "-"
-- Resaltar visualmente si está próxima (ej: fondo verde claro si es esta semana)
-
----
-
-### 6. Actualizar Interfaz Order
-
-**Archivos:** `src/components/OrdersTable.tsx`
-
-Agregar al interface Order:
-```typescript
-estimated_delivery_date?: string | null;
-```
-
----
-
-## Detalles Técnicos
-
-### Estructura de Datos
+### Componente SortableTableHead
 
 ```typescript
-interface Order {
-  // ... campos existentes
-  estimated_delivery_date?: string | null; // formato 'YYYY-MM-DD'
+import { TableHead } from '@/components/ui/table';
+import { ArrowUp, ArrowDown } from 'lucide-react';
+
+interface SortableTableHeadProps {
+  children: React.ReactNode;
+  sortKey: string;
+  currentSort: SortConfig | null;
+  onSort: (key: string) => void;
+  className?: string;
 }
+
+export const SortableTableHead = ({
+  children,
+  sortKey,
+  currentSort,
+  onSort,
+  className,
+}: SortableTableHeadProps) => {
+  const isActive = currentSort?.key === sortKey;
+  const isAsc = isActive && currentSort?.direction === 'asc';
+
+  return (
+    <TableHead 
+      className={`cursor-pointer select-none hover:bg-muted/80 ${className}`}
+      onClick={() => onSort(sortKey)}
+    >
+      <div className="flex items-center gap-1">
+        {children}
+        {isActive && (
+          isAsc ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+        )}
+      </div>
+    </TableHead>
+  );
+};
 ```
-
-### Flujo de Usuario (Admin)
-
-1. Admin selecciona uno o varios pedidos
-2. Cambia el estado a "Solicitado" o similar
-3. Ingresa el número de pedido (obligatorio)
-4. Opcionalmente selecciona una fecha estimada de entrega
-5. Confirma y se guarda todo junto
-
-### Flujo de Usuario (Usuario Regular)
-
-1. Usuario ve sus pedidos en "Mis Pedidos" o "Pedidos Sucursal"
-2. Ve la columna "F. Estimada" que muestra la fecha cuando el admin la haya asignado
-3. Puede planificar en base a esa fecha estimada
 
 ---
 
-## Archivos a Modificar
+## Flujo de Usuario
 
-| Archivo | Cambio |
+1. Usuario ve la tabla con headers normales
+2. Al tocar un header (ej: "Nro. Pedido"), se ordena descendente (mayor a menor)
+3. Aparece una flecha hacia abajo en el header
+4. Al tocar de nuevo el mismo header, cambia a ascendente (menor a mayor)
+5. La flecha cambia a hacia arriba
+6. Al tocar otro header, ese se vuelve el nuevo criterio de ordenamiento
+
+---
+
+## Archivos a Crear/Modificar
+
+| Archivo | Accion |
 |---------|--------|
-| **Migración SQL** | Agregar columna `estimated_delivery_date` |
-| `src/components/BulkActionsBar.tsx` | Agregar DatePicker para fecha estimada al asignar número de pedido |
-| `src/components/OrdersTable.tsx` | Agregar columna "F. Estimada" en vista usuario + edición en admin |
-| `supabase/functions/admin-orders/index.ts` | Manejar `estimated_delivery_date` en updateOrderNumber y bulkUpdateStatus |
+| `src/hooks/useSortableTable.ts` | **NUEVO** - Hook reutilizable |
+| `src/components/ui/sortable-table-head.tsx` | **NUEVO** - Componente de header |
+| `src/components/OrdersTable.tsx` | Agregar ordenamiento |
+| `src/components/DeliveredOrdersView.tsx` | Agregar ordenamiento |
+| `src/components/AdminDeliveredView.tsx` | Agregar ordenamiento |
 
 ---
 
-## Ejemplo Visual
+## Consideraciones
 
-**Vista de Usuario con Fecha Estimada:**
-
-| Fecha | Marca | Código | Cant. | Sucursal | Estado | Nro. Pedido | F. Estimada | Actualización |
-|-------|-------|--------|-------|----------|--------|-------------|-------------|---------------|
-| 26/01/26 | CLAAS | ABC123 | 5 | Sucursal A | Solicitado | PED-001 | 15/02/26 | 26/01/26 10:30 |
-| 25/01/26 | HORSCH | XYZ789 | 2 | Sucursal B | Pte. envío | PED-002 | - | 25/01/26 14:00 |
+- El ordenamiento se aplica DESPUES del filtrado pero ANTES de la paginacion
+- Los valores null/undefined se ordenan al final
+- Las fechas se comparan como timestamps
+- Los numeros se comparan numericamente
+- Los strings se comparan alfabeticamente (case-insensitive)
+- El ordenamiento por defecto inicial sera por fecha de creacion descendente (mas recientes primero)
