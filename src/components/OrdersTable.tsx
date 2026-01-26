@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship, Truck } from 'lucide-react';
+import { useSortableTable } from '@/hooks/useSortableTable';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -163,19 +165,25 @@ const OrdersTable = ({
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Apply sorting
+  const { sortedData, sortConfig, requestSort } = useSortableTable(
+    orders,
+    { key: 'created_at', direction: 'desc' }
+  );
+
   // Pagination logic
-  const totalPages = Math.ceil(orders.length / rowsPerPage);
+  const totalPages = Math.ceil(sortedData.length / rowsPerPage);
   const paginatedOrders = useMemo(() => {
     const startIndex = (currentPage - 1) * rowsPerPage;
-    return orders.slice(startIndex, startIndex + rowsPerPage);
-  }, [orders, currentPage, rowsPerPage]);
+    return sortedData.slice(startIndex, startIndex + rowsPerPage);
+  }, [sortedData, currentPage, rowsPerPage]);
 
   // Reset to page 1 when orders change
   useMemo(() => {
-    if (currentPage > Math.ceil(orders.length / rowsPerPage)) {
+    if (currentPage > Math.ceil(sortedData.length / rowsPerPage)) {
       setCurrentPage(1);
     }
-  }, [orders.length, rowsPerPage]);
+  }, [sortedData.length, rowsPerPage]);
 
   const getStatusBadge = (status: string) => {
     const statusOption = STATUS_OPTIONS.find((s) => s.value === status);
@@ -373,22 +381,22 @@ const OrdersTable = ({
                     />
                   </TableHead>
                 )}
-                <TableHead className="font-semibold text-foreground text-xs">Fecha</TableHead>
-                {(isAdmin || showUserColumn) && <TableHead className="font-semibold text-foreground text-xs">Solicitante</TableHead>}
-                <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
-                <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
-                <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
-                <TableHead className="font-semibold text-foreground text-xs">Sucursal</TableHead>
-                <TableHead className="font-semibold text-foreground text-xs">Estado</TableHead>
-                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
-                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Estimada</TableHead>}
-                {!isAdmin && <TableHead className="font-semibold text-foreground text-xs">Actualización</TableHead>}
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs text-center">Envío</TableHead>}
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>}
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Estimada</TableHead>}
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Solicitud</TableHead>}
-                {isAdmin && <TableHead className="font-semibold text-foreground text-xs">F. Entrega</TableHead>}
-                <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
+                <SortableTableHead sortKey="created_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Fecha</SortableTableHead>
+                {(isAdmin || showUserColumn) && <SortableTableHead sortKey="user_name" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Solicitante</SortableTableHead>}
+                <SortableTableHead sortKey="brand" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Marca</SortableTableHead>
+                <SortableTableHead sortKey="product_code" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Código</SortableTableHead>
+                <SortableTableHead sortKey="quantity" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs text-center">Cant.</SortableTableHead>
+                <SortableTableHead sortKey="branch_destination" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Sucursal</SortableTableHead>
+                <SortableTableHead sortKey="status" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Estado</SortableTableHead>
+                {!isAdmin && <SortableTableHead sortKey="order_number" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Nro. Pedido</SortableTableHead>}
+                {!isAdmin && <SortableTableHead sortKey="estimated_delivery_date" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Estimada</SortableTableHead>}
+                {!isAdmin && <SortableTableHead sortKey="updated_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Actualización</SortableTableHead>}
+                {isAdmin && <SortableTableHead sortKey="shipping_method" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs text-center">Envío</SortableTableHead>}
+                {isAdmin && <SortableTableHead sortKey="order_number" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Nro. Pedido</SortableTableHead>}
+                {isAdmin && <SortableTableHead sortKey="estimated_delivery_date" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Estimada</SortableTableHead>}
+                {isAdmin && <SortableTableHead sortKey="requested_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Solicitud</SortableTableHead>}
+                {isAdmin && <SortableTableHead sortKey="delivered_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">F. Entrega</SortableTableHead>}
+                <SortableTableHead sortKey="observation" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Observación</SortableTableHead>
                 {!isAdmin && <TableHead className="font-semibold text-foreground text-xs text-right pr-4">Acciones</TableHead>}
               </TableRow>
             </TableHeader>

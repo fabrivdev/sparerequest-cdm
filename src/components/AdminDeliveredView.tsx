@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search } from 'lucide-react';
+import { useSortableTable } from '@/hooks/useSortableTable';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,7 +43,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter only delivered orders
-  const deliveredOrders = useMemo(() => {
+  const filteredDeliveredOrders = useMemo(() => {
     return orders
       .filter(order => order.status === 'entregado')
       .filter(order => {
@@ -54,9 +56,14 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
           order.branch_destination.toLowerCase().includes(term) ||
           (order as any).user_name?.toLowerCase().includes(term)
         );
-      })
-      .sort((a, b) => new Date(b.delivered_at || b.created_at).getTime() - new Date(a.delivered_at || a.created_at).getTime());
+      });
   }, [orders, searchTerm]);
+
+  // Apply sorting
+  const { sortedData: deliveredOrders, sortConfig, requestSort } = useSortableTable(
+    filteredDeliveredOrders,
+    { key: 'delivered_at', direction: 'desc' }
+  );
 
   // Stats
   const stats = useMemo(() => {
@@ -228,20 +235,20 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs">Entrega</TableHead>
-                  <TableHead className="text-xs">Nro. Pedido</TableHead>
-                  <TableHead className="text-xs">Usuario</TableHead>
-                  <TableHead className="text-xs">Marca</TableHead>
-                  <TableHead className="text-xs">Código</TableHead>
-                  <TableHead className="text-xs text-center">Cant.</TableHead>
-                  <TableHead className="text-xs">Sucursal</TableHead>
-                  <TableHead className="text-xs">Observación</TableHead>
-                  <TableHead className="text-xs">Destino</TableHead>
-                  <TableHead className="text-xs">Facturado</TableHead>
-                  <TableHead className="text-xs">Nro. Factura</TableHead>
-                  <TableHead className="text-xs text-center">Cant. Fact.</TableHead>
-                  <TableHead className="text-xs">Obs. Factura</TableHead>
-                  <TableHead className="text-xs">Motivo No Fact.</TableHead>
+                  <SortableTableHead sortKey="delivered_at" currentSort={sortConfig} onSort={requestSort} className="text-xs">Entrega</SortableTableHead>
+                  <SortableTableHead sortKey="order_number" currentSort={sortConfig} onSort={requestSort} className="text-xs">Nro. Pedido</SortableTableHead>
+                  <SortableTableHead sortKey="user_name" currentSort={sortConfig} onSort={requestSort} className="text-xs">Usuario</SortableTableHead>
+                  <SortableTableHead sortKey="brand" currentSort={sortConfig} onSort={requestSort} className="text-xs">Marca</SortableTableHead>
+                  <SortableTableHead sortKey="product_code" currentSort={sortConfig} onSort={requestSort} className="text-xs">Código</SortableTableHead>
+                  <SortableTableHead sortKey="quantity" currentSort={sortConfig} onSort={requestSort} className="text-xs text-center">Cant.</SortableTableHead>
+                  <SortableTableHead sortKey="branch_destination" currentSort={sortConfig} onSort={requestSort} className="text-xs">Sucursal</SortableTableHead>
+                  <SortableTableHead sortKey="observation" currentSort={sortConfig} onSort={requestSort} className="text-xs">Observación</SortableTableHead>
+                  <SortableTableHead sortKey="order_destination" currentSort={sortConfig} onSort={requestSort} className="text-xs">Destino</SortableTableHead>
+                  <SortableTableHead sortKey="is_invoiced" currentSort={sortConfig} onSort={requestSort} className="text-xs">Facturado</SortableTableHead>
+                  <SortableTableHead sortKey="invoice_number" currentSort={sortConfig} onSort={requestSort} className="text-xs">Nro. Factura</SortableTableHead>
+                  <SortableTableHead sortKey="invoiced_quantity" currentSort={sortConfig} onSort={requestSort} className="text-xs text-center">Cant. Fact.</SortableTableHead>
+                  <SortableTableHead sortKey="invoice_observation" currentSort={sortConfig} onSort={requestSort} className="text-xs">Obs. Factura</SortableTableHead>
+                  <SortableTableHead sortKey="not_invoiced_reason" currentSort={sortConfig} onSort={requestSort} className="text-xs">Motivo No Fact.</SortableTableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
