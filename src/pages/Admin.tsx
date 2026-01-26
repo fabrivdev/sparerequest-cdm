@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle, XCircle, PackageSearch, Settings } from 'lucide-react';
+import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle, XCircle, PackageSearch, Settings, PackageCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -16,6 +16,7 @@ import AdminNotifications from '@/components/AdminNotifications';
 import AdminSupportIndicator from '@/components/AdminSupportIndicator';
 import AdminSupportCenter from '@/components/admin/AdminSupportCenter';
 import AdminSettings from '@/components/AdminSettings';
+import AdminDeliveredView from '@/components/AdminDeliveredView';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -462,24 +463,28 @@ const Admin = () => {
           </div>
         </div>
 
-        {/* Tabs for Dashboard, Orders, Support, and Settings */}
+        {/* Tabs for Dashboard, Orders, Delivered, Support, and Settings */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <List className="w-4 h-4" />
-              Pedidos
+              <span className="hidden sm:inline">Pedidos</span>
+            </TabsTrigger>
+            <TabsTrigger value="delivered" className="flex items-center gap-2">
+              <PackageCheck className="w-4 h-4" />
+              <span className="hidden sm:inline">Entregados</span>
             </TabsTrigger>
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
-              Dashboard
+              <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
             <TabsTrigger value="support" className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
-              Soporte
+              <span className="hidden sm:inline">Soporte</span>
             </TabsTrigger>
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
-              Config
+              <span className="hidden sm:inline">Config</span>
             </TabsTrigger>
           </TabsList>
 
@@ -523,6 +528,10 @@ const Admin = () => {
               selectedOrders={selectedOrders}
               onSelectionChange={setSelectedOrders}
             />
+          </TabsContent>
+
+          <TabsContent value="delivered" className="space-y-4">
+            <AdminDeliveredView orders={orders} />
           </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-4">

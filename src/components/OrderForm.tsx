@@ -127,14 +127,29 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
         setProductPrice(Number(data.price_aereo) || 0);
         setNotificationSent(null); // Reset notification flag when product found
       } else {
+        // Allow CLAAS-ARG products not in catalog with price 0
+        if (selectedBrand === 'CLAAS-ARG') {
+          setProductName(`Producto ${code.trim()} (sin precio)`);
+          setProductNotFound(false);
+          setProductPrice(0);
+          setNotificationSent(null);
+        } else {
+          setProductName('');
+          setProductNotFound(true);
+          setProductPrice(0);
+        }
+      }
+    } catch {
+      // Allow CLAAS-ARG products not in catalog with price 0
+      if (selectedBrand === 'CLAAS-ARG') {
+        setProductName(`Producto ${code.trim()} (sin precio)`);
+        setProductNotFound(false);
+        setProductPrice(0);
+      } else {
         setProductName('');
         setProductNotFound(true);
         setProductPrice(0);
       }
-    } catch {
-      setProductName('');
-      setProductNotFound(true);
-      setProductPrice(0);
     }
     setIsSearching(false);
   }, []);
