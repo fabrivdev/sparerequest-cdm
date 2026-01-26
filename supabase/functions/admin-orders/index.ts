@@ -919,6 +919,145 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ==================== PROVIDER MANAGEMENT ====================
+    
+    // Get all providers
+    if (action === 'getProviders') {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching providers:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener proveedores' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ providers: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create provider
+    if (action === 'createProvider') {
+      const { providerData } = body;
+      
+      if (!providerData || !providerData.name) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from('providers')
+        .insert({
+          name: providerData.name,
+          color: providerData.color || '#888888',
+          text_color: providerData.text_color || 'text-white',
+          is_active: providerData.is_active !== undefined ? providerData.is_active : true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating provider:', error);
+        if (error.code === '23505') {
+          return new Response(
+            JSON.stringify({ error: 'Ya existe un proveedor con ese nombre' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: 'Error al crear proveedor' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ provider: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Update provider
+    if (action === 'updateProvider') {
+      const { providerId, providerData } = body;
+      
+      if (!providerId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const updateData: Record<string, any> = {};
+      if (providerData.name !== undefined) updateData.name = providerData.name;
+      if (providerData.color !== undefined) updateData.color = providerData.color;
+      if (providerData.text_color !== undefined) updateData.text_color = providerData.text_color;
+      if (providerData.is_active !== undefined) updateData.is_active = providerData.is_active;
+
+      const { data, error } = await supabase
+        .from('providers')
+        .update(updateData)
+        .eq('id', providerId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating provider:', error);
+        if (error.code === '23505') {
+          return new Response(
+            JSON.stringify({ error: 'Ya existe un proveedor con ese nombre' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar proveedor' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ provider: data }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Delete provider
+    if (action === 'deleteProvider') {
+      const { providerId } = body;
+      
+      if (!providerId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('providers')
+        .delete()
+        .eq('id', providerId);
+
+      if (error) {
+        console.error('Error deleting provider:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al eliminar proveedor' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Acción no válida' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
