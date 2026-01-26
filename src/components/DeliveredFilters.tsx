@@ -27,6 +27,7 @@ export interface DeliveredFiltersState {
   dateTo: Date | undefined;
   brand: string;
   productCode: string;
+  orderNumber: string;
   invoiceStatus: '' | 'pending' | 'invoiced' | 'na';
   observation: string;
 }
@@ -67,6 +68,7 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
     filters.dateTo ||
     filters.brand ||
     filters.productCode ||
+    filters.orderNumber ||
     filters.invoiceStatus ||
     filters.observation;
 
@@ -76,6 +78,7 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
       dateTo: undefined,
       brand: '',
       productCode: '',
+      orderNumber: '',
       invoiceStatus: '',
       observation: '',
     });
@@ -85,6 +88,7 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
     filters.dateFrom || filters.dateTo,
     filters.brand,
     filters.productCode,
+    filters.orderNumber,
     filters.invoiceStatus,
     filters.observation,
   ].filter(Boolean).length;
@@ -112,7 +116,7 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
       </div>
 
       <CollapsibleContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 p-4 bg-muted/30 rounded-lg border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 p-4 bg-muted/30 rounded-lg border">
           {/* Date From */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Fecha Desde</Label>
@@ -208,6 +212,20 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
               <Input
                 value={filters.productCode}
                 onChange={(e) => onFiltersChange({ ...filters, productCode: e.target.value })}
+                placeholder="Buscar..."
+                className="h-9 text-sm pl-8"
+              />
+            </div>
+          </div>
+
+          {/* Order Number */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Nro. Pedido</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                value={filters.orderNumber}
+                onChange={(e) => onFiltersChange({ ...filters, orderNumber: e.target.value })}
                 placeholder="Buscar..."
                 className="h-9 text-sm pl-8"
               />

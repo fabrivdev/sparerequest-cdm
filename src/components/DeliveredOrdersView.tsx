@@ -60,6 +60,7 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
     dateTo: undefined,
     brand: '',
     productCode: '',
+    orderNumber: '',
     invoiceStatus: '',
     observation: '',
   });
@@ -96,6 +97,9 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
 
       // Product code filter
       if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
+
+      // Order number filter
+      if (filters.orderNumber && (!order.order_number || !order.order_number.toLowerCase().includes(filters.orderNumber.toLowerCase()))) return false;
 
       // Invoice status filter
       if (filters.invoiceStatus) {
