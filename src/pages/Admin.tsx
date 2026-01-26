@@ -152,6 +152,10 @@ const Admin = () => {
               requested_at: data.requested_at,
               delivered_at: data.delivered_at
             };
+            // Clear order_number when going back to pending
+            if (newStatus === 'pending') {
+              updates.order_number = null;
+            }
             return { ...order, ...updates };
           }
           return order;
