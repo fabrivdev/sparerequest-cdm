@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -23,10 +24,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Order } from './OrdersTable';
+import DeliveredFilters, { DeliveredFiltersState } from './DeliveredFilters';
+import BulkInvoiceBar from './BulkInvoiceBar';
 
 interface DeliveredOrdersViewProps {
   orders: Order[];
@@ -45,11 +54,94 @@ interface InvoiceModalData {
 const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => {
   const [modalData, setModalData] = useState<InvoiceModalData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [filters, setFilters] = useState<DeliveredFiltersState>({
+    dateFrom: undefined,
+    dateTo: undefined,
+    brand: '',
+    productCode: '',
+    invoiceStatus: '',
+    observation: '',
+  });
 
   // Filter only delivered orders
   const deliveredOrders = useMemo(() => {
     return orders.filter(o => o.status === 'entregado');
   }, [orders]);
+
+  // Apply filters
+  const filteredOrders = useMemo(() => {
+    return deliveredOrders.filter((order) => {
+      const orderDate = order.delivered_at ? new Date(order.delivered_at) : null;
+      const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
+      const isStockOnly = orderDestination === 'stock';
+      const isInvoiced = isStockOnly ? true : (order.is_invoiced || false);
+
+      // Date from filter
+      if (filters.dateFrom && orderDate) {
+        const fromStart = new Date(filters.dateFrom);
+        fromStart.setHours(0, 0, 0, 0);
+        if (orderDate < fromStart) return false;
+      }
+
+      // Date to filter
+      if (filters.dateTo && orderDate) {
+        const toEnd = new Date(filters.dateTo);
+        toEnd.setHours(23, 59, 59, 999);
+        if (orderDate > toEnd) return false;
+      }
+
+      // Brand filter
+      if (filters.brand && order.brand !== filters.brand) return false;
+
+      // Product code filter
+      if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
+
+      // Invoice status filter
+      if (filters.invoiceStatus) {
+        if (filters.invoiceStatus === 'pending' && (isStockOnly || isInvoiced)) return false;
+        if (filters.invoiceStatus === 'invoiced' && (!isInvoiced || isStockOnly)) return false;
+        if (filters.invoiceStatus === 'na' && !isStockOnly) return false;
+      }
+
+      // Observation filter
+      if (filters.observation && (!order.observation || !order.observation.toLowerCase().includes(filters.observation.toLowerCase()))) return false;
+
+      return true;
+    });
+  }, [deliveredOrders, filters]);
+
+  // Selectable orders (not stock-only)
+  const selectableOrders = useMemo(() => {
+    return filteredOrders.filter(o => (o.order_destination || 'cliente') !== 'stock');
+  }, [filteredOrders]);
+
+  // Calculate total quantity for selected orders
+  const selectedTotalQuantity = useMemo(() => {
+    return selectedOrders.reduce((sum, id) => {
+      const order = filteredOrders.find(o => o.id === id);
+      return sum + (order?.quantity || 0);
+    }, 0);
+  }, [selectedOrders, filteredOrders]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(selectableOrders.map(o => o.id));
+    } else {
+      setSelectedOrders([]);
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrders(prev => [...prev, orderId]);
+    } else {
+      setSelectedOrders(prev => prev.filter(id => id !== orderId));
+    }
+  };
+
+  const isAllSelected = selectableOrders.length > 0 && selectedOrders.length === selectableOrders.length;
+  const isSomeSelected = selectedOrders.length > 0 && selectedOrders.length < selectableOrders.length;
 
   const openInvoiceModal = (order: Order) => {
     // Determine initial choice based on existing data
@@ -137,6 +229,49 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
     setIsSaving(false);
   };
 
+  const handleBulkInvoice = async (data: {
+    invoiceChoice: 'yes' | 'no';
+    invoiceNumber?: string;
+    notInvoicedReason?: string;
+  }) => {
+    try {
+      for (const orderId of selectedOrders) {
+        const order = filteredOrders.find(o => o.id === orderId);
+        if (!order) continue;
+
+        const updateData = data.invoiceChoice === 'yes'
+          ? {
+              is_invoiced: true,
+              invoice_number: data.invoiceNumber || null,
+              invoiced_quantity: order.quantity,
+              not_invoiced_reason: null,
+            }
+          : {
+              is_invoiced: false,
+              invoice_number: null,
+              invoiced_quantity: null,
+              not_invoiced_reason: data.notInvoicedReason || null,
+            };
+
+        const { error } = await supabase
+          .from('orders')
+          .update(updateData)
+          .eq('id', orderId);
+
+        if (error) {
+          console.error('Error updating order:', orderId, error);
+        }
+      }
+
+      toast.success(`${selectedOrders.length} pedidos actualizados`);
+      setSelectedOrders([]);
+      onUpdate();
+    } catch (err) {
+      toast.error('Error al actualizar pedidos');
+      console.error(err);
+    }
+  };
+
   if (deliveredOrders.length === 0) {
     return (
       <Card className="rounded-2xl border-0 shadow-sm">
@@ -149,7 +284,20 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
   }
 
   return (
-    <>
+    <TooltipProvider>
+      {/* Filters */}
+      <DeliveredFilters filters={filters} onFiltersChange={setFilters} />
+
+      {/* Bulk Invoice Bar */}
+      {selectedOrders.length > 0 && (
+        <BulkInvoiceBar
+          selectedCount={selectedOrders.length}
+          totalQuantity={selectedTotalQuantity}
+          onClear={() => setSelectedOrders([])}
+          onConfirm={handleBulkInvoice}
+        />
+      )}
+
       <Card className="rounded-2xl border-0 shadow-sm">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -159,7 +307,8 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
             <div>
               <CardTitle className="text-lg">Pedidos Entregados</CardTitle>
               <CardDescription>
-                {deliveredOrders.length} pedido{deliveredOrders.length !== 1 ? 's' : ''} entregado{deliveredOrders.length !== 1 ? 's' : ''}
+                {filteredOrders.length} pedido{filteredOrders.length !== 1 ? 's' : ''} 
+                {filteredOrders.length !== deliveredOrders.length && ` de ${deliveredOrders.length}`}
               </CardDescription>
             </div>
           </div>
@@ -169,24 +318,34 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50 hover:bg-muted/50">
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={isAllSelected}
+                      onCheckedChange={handleSelectAll}
+                      className={isSomeSelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                    />
+                  </TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Fecha Entrega</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Destino</TableHead>
+                  <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Facturado</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Nro. Factura</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {deliveredOrders.map((order, index) => {
+                {filteredOrders.map((order, index) => {
                   const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
                   const isStockOnly = orderDestination === 'stock';
                   const isInvoiced = isStockOnly ? true : (order.is_invoiced || false);
                   const invoiceNumber = order.invoice_number || '';
                   const needsInvoiceAction = !isStockOnly && !order.is_invoiced;
+                  const isSelectable = !isStockOnly;
+                  const isSelected = selectedOrders.includes(order.id);
                   
                   // Destination badge config
                   const destinationConfig: Record<'cliente' | 'stock' | 'ambos', { label: string; icon: typeof User; color: string }> = {
@@ -200,8 +359,18 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                   return (
                     <TableRow 
                       key={order.id}
-                      className={index % 2 === 0 ? 'bg-background' : 'bg-muted/10'}
+                      className={`${index % 2 === 0 ? 'bg-background' : 'bg-muted/10'} ${isSelected ? 'bg-primary/5' : ''}`}
                     >
+                      <TableCell>
+                        {isSelectable ? (
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleSelectOrder(order.id, !!checked)}
+                          />
+                        ) : (
+                          <Checkbox disabled className="opacity-30" />
+                        )}
+                      </TableCell>
                       <TableCell className="text-xs">
                         {order.delivered_at ? (
                           <div className="flex flex-col">
@@ -235,6 +404,24 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                           <DestIcon className="w-3 h-3" />
                           {destConfig.label}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[150px]">
+                        {order.observation ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="text-xs text-muted-foreground truncate block cursor-help">
+                                {order.observation.length > 30 
+                                  ? `${order.observation.substring(0, 30)}...` 
+                                  : order.observation}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-[300px]">
+                              <p className="text-sm">{order.observation}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         {isStockOnly ? (
@@ -412,7 +599,7 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 };
 
