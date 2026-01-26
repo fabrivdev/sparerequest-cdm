@@ -583,6 +583,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Update order destination
+    if (action === 'updateOrderDestination') {
+      const { orderId: destOrderId, orderDestination } = body;
+      
+      if (!destOrderId || !orderDestination) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const validDestinations = ['cliente', 'stock', 'ambos'];
+      if (!validDestinations.includes(orderDestination)) {
+        return new Response(
+          JSON.stringify({ error: 'Destino inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_destination: orderDestination })
+        .eq('id', destOrderId);
+
+      if (error) {
+        console.error('Error updating order destination:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar destino' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // ============ SUPPORT CHAT ACTIONS ============
 
     // Get all registered users for admin to start conversations
