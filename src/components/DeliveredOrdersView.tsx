@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Receipt, Loader2, Check, Save } from 'lucide-react';
+import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,6 +69,15 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
       return;
     }
 
+    // Validate invoiced quantity doesn't exceed ordered quantity
+    if (modalData.isInvoiced) {
+      const qty = parseInt(modalData.invoicedQuantity) || 0;
+      if (qty > modalData.order.quantity) {
+        toast.error(`La cantidad facturada no puede superar ${modalData.order.quantity}`);
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     try {
@@ -134,6 +143,7 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                   <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
+                  <TableHead className="font-semibold text-foreground text-xs">Destino</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Facturado</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs">Nro. Factura</TableHead>
                   <TableHead className="font-semibold text-foreground text-xs text-right">Acciones</TableHead>
@@ -141,8 +151,20 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
               </TableHeader>
               <TableBody>
                 {deliveredOrders.map((order, index) => {
-                  const isInvoiced = (order as any).is_invoiced || false;
-                  const invoiceNumber = (order as any).invoice_number || '';
+                  const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
+                  const isStockOnly = orderDestination === 'stock';
+                  const isInvoiced = isStockOnly ? true : (order.is_invoiced || false);
+                  const invoiceNumber = order.invoice_number || '';
+                  const needsInvoiceAction = !isStockOnly && !order.is_invoiced;
+                  
+                  // Destination badge config
+                  const destinationConfig: Record<'cliente' | 'stock' | 'ambos', { label: string; icon: typeof User; color: string }> = {
+                    cliente: { label: 'Cliente', icon: User, color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+                    stock: { label: 'Stock', icon: Warehouse, color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+                    ambos: { label: 'Ambos', icon: Users, color: 'bg-purple-500/10 text-purple-600 border-purple-500/20' },
+                  };
+                  const destConfig = destinationConfig[orderDestination] || destinationConfig.cliente;
+                  const DestIcon = destConfig.icon;
                   
                   return (
                     <TableRow 
@@ -178,13 +200,24 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                         {order.quantity}
                       </TableCell>
                       <TableCell>
-                        {isInvoiced ? (
+                        <Badge variant="outline" className={`${destConfig.color} gap-1`}>
+                          <DestIcon className="w-3 h-3" />
+                          {destConfig.label}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {isStockOnly ? (
+                          <Badge variant="outline" className="bg-gray-500/10 text-gray-600 border-gray-500/20">
+                            N/A
+                          </Badge>
+                        ) : isInvoiced ? (
                           <Badge className="bg-green-500/10 text-green-600 border-green-500/20">
                             <Check className="w-3 h-3 mr-1" />
                             Sí
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="text-muted-foreground">
+                          <Badge variant="outline" className="text-yellow-600 border-yellow-500/20 bg-yellow-500/10 gap-1">
+                            <AlertTriangle className="w-3 h-3" />
                             No
                           </Badge>
                         )}
@@ -193,15 +226,17 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                         {invoiceNumber || '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openInvoiceModal(order)}
-                          className="h-8 gap-1"
-                        >
-                          <Receipt className="w-3 h-3" />
-                          Facturar
-                        </Button>
+                        {!isStockOnly && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openInvoiceModal(order)}
+                            className={`h-8 gap-1 ${needsInvoiceAction ? 'border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10' : ''}`}
+                          >
+                            <Receipt className="w-3 h-3" />
+                            Facturar
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   );

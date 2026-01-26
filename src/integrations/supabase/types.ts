@@ -62,6 +62,7 @@ export type Database = {
           invoiced_quantity: number | null
           is_invoiced: boolean | null
           observation: string | null
+          order_destination: string
           order_number: string | null
           product_code: string
           quantity: number
@@ -82,6 +83,7 @@ export type Database = {
           invoiced_quantity?: number | null
           is_invoiced?: boolean | null
           observation?: string | null
+          order_destination?: string
           order_number?: string | null
           product_code: string
           quantity: number
@@ -102,6 +104,7 @@ export type Database = {
           invoiced_quantity?: number | null
           is_invoiced?: boolean | null
           observation?: string | null
+          order_destination?: string
           order_number?: string | null
           product_code?: string
           quantity?: number
