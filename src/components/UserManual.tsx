@@ -19,7 +19,11 @@ import {
   CheckCircle,
   Users,
   Shield,
-  Check
+  Check,
+  FileText,
+  Building2,
+  MapPin,
+  XCircle
 } from 'lucide-react';
 
 interface UserManualProps {
@@ -77,7 +81,7 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary">2.</span>
-                  Selecciona la <strong>marca</strong> del repuesto (CLAAS o HORSCH).
+                  Selecciona el <strong>proveedor/marca</strong> del repuesto.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary">3.</span>
@@ -93,6 +97,10 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-primary">6.</span>
+                  Indica el <strong>destino del pedido</strong> (Cliente, Stock o Ambos).
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary">7.</span>
                   Opcionalmente, agrega una <strong>observación</strong>.
                 </li>
               </ul>
@@ -120,7 +128,16 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-foreground">Solicitado</p>
-                    <p className="text-xs text-muted-foreground">El pedido fue solicitado al proveedor y está en camino.</p>
+                    <p className="text-xs text-muted-foreground">El pedido fue solicitado al proveedor.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                  <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                    <Package className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Pte. Envío</p>
+                    <p className="text-xs text-muted-foreground">El pedido llegó y está pendiente de enviar a destino.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
@@ -130,6 +147,15 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                   <div>
                     <p className="text-sm font-medium text-foreground">Entregado</p>
                     <p className="text-xs text-muted-foreground">El pedido fue recibido en la sucursal de destino.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
+                  <div className="w-8 h-8 bg-gray-500/10 rounded-lg flex items-center justify-center">
+                    <XCircle className="w-4 h-4 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Cancelado</p>
+                    <p className="text-xs text-muted-foreground">El pedido fue cancelado y no se procesará.</p>
                   </div>
                 </div>
               </div>
@@ -146,10 +172,10 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
               </p>
               <ul className="text-sm text-muted-foreground space-y-1 ml-4">
                 <li>• <strong>Fecha:</strong> Rango de fechas de creación</li>
-                <li>• <strong>Marca:</strong> CLAAS o HORSCH</li>
+                <li>• <strong>Marca:</strong> Proveedor del repuesto</li>
                 <li>• <strong>Código:</strong> Buscar por código de producto</li>
                 <li>• <strong>Sucursal:</strong> Filtrar por destino</li>
-                <li>• <strong>Estado:</strong> Pendiente, Solicitado o Entregado</li>
+                <li>• <strong>Estado:</strong> Pendiente, Solicitado, Pte. Envío, Entregado o Cancelado</li>
               </ul>
             </section>
 
@@ -190,19 +216,74 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 <Shield className="w-6 h-6 text-primary" />
                 Funciones de Administrador
               </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                El administrador es responsable de gestionar el flujo de los pedidos. Su rol principal consiste 
-                en <strong>cambiar los estados</strong> de los pedidos (de Pendiente a Solicitado, y de Solicitado a Entregado), 
-                <strong> asignar el número de pedido</strong> cuando corresponde, y <strong>cargar el catálogo de productos</strong> con 
-                precios actualizados. También puede realizar acciones masivas sobre múltiples pedidos y 
-                <strong> exportar los datos a Excel</strong> para su análisis.
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                El administrador gestiona el flujo completo de los pedidos y la configuración del sistema.
               </p>
-              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                Además, el administrador cuenta con un <strong>Dashboard de Control</strong> que muestra métricas 
-                en tiempo real: tiempos promedio de gestión, productos más solicitados, distribución por sucursal y marca, 
-                valores totales por estado, y ranking de usuarios.
-              </p>
-              <p className="text-xs text-muted-foreground/70 mt-3">
+              
+              <div className="space-y-4">
+                {/* Gestión de estados */}
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary" />
+                    Gestión de Estados
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Cambiar estados de pedidos (Pendiente → Solicitado → Pte. Envío → Entregado), 
+                    asignar números de pedido y realizar acciones masivas sobre múltiples pedidos.
+                  </p>
+                </div>
+
+                {/* Facturación */}
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-primary" />
+                    Proceso de Facturación
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Al entregar un pedido, se indica si fue facturado (Sí/No). Si fue facturado, 
+                    se ingresa el número de factura y cantidad. Si no fue facturado, se selecciona 
+                    el motivo (Stock, Garantía, No corresponde, etc.).
+                  </p>
+                </div>
+
+                {/* Catálogo */}
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Package className="w-4 h-4 text-primary" />
+                    Catálogo de Productos
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Cargar y actualizar el catálogo de productos con precios (aéreo y marítimo).
+                  </p>
+                </div>
+
+                {/* Configuración */}
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-primary" />
+                    Proveedores y Sucursales
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    En la sección de <strong>Configuración</strong>, el administrador puede agregar, 
+                    editar o eliminar <strong>proveedores/marcas</strong> (con colores personalizados) 
+                    y <strong>sucursales</strong>. Las sucursales inactivas no aparecerán en los formularios.
+                  </p>
+                </div>
+
+                {/* Dashboard */}
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    Dashboard de Control
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Panel con métricas en tiempo real: tiempos de gestión, productos más solicitados, 
+                    distribución por sucursal y marca, valores totales y ranking de usuarios.
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-muted-foreground/70 mt-4">
                 Accede al panel de administrador haciendo clic en el ícono de escudo en la barra superior.
               </p>
             </div>
