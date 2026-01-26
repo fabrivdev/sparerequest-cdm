@@ -45,10 +45,13 @@ interface OrderFormProps {
   defaultBranch?: string;
 }
 
-const BRANDS = [
-  { value: 'CLAAS', label: 'CLAAS', color: '#B4C618', textColor: 'text-black' },
-  { value: 'HORSCH', label: 'HORSCH', color: '#A01B1B', textColor: 'text-white' },
-];
+interface Provider {
+  id: string;
+  name: string;
+  color: string;
+  text_color: string;
+  is_active: boolean;
+}
 
 const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormProps) => {
   const [brand, setBrand] = useState('');
@@ -65,6 +68,26 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
   const [closeAnimation, setCloseAnimation] = useState<'pack' | 'trash' | null>(null);
   const [notificationSent, setNotificationSent] = useState<string | null>(null);
   const [productPrice, setProductPrice] = useState<number>(0);
+  const [providers, setProviders] = useState<Provider[]>([]);
+
+  // Fetch providers from database
+  useEffect(() => {
+    const fetchProviders = async () => {
+      const { data, error } = await supabase
+        .from('providers')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+      
+      if (data && !error) {
+        setProviders(data);
+      }
+    };
+    
+    if (isOpen) {
+      fetchProviders();
+    }
+  }, [isOpen]);
 
   // Update default branch when form opens
   useEffect(() => {
@@ -325,26 +348,24 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
             {/* Brand */}
             <div className="space-y-2">
               <Label className="text-xs font-medium">Marca <span className="text-destructive">*</span></Label>
-              <div className="flex gap-3">
-                {BRANDS.map((b) => (
-                  <button
-                    key={b.value}
-                    type="button"
-                    onClick={() => setBrand(b.value)}
-                    className={`flex-1 h-10 rounded-xl font-semibold text-xs transition-all duration-200 border-2 ${
-                      brand === b.value 
-                        ? 'ring-2 ring-offset-2 ring-primary scale-[1.02] shadow-md' 
-                        : 'opacity-60 hover:opacity-100'
-                    } ${b.textColor}`}
-                    style={{ 
-                      backgroundColor: b.color,
-                      borderColor: brand === b.value ? b.color : 'transparent'
-                    }}
-                  >
-                    {b.label}
-                  </button>
-                ))}
-              </div>
+              <Select value={brand} onValueChange={setBrand} required>
+                <SelectTrigger className="h-10 bg-secondary/50 border-0 rounded-xl text-sm">
+                  <SelectValue placeholder="Selecciona una marca" />
+                </SelectTrigger>
+                <SelectContent className="bg-background border shadow-lg z-50">
+                  {providers.map((p) => (
+                    <SelectItem key={p.id} value={p.name}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: p.color }}
+                        />
+                        {p.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Product Code */}
