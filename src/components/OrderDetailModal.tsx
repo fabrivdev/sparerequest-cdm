@@ -22,7 +22,9 @@ interface OrderDetailModalProps {
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendiente', color: 'bg-red-500/10 text-red-600 border-red-500/20' },
   { value: 'solicitado', label: 'Solicitado', color: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
+  { value: 'pte_envio', label: 'Pte. de envío', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   { value: 'entregado', label: 'Entregado', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-gray-500/10 text-gray-600 border-gray-500/20' },
 ];
 
 const OrderDetailModal = ({ order, isOpen, onClose, onDelete, isAdmin }: OrderDetailModalProps) => {
@@ -70,6 +72,13 @@ const OrderDetailModal = ({ order, isOpen, onClose, onDelete, isAdmin }: OrderDe
               <p className="text-xs text-muted-foreground mb-1">Código</p>
               <p className="text-sm font-mono font-medium text-foreground">{order.product_code}</p>
             </div>
+
+            {order.order_number && (
+              <div className="bg-secondary/30 rounded-lg p-3 col-span-2">
+                <p className="text-xs text-muted-foreground mb-1">Nro. Pedido</p>
+                <p className="text-sm font-mono font-semibold text-primary">{order.order_number}</p>
+              </div>
+            )}
 
             <div className="bg-secondary/30 rounded-lg p-3">
               <p className="text-xs text-muted-foreground mb-1">Cantidad</p>

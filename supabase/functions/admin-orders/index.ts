@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const validStatuses = ['pending', 'solicitado', 'entregado'];
+      const validStatuses = ['pending', 'solicitado', 'pte_envio', 'entregado', 'cancelado'];
       if (!validStatuses.includes(newStatus)) {
         return new Response(
           JSON.stringify({ error: 'Estado inválido' }),
@@ -291,18 +291,23 @@ Deno.serve(async (req) => {
       const updateData: Record<string, any> = { status: newStatus };
       const now = new Date().toISOString();
       
-      if (newStatus === 'pending') {
-        // Clear all dates and order number when going back to pending
-        updateData.requested_at = null;
-        updateData.delivered_at = null;
-        updateData.order_number = null;
+      if (newStatus === 'pending' || newStatus === 'cancelado') {
+        // Clear all dates and order number when going back to pending or cancelling
+        if (newStatus === 'pending') {
+          updateData.requested_at = null;
+          updateData.delivered_at = null;
+          updateData.order_number = null;
+        }
       } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
-        // Clear delivered_at when going back to solicitado
+        updateData.delivered_at = null;
+      } else if (newStatus === 'pte_envio') {
+        if (!currentOrder?.requested_at) {
+          updateData.requested_at = now;
+        }
         updateData.delivered_at = null;
       } else if (newStatus === 'entregado') {
         updateData.delivered_at = now;
-        // If jumping directly to entregado without requested_at, fill it too
         if (!currentOrder?.requested_at) {
           updateData.requested_at = now;
         }
@@ -366,7 +371,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const validMethods = ['aereo', 'maritimo'];
+      const validMethods = ['aereo', 'maritimo', 'terrestre'];
       if (!validMethods.includes(shippingMethod)) {
         return new Response(
           JSON.stringify({ error: 'Método de envío inválido' }),
@@ -428,7 +433,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const validStatuses = ['pending', 'solicitado', 'entregado'];
+      const validStatuses = ['pending', 'solicitado', 'pte_envio', 'entregado', 'cancelado'];
       if (!validStatuses.includes(newStatus)) {
         return new Response(
           JSON.stringify({ error: 'Estado inválido' }),
@@ -551,7 +556,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const validMethods = ['aereo', 'maritimo'];
+      const validMethods = ['aereo', 'maritimo', 'terrestre'];
       if (!validMethods.includes(shippingMethod)) {
         return new Response(
           JSON.stringify({ error: 'Método de envío inválido' }),

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle } from 'lucide-react';
+import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle, XCircle, PackageSearch, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -15,6 +15,7 @@ import OnlineUsersIndicator from '@/components/OnlineUsersIndicator';
 import AdminNotifications from '@/components/AdminNotifications';
 import AdminSupportIndicator from '@/components/AdminSupportIndicator';
 import AdminSupportCenter from '@/components/admin/AdminSupportCenter';
+import AdminSettings from '@/components/AdminSettings';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -318,10 +319,13 @@ const Admin = () => {
   const stats = useMemo(() => {
     const pendingOrders = orders.filter(o => o.status === 'pending');
     const solicitadoOrders = orders.filter(o => o.status === 'solicitado');
+    const pteEnvioOrders = orders.filter(o => o.status === 'pte_envio');
     const entregadoOrders = orders.filter(o => o.status === 'entregado');
+    const canceladoOrders = orders.filter(o => o.status === 'cancelado');
     
     const pendingTotal = pendingOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     const solicitadoTotal = solicitadoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const pteEnvioTotal = pteEnvioOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     const entregadoTotal = entregadoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     
     return { 
@@ -329,8 +333,11 @@ const Admin = () => {
       pendingTotal,
       solicitado: solicitadoOrders.length, 
       solicitadoTotal,
+      pteEnvio: pteEnvioOrders.length,
+      pteEnvioTotal,
       entregado: entregadoOrders.length,
-      entregadoTotal
+      entregadoTotal,
+      cancelado: canceladoOrders.length
     };
   }, [orders]);
 
@@ -393,16 +400,16 @@ const Admin = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-card ios-shadow rounded-xl p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-red-500/10 rounded-xl flex items-center justify-center">
                 <Clock className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
+                <p className="text-xl font-bold text-foreground">{stats.pending}</p>
                 <p className="text-xs text-muted-foreground">Pendientes</p>
-                <p className="text-sm font-semibold text-red-500">${stats.pendingTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs font-semibold text-red-500">${stats.pendingTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -412,9 +419,21 @@ const Admin = () => {
                 <Truck className="w-5 h-5 text-yellow-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.solicitado}</p>
+                <p className="text-xl font-bold text-foreground">{stats.solicitado}</p>
                 <p className="text-xs text-muted-foreground">Solicitados</p>
-                <p className="text-sm font-semibold text-yellow-500">${stats.solicitadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs font-semibold text-yellow-500">${stats.solicitadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card ios-shadow rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500/10 rounded-xl flex items-center justify-center">
+                <PackageSearch className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{stats.pteEnvio}</p>
+                <p className="text-xs text-muted-foreground">Pte. de envío</p>
+                <p className="text-xs font-semibold text-blue-500">${stats.pteEnvioTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -424,17 +443,28 @@ const Admin = () => {
                 <CheckCircle className="w-5 h-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.entregado}</p>
+                <p className="text-xl font-bold text-foreground">{stats.entregado}</p>
                 <p className="text-xs text-muted-foreground">Entregados</p>
-                <p className="text-sm font-semibold text-green-500">${stats.entregadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                <p className="text-xs font-semibold text-green-500">${stats.entregadoTotal.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card ios-shadow rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-500/10 rounded-xl flex items-center justify-center">
+                <XCircle className="w-5 h-5 text-gray-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{stats.cancelado}</p>
+                <p className="text-xs text-muted-foreground">Cancelados</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Tabs for Dashboard, Orders, and Support */}
+        {/* Tabs for Dashboard, Orders, Support, and Settings */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <List className="w-4 h-4" />
               Pedidos
@@ -446,6 +476,10 @@ const Admin = () => {
             <TabsTrigger value="support" className="flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
               Soporte
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Config
             </TabsTrigger>
           </TabsList>
 
@@ -502,6 +536,10 @@ const Admin = () => {
 
           <TabsContent value="support" className="space-y-4">
             <AdminSupportCenter password={password} />
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <AdminSettings password={password} />
           </TabsContent>
         </Tabs>
       </main>

@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend, LabelList
 } from 'recharts';
-import { Timer, TrendingUp, MapPin, Users, Package, Tag, DollarSign, UserCheck, Plane, Ship } from 'lucide-react';
+import { Timer, TrendingUp, MapPin, Users, Package, Tag, DollarSign, UserCheck, Plane, Ship, Truck } from 'lucide-react';
 import { Order } from '@/components/OrdersTable';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -225,10 +225,13 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     // Shipping method stats
     const aereoOrders = orders.filter(o => (o as any).shipping_method === 'aereo' || !(o as any).shipping_method);
     const maritimoOrders = orders.filter(o => (o as any).shipping_method === 'maritimo');
+    const terrestreOrders = orders.filter(o => (o as any).shipping_method === 'terrestre');
     const aereoUnits = aereoOrders.reduce((sum, o) => sum + o.quantity, 0);
     const maritimoUnits = maritimoOrders.reduce((sum, o) => sum + o.quantity, 0);
+    const terrestreUnits = terrestreOrders.reduce((sum, o) => sum + o.quantity, 0);
     const aereoValue = aereoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     const maritimoValue = maritimoOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
+    const terrestreValue = terrestreOrders.reduce((sum, o) => sum + ((o as any).total_price || 0), 0);
     
     return { 
       totalValue, 
@@ -237,10 +240,13 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       activeBranches,
       aereoCount: aereoOrders.length,
       maritimoCount: maritimoOrders.length,
+      terrestreCount: terrestreOrders.length,
       aereoUnits,
       maritimoUnits,
+      terrestreUnits,
       aereoValue,
-      maritimoValue
+      maritimoValue,
+      terrestreValue
     };
   }, [orders]);
 
@@ -542,7 +548,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
       </div>
 
       {/* Shipping Method Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -581,6 +587,29 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                     <p className="text-2xl font-bold text-foreground">{summaryStats.maritimoCount} pedidos</p>
                     <p className="text-sm text-muted-foreground">
                       {summaryStats.maritimoUnits.toLocaleString()} unidades • ${summaryStats.maritimoValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-0 shadow-sm hover:shadow-md transition-shadow duration-300">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-orange-500/10 rounded-2xl flex items-center justify-center">
+                <Truck className="w-7 h-7 text-orange-500" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-muted-foreground">Envíos Terrestres</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-20 mt-1" />
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-2xl font-bold text-foreground">{summaryStats.terrestreCount} pedidos</p>
+                    <p className="text-sm text-muted-foreground">
+                      {summaryStats.terrestreUnits.toLocaleString()} unidades • ${summaryStats.terrestreValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </p>
                   </div>
                 )}

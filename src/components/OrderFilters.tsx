@@ -42,7 +42,9 @@ const STATUS_OPTIONS = [
   { value: 'all', label: 'Todos' },
   { value: 'pending', label: 'Pendiente' },
   { value: 'solicitado', label: 'Solicitado' },
+  { value: 'pte_envio', label: 'Pte. de envío' },
   { value: 'entregado', label: 'Entregado' },
+  { value: 'cancelado', label: 'Cancelado' },
 ];
 
 const OrderFilters = ({ filters, onFiltersChange, branches }: OrderFiltersProps) => {

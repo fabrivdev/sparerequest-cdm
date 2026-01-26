@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship } from 'lucide-react';
+import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship, Truck } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -41,7 +41,9 @@ interface BulkActionsBarProps {
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pendiente' },
   { value: 'solicitado', label: 'Solicitado' },
+  { value: 'pte_envio', label: 'Pte. de envío' },
   { value: 'entregado', label: 'Entregado' },
+  { value: 'cancelado', label: 'Cancelado' },
 ];
 
 const BulkActionsBar = ({ 
@@ -83,11 +85,11 @@ const BulkActionsBar = ({
   );
 
   const handleStatusSelect = (status: string) => {
-    if (status === 'pending') {
-      // For pending, apply directly (no order number needed)
+    if (status === 'pending' || status === 'cancelado') {
+      // For pending and cancelado, apply directly (no order number needed)
       handleStatusChange(status);
-    } else if (status === 'solicitado' || status === 'entregado') {
-      // For solicitado and entregado, check if we need order number
+    } else if (status === 'solicitado' || status === 'pte_envio' || status === 'entregado') {
+      // For solicitado, pte_envio and entregado, check if we need order number
       if (selectedOrdersNeedOrderNumber) {
         setPendingStatus(status);
       } else {
@@ -187,7 +189,7 @@ const BulkActionsBar = ({
         {pendingStatus ? (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {pendingStatus === 'solicitado' ? 'Solicitado' : 'Entregado'}:
+              {pendingStatus === 'solicitado' ? 'Solicitado' : pendingStatus === 'pte_envio' ? 'Pte. de envío' : 'Entregado'}:
             </span>
             <Input
               placeholder="Nro. Pedido (obligatorio)"
@@ -269,11 +271,25 @@ const BulkActionsBar = ({
               {isUpdatingShipping ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Ship className="w-4 h-4" />
-              )}
-              Marítimo
-            </Button>
-          </div>
+              <Ship className="w-4 h-4" />
+            )}
+            Marítimo
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleShippingMethodChange('terrestre')}
+            disabled={isUpdatingShipping}
+            className="h-9 px-2 gap-1 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
+          >
+            {isUpdatingShipping ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Truck className="w-4 h-4" />
+            )}
+            Terrestre
+          </Button>
+        </div>
         )}
 
         {/* Bulk Delete */}

@@ -1,8 +1,8 @@
 import { cn } from '@/lib/utils';
 
 interface ViewToggleProps {
-  view: 'my-orders' | 'branch-orders';
-  onViewChange: (view: 'my-orders' | 'branch-orders') => void;
+  view: 'my-orders' | 'branch-orders' | 'delivered';
+  onViewChange: (view: 'my-orders' | 'branch-orders' | 'delivered') => void;
 }
 
 const ViewToggle = ({ view, onViewChange }: ViewToggleProps) => {
@@ -11,7 +11,7 @@ const ViewToggle = ({ view, onViewChange }: ViewToggleProps) => {
       <button
         onClick={() => onViewChange('my-orders')}
         className={cn(
-          'px-4 py-2 text-sm font-medium rounded-md transition-all',
+          'px-3 py-2 text-sm font-medium rounded-md transition-all',
           view === 'my-orders'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
@@ -22,13 +22,24 @@ const ViewToggle = ({ view, onViewChange }: ViewToggleProps) => {
       <button
         onClick={() => onViewChange('branch-orders')}
         className={cn(
-          'px-4 py-2 text-sm font-medium rounded-md transition-all',
+          'px-3 py-2 text-sm font-medium rounded-md transition-all',
           view === 'branch-orders'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        Pedidos en Sucursal
+        En Sucursal
+      </button>
+      <button
+        onClick={() => onViewChange('delivered')}
+        className={cn(
+          'px-3 py-2 text-sm font-medium rounded-md transition-all',
+          view === 'delivered'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        Entregados
       </button>
     </div>
   );
