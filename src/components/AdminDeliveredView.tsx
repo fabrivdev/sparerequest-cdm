@@ -13,14 +13,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Order } from '@/components/OrdersTable';
 import { ORDER_DESTINATIONS } from '@/constants/destinations';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AdminDeliveredViewProps {
   orders: Order[];
+  password: string;
+  onOrderUpdate: (orderId: string, updates: Partial<Order>) => void;
 }
 
-const AdminDeliveredView = ({ orders }: AdminDeliveredViewProps) => {
+const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredViewProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter only delivered orders
@@ -72,6 +89,29 @@ const AdminDeliveredView = ({ orders }: AdminDeliveredViewProps) => {
         {destInfo.label}
       </Badge>
     );
+  };
+
+  const handleDestinationChange = async (orderId: string, newDestination: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('admin-orders', {
+        body: { 
+          action: 'updateOrderDestination', 
+          password, 
+          orderId, 
+          orderDestination: newDestination 
+        },
+      });
+
+      if (error) {
+        toast.error('Error al actualizar destino');
+        return;
+      }
+
+      onOrderUpdate(orderId, { order_destination: newDestination });
+      toast.success('Destino actualizado');
+    } catch (err) {
+      toast.error('Error al actualizar destino');
+    }
   };
 
   const getInvoiceStatus = (order: Order) => {
@@ -195,6 +235,7 @@ const AdminDeliveredView = ({ orders }: AdminDeliveredViewProps) => {
                   <TableHead className="text-xs">Código</TableHead>
                   <TableHead className="text-xs text-center">Cant.</TableHead>
                   <TableHead className="text-xs">Sucursal</TableHead>
+                  <TableHead className="text-xs">Observación</TableHead>
                   <TableHead className="text-xs">Destino</TableHead>
                   <TableHead className="text-xs">Facturado</TableHead>
                   <TableHead className="text-xs">Nro. Factura</TableHead>
@@ -205,7 +246,7 @@ const AdminDeliveredView = ({ orders }: AdminDeliveredViewProps) => {
               <TableBody>
                 {deliveredOrders.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                       No hay pedidos entregados
                     </TableCell>
                   </TableRow>
@@ -241,8 +282,46 @@ const AdminDeliveredView = ({ orders }: AdminDeliveredViewProps) => {
                       <TableCell className="text-xs">
                         {order.branch_destination}
                       </TableCell>
+                      <TableCell className="text-xs max-w-[180px]">
+                        {order.observation ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="truncate block cursor-help">
+                                  {order.observation}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-xs">{order.observation}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                       <TableCell>
-                        {getDestinationBadge(order.order_destination)}
+                        <Select 
+                          value={order.order_destination} 
+                          onValueChange={(value) => handleDestinationChange(order.id, value)}
+                        >
+                          <SelectTrigger className="h-8 w-[110px] text-xs border-0 bg-secondary/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {ORDER_DESTINATIONS.map((dest) => {
+                              const Icon = dest.icon;
+                              return (
+                                <SelectItem key={dest.value} value={dest.value}>
+                                  <div className="flex items-center gap-1.5">
+                                    <Icon className="w-3 h-3" />
+                                    {dest.label}
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         {getInvoiceStatus(order)}

@@ -531,7 +531,15 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="delivered" className="space-y-4">
-            <AdminDeliveredView orders={orders} />
+            <AdminDeliveredView 
+              orders={orders} 
+              password={password}
+              onOrderUpdate={(orderId, updates) => {
+                setOrders(prev => prev.map(o => 
+                  o.id === orderId ? { ...o, ...updates } : o
+                ));
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-4">
