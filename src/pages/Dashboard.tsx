@@ -21,6 +21,11 @@ interface Profile {
   branch: string;
 }
 
+interface Branch {
+  name: string;
+  is_active: boolean;
+}
+
 interface OrderWithUser extends Order {
   user_email?: string;
   user_name?: string;
@@ -36,6 +41,8 @@ const Dashboard = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [filters, setFilters] = useState<OrderFiltersState>({
     dateFrom: undefined,
     dateTo: undefined,
@@ -60,7 +67,24 @@ const Dashboard = () => {
     }
     
     setProfile(data);
+    // Set default selected branch to user's branch
+    if (data?.branch) {
+      setSelectedBranch(data.branch);
+    }
     setProfileLoading(false);
+  };
+
+  const fetchBranches = async () => {
+    const { data, error } = await supabase
+      .from('branches')
+      .select('name, is_active')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching branches:', error);
+    } else {
+      setBranches(data || []);
+    }
   };
 
   const fetchOrders = async () => {
@@ -84,12 +108,18 @@ const Dashboard = () => {
   const fetchBranchOrders = async () => {
     if (!user || !profile) return;
 
-    // Fetch orders for the user's branch
-    const { data: ordersData, error: ordersError } = await supabase
+    // Build query based on selected branch
+    let query = supabase
       .from('orders')
       .select('*')
-      .eq('branch_destination', profile.branch)
       .order('created_at', { ascending: false });
+
+    // Filter by branch if not "all"
+    if (selectedBranch && selectedBranch !== 'all') {
+      query = query.eq('branch_destination', selectedBranch);
+    }
+
+    const { data: ordersData, error: ordersError } = await query;
 
     if (ordersError) {
       toast.error('Error al cargar los pedidos de la sucursal');
@@ -128,6 +158,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchProfile();
+    fetchBranches();
   }, [user]);
 
   useEffect(() => {
@@ -140,7 +171,7 @@ const Dashboard = () => {
     if (profile && view === 'branch-orders') {
       fetchBranchOrders();
     }
-  }, [profile, view]);
+  }, [profile, view, selectedBranch]);
 
   // Track user presence for admin to see online users
   useEffect(() => {
@@ -265,8 +296,8 @@ const Dashboard = () => {
     }
   };
 
-  // Get unique branches for filter dropdown
-  const branches = useMemo(() => {
+  // Get unique branches for filter dropdown (different from branches state)
+  const filterBranches = useMemo(() => {
     const currentOrders = view === 'my-orders' ? orders : branchOrders;
     return [...new Set(currentOrders.map((o) => o.branch_destination))].sort();
   }, [orders, branchOrders, view]);
@@ -316,13 +347,26 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6">
         {/* View Toggle */}
         <div className="mb-6">
-          <ViewToggle view={view} onViewChange={setView} />
+          <ViewToggle 
+            view={view} 
+            onViewChange={setView}
+            selectedBranch={selectedBranch}
+            onBranchChange={setSelectedBranch}
+            userBranch={profile?.branch || ''}
+            branches={branches}
+          />
         </div>
 
         {/* Stats */}
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground mb-1">
-            {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? `Pedidos en ${profile?.branch}` : 'Pedidos Entregados'}
+            {view === 'my-orders' 
+              ? 'Mis Pedidos' 
+              : view === 'branch-orders' 
+                ? selectedBranch === 'all' 
+                  ? 'Todas las Sucursales' 
+                  : `Pedidos en ${selectedBranch}` 
+                : 'Pedidos Entregados'}
           </h2>
           <p className="text-sm text-muted-foreground">
             {currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}
@@ -335,13 +379,13 @@ const Dashboard = () => {
         ) : currentOrders.length === 0 ? (
           <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : view === 'delivered' ? (
-          <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} />
+          <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} />
         ) : (
           <>
             <OrderFilters 
               filters={filters} 
               onFiltersChange={setFilters} 
-              branches={branches}
+              branches={filterBranches}
             />
             <OrdersTable 
               orders={filteredOrders} 

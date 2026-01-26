@@ -74,6 +74,30 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_delegates: {
+        Row: {
+          created_at: string | null
+          delegate_user_id: string
+          id: string
+          is_active: boolean | null
+          owner_user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          delegate_user_id: string
+          id?: string
+          is_active?: boolean | null
+          owner_user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          delegate_user_id?: string
+          id?: string
+          is_active?: boolean | null
+          owner_user_id?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           branch_destination: string
