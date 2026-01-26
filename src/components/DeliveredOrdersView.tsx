@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users, X } from 'lucide-react';
+import { useSortableTable } from '@/hooks/useSortableTable';
+import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -71,7 +73,7 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
   }, [orders]);
 
   // Apply filters
-  const filteredOrders = useMemo(() => {
+  const preFilteredOrders = useMemo(() => {
     return deliveredOrders.filter((order) => {
       const orderDate = order.delivered_at ? new Date(order.delivered_at) : null;
       const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
@@ -114,6 +116,12 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
       return true;
     });
   }, [deliveredOrders, filters]);
+
+  // Apply sorting
+  const { sortedData: filteredOrders, sortConfig, requestSort } = useSortableTable(
+    preFilteredOrders,
+    { key: 'delivered_at', direction: 'desc' }
+  );
 
   // Selectable orders (not stock-only)
   const selectableOrders = useMemo(() => {
@@ -329,15 +337,15 @@ const DeliveredOrdersView = ({ orders, onUpdate }: DeliveredOrdersViewProps) => 
                       className={isSomeSelected ? 'data-[state=checked]:bg-primary/50' : ''}
                     />
                   </TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Fecha Entrega</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Nro. Pedido</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Marca</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Código</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs text-center">Cant.</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Destino</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Observación</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Facturado</TableHead>
-                  <TableHead className="font-semibold text-foreground text-xs">Nro. Factura</TableHead>
+                  <SortableTableHead sortKey="delivered_at" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Fecha Entrega</SortableTableHead>
+                  <SortableTableHead sortKey="order_number" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Nro. Pedido</SortableTableHead>
+                  <SortableTableHead sortKey="brand" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Marca</SortableTableHead>
+                  <SortableTableHead sortKey="product_code" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Código</SortableTableHead>
+                  <SortableTableHead sortKey="quantity" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs text-center">Cant.</SortableTableHead>
+                  <SortableTableHead sortKey="order_destination" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Destino</SortableTableHead>
+                  <SortableTableHead sortKey="observation" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Observación</SortableTableHead>
+                  <SortableTableHead sortKey="is_invoiced" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Facturado</SortableTableHead>
+                  <SortableTableHead sortKey="invoice_number" currentSort={sortConfig} onSort={requestSort} className="font-semibold text-foreground text-xs">Nro. Factura</SortableTableHead>
                   <TableHead className="font-semibold text-foreground text-xs text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
