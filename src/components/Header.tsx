@@ -163,7 +163,16 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={signOut}
+                onClick={async () => {
+                  try {
+                    await signOut();
+                    localStorage.removeItem(ADMIN_SESSION_KEY);
+                    toast.success('Sesión cerrada');
+                  } catch (err) {
+                    console.error('Logout error:', err);
+                    toast.error('Error al cerrar sesión');
+                  }
+                }}
                 className="h-10 w-10 text-muted-foreground hover:text-destructive"
               >
                 <LogOut className="w-5 h-5" />
