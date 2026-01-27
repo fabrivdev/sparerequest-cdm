@@ -32,16 +32,12 @@ const DelegateSelector = ({
   const [delegators, setDelegators] = useState<DelegatorInfo[]>([]);
 
   const fetchDelegators = async () => {
-    console.log('[DelegateSelector] fetchDelegators called with userId:', userId);
-    
     // Fetch delegations where current user is the delegate
     const { data: delegationsData, error } = await supabase
       .from('invoice_delegates')
       .select('owner_user_id')
       .eq('delegate_user_id', userId)
       .eq('is_active', true);
-
-    console.log('[DelegateSelector] delegationsData:', delegationsData, 'error:', error);
 
     if (error) {
       console.error('Error fetching delegators:', error);

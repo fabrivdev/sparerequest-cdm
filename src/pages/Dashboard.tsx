@@ -376,10 +376,10 @@ const Dashboard = () => {
         {/* Content */}
         {isLoading ? (
           <LoadingScreen />
-        ) : currentOrders.length === 0 ? (
-          <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} />
+        ) : currentOrders.length === 0 ? (
+          <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : (
           <>
             <OrderFilters 
