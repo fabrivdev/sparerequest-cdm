@@ -35,6 +35,7 @@ const productSchema = z.object({
   name: z.string().min(1, "El nombre es requerido").max(255, "Máximo 255 caracteres"),
   price_aereo: z.coerce.number().min(0, "El precio debe ser mayor o igual a 0"),
   price_maritimo: z.coerce.number().min(0, "El precio debe ser mayor o igual a 0"),
+  price_terrestre: z.coerce.number().min(0, "El precio debe ser mayor o igual a 0"),
 });
 
 type ProductFormValues = z.infer<typeof productSchema>;
@@ -56,6 +57,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
       name: "",
       price_aereo: 0,
       price_maritimo: 0,
+      price_terrestre: 0,
     },
   });
 
@@ -83,6 +85,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
             name: values.name,
             price_aereo: values.price_aereo,
             price_maritimo: values.price_maritimo,
+            price_terrestre: values.price_terrestre,
           })
           .eq("id", existing.id);
 
@@ -96,6 +99,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
           name: values.name,
           price_aereo: values.price_aereo,
           price_maritimo: values.price_maritimo,
+          price_terrestre: values.price_terrestre,
         });
 
         if (error) throw error;
@@ -171,7 +175,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <FormField
                 control={form.control}
                 name="price_aereo"
@@ -198,6 +202,26 @@ export function ProductFormModal({ isOpen, onClose, onSuccess }: ProductFormModa
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Precio Marítimo ($)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0.00"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="price_terrestre"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Precio Terrestre ($)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"

@@ -175,14 +175,14 @@ Deno.serve(async (req) => {
         .map(s => JSON.parse(s));
 
       // Fetch prices only for products in orders
-      const priceMap: Record<string, { aereo: number; maritimo: number }> = {};
+      const priceMap: Record<string, { aereo: number; maritimo: number; terrestre: number }> = {};
       
       if (uniqueProducts.length > 0) {
         // Fetch prices for each unique product (in parallel for efficiency)
         const pricePromises = uniqueProducts.map(async (p: { brand: string; code: string }) => {
           const { data: product } = await supabase
             .from('products')
-            .select('price_aereo, price_maritimo, brand, code')
+            .select('price_aereo, price_maritimo, price_terrestre, brand, code')
             .eq('brand', p.brand)
             .eq('code', p.code)
             .maybeSingle();
@@ -190,7 +190,8 @@ Deno.serve(async (req) => {
           if (product) {
             priceMap[`${product.brand}|${product.code}`] = {
               aereo: Number(product.price_aereo) || 0,
-              maritimo: Number(product.price_maritimo) || 0
+              maritimo: Number(product.price_maritimo) || 0,
+              terrestre: Number(product.price_terrestre) || 0
             };
           }
         });
@@ -232,7 +233,9 @@ Deno.serve(async (req) => {
         // Use price based on shipping method
         const unitPrice = order.shipping_method === 'maritimo' 
           ? (prices?.maritimo || 0) 
-          : (prices?.aereo || 0);
+          : order.shipping_method === 'terrestre'
+            ? (prices?.terrestre || 0)
+            : (prices?.aereo || 0);
         return {
           ...order,
           user_email: emailMap[order.user_id] || null,
@@ -413,7 +416,7 @@ Deno.serve(async (req) => {
       if (orderData) {
         const { data: product } = await supabase
           .from('products')
-          .select('price_aereo, price_maritimo')
+          .select('price_aereo, price_maritimo, price_terrestre')
           .eq('brand', orderData.brand)
           .eq('code', orderData.product_code)
           .maybeSingle();
@@ -421,7 +424,9 @@ Deno.serve(async (req) => {
         if (product) {
           unitPrice = shippingMethod === 'maritimo' 
             ? Number(product.price_maritimo) || 0 
-            : Number(product.price_aereo) || 0;
+            : shippingMethod === 'terrestre'
+              ? Number(product.price_terrestre) || 0
+              : Number(product.price_aereo) || 0;
           totalPrice = unitPrice * orderData.quantity;
         }
       }

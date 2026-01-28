@@ -133,7 +133,7 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('name, price_aereo, price_maritimo')
+        .select('name, price_aereo, price_maritimo, price_terrestre')
         .ilike('code', code.trim())
         .ilike('brand', selectedBrand)
         .maybeSingle();
@@ -141,7 +141,13 @@ const OrderForm = ({ isOpen, onClose, onSubmit, defaultBranch = '' }: OrderFormP
       if (data && !error) {
         setProductName(data.name);
         setProductNotFound(false);
-        setProductPrice(Number(data.price_aereo) || 0);
+        // Set price based on current shipping method
+        const priceByMethod = shippingMethod === 'maritimo' 
+          ? Number(data.price_maritimo) 
+          : shippingMethod === 'terrestre'
+            ? Number(data.price_terrestre)
+            : Number(data.price_aereo);
+        setProductPrice(priceByMethod || 0);
         setNotificationSent(null); // Reset notification flag when product found
       } else {
         // Allow CLAAS-ARG products not in catalog with price 0
