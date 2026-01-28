@@ -66,6 +66,7 @@ interface Product {
   name: string;
   price_aereo: number;
   price_maritimo: number;
+  price_terrestre: number;
 }
 
 interface OrdersTableProps {
@@ -253,7 +254,7 @@ const OrdersTable = ({
     const productCodes = [...new Set(orders.map(o => o.product_code))];
     const { data: products } = await supabase
       .from('products')
-      .select('code, name, price_aereo, price_maritimo')
+      .select('code, name, price_aereo, price_maritimo, price_terrestre')
       .in('code', productCodes);
     
     // Create a map for quick lookup (case-insensitive)
@@ -267,7 +268,9 @@ const OrdersTable = ({
       // Use price based on shipping method
       const unitPrice = order.shipping_method === 'maritimo' 
         ? (product?.price_maritimo || 0) 
-        : (product?.price_aereo || 0);
+        : order.shipping_method === 'terrestre'
+          ? (product?.price_terrestre || 0)
+          : (product?.price_aereo || 0);
       return {
         'Fecha': format(new Date(order.created_at), "dd/MM/yyyy HH:mm", { locale: es }),
         ...((isAdmin || showUserColumn) && { 'Solicitante': getUserDisplay(order) }),

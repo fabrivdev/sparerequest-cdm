@@ -179,6 +179,7 @@ export type Database = {
           name: string
           price_aereo: number
           price_maritimo: number
+          price_terrestre: number
           updated_at: string
         }
         Insert: {
@@ -189,6 +190,7 @@ export type Database = {
           name: string
           price_aereo: number
           price_maritimo?: number
+          price_terrestre?: number
           updated_at?: string
         }
         Update: {
@@ -199,6 +201,7 @@ export type Database = {
           name?: string
           price_aereo?: number
           price_maritimo?: number
+          price_terrestre?: number
           updated_at?: string
         }
         Relationships: []

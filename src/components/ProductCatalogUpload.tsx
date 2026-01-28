@@ -15,6 +15,7 @@ interface Product {
   name: string;
   price_aereo: number;
   price_maritimo: number;
+  price_terrestre: number;
 }
 
 interface ParseResult {
@@ -81,7 +82,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       }
 
       // Fetch all products in batches to bypass 1000 row limit
-      const allProducts: { brand: string; code: string; name: string; price_aereo: number; price_maritimo: number }[] = [];
+      const allProducts: { brand: string; code: string; name: string; price_aereo: number; price_maritimo: number; price_terrestre: number }[] = [];
       const FETCH_BATCH_SIZE = 1000;
       let offset = 0;
       let hasMore = true;
@@ -89,7 +90,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
       while (hasMore) {
         const { data: products, error } = await supabase
           .from('products')
-          .select('brand, code, name, price_aereo, price_maritimo')
+          .select('brand, code, name, price_aereo, price_maritimo, price_terrestre')
           .order('brand', { ascending: true })
           .order('code', { ascending: true })
           .range(offset, offset + FETCH_BATCH_SIZE - 1);
@@ -123,7 +124,8 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
         'Código': p.code,
         'Nombre': p.name,
         'AEREO': p.price_aereo,
-        'MARITIMO': p.price_maritimo
+        'MARITIMO': p.price_maritimo,
+        'TERRESTRE': p.price_terrestre
       }));
 
       const ws = XLSX.utils.json_to_sheet(worksheetData);
@@ -162,7 +164,7 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
           const worksheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][];
 
-          // Skip header row - expects 5 columns: Marca, Código, Nombre, AEREO, MARITIMO
+          // Skip header row - expects 6 columns: Marca, Código, Nombre, AEREO, MARITIMO, TERRESTRE
           const products: Product[] = [];
           const productsWithMissingPrices: string[] = [];
           
@@ -176,18 +178,22 @@ const ProductCatalogUpload = ({ onUploadSuccess }: ProductCatalogUploadProps) =>
               // Parse prices - treat invalid/empty as 0
               const rawAereo = row[3];
               const rawMaritimo = row[4];
+              const rawTerrestre = row[5];
               const price_aereo = typeof rawAereo === 'number' ? rawAereo : parseFloat(String(rawAereo || '0')) || 0;
               const price_maritimo = typeof rawMaritimo === 'number' ? rawMaritimo : parseFloat(String(rawMaritimo || '0')) || 0;
+              const price_terrestre = typeof rawTerrestre === 'number' ? rawTerrestre : parseFloat(String(rawTerrestre || '0')) || 0;
               
               // Track products with missing/zero prices
-              const hasMissingPrice = price_aereo === 0 || price_maritimo === 0 || 
+              const hasMissingPrice = price_aereo === 0 || price_maritimo === 0 || price_terrestre === 0 ||
                 rawAereo === '' || rawAereo === null || rawAereo === undefined ||
                 rawMaritimo === '' || rawMaritimo === null || rawMaritimo === undefined ||
+                rawTerrestre === '' || rawTerrestre === null || rawTerrestre === undefined ||
                 (typeof rawAereo === 'string' && rawAereo.includes('#')) ||
-                (typeof rawMaritimo === 'string' && rawMaritimo.includes('#'));
+                (typeof rawMaritimo === 'string' && rawMaritimo.includes('#')) ||
+                (typeof rawTerrestre === 'string' && rawTerrestre.includes('#'));
 
               if (brand && code && name) {
-                products.push({ brand, code, name, price_aereo, price_maritimo });
+                products.push({ brand, code, name, price_aereo, price_maritimo, price_terrestre });
                 if (hasMissingPrice) {
                   productsWithMissingPrices.push(code);
                 }
