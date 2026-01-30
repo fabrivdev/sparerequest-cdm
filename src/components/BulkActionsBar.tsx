@@ -122,7 +122,10 @@ const BulkActionsBar = ({
     if (!orderNumber.trim()) {
       return; // Don't allow empty order number
     }
-    const estDateStr = estimatedDate ? format(estimatedDate, 'yyyy-MM-dd') : undefined;
+    if (!estimatedDate) {
+      return; // Don't allow empty estimated date
+    }
+    const estDateStr = format(estimatedDate, 'yyyy-MM-dd');
     await handleStatusChange(pendingStatus!, orderNumber, estDateStr);
   };
 
@@ -221,7 +224,7 @@ const BulkActionsBar = ({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {estimatedDate ? format(estimatedDate, "dd/MM/yyyy", { locale: es }) : "F. Estimada"}
+                  {estimatedDate ? format(estimatedDate, "dd/MM/yyyy", { locale: es }) : "F. Estimada *"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -238,7 +241,7 @@ const BulkActionsBar = ({
               variant="default"
               size="sm"
               onClick={handleConfirmStatus}
-              disabled={isUpdating || !orderNumber.trim()}
+              disabled={isUpdating || !orderNumber.trim() || !estimatedDate}
               className="h-9 gap-1"
             >
               {isUpdating ? (

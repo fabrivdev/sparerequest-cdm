@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship, Truck } from 'lucide-react';
+import { Package, Trash2, Loader2, Download, ChevronRight, Pencil, Check, X, ChevronLeft, Plane, Ship, Truck, CalendarIcon } from 'lucide-react';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import OrderDetailModal from './OrderDetailModal';
 import OrderEditModal from './OrderEditModal';
 import AdminOrderEditModal from './AdminOrderEditModal';
@@ -82,7 +89,8 @@ interface OrdersTableProps {
     observation: string | null;
   }) => Promise<void>;
   onStatusChange?: (orderId: string, newStatus: string) => void;
-  onOrderNumberChange?: (orderId: string, orderNumber: string) => void;
+  onOrderNumberChange?: (orderId: string, orderNumber: string, estimatedDeliveryDate?: string) => void;
+  onEstimatedDateChange?: (orderId: string, estimatedDeliveryDate: string) => void;
   onShippingMethodChange?: (orderId: string, shippingMethod: string) => void;
   onBulkStatusChange?: (orderIds: string[], newStatus: string) => Promise<void>;
   onBulkDelete?: (orderIds: string[]) => Promise<void>;
@@ -150,6 +158,7 @@ const OrdersTable = ({
   onUpdate,
   onStatusChange,
   onOrderNumberChange,
+  onEstimatedDateChange,
   onShippingMethodChange,
   onBulkStatusChange,
   onBulkDelete,
@@ -170,6 +179,8 @@ const OrdersTable = ({
   const [adminEditingOrder, setAdminEditingOrder] = useState<Order | null>(null);
   const [editingOrderNumber, setEditingOrderNumber] = useState<string | null>(null);
   const [orderNumberValue, setOrderNumberValue] = useState('');
+  const [editingEstimatedDate, setEditingEstimatedDate] = useState<string | null>(null);
+  const [estimatedDateValue, setEstimatedDateValue] = useState<Date | undefined>(undefined);
   const [rowsPerPage, setRowsPerPage] = useState(50);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -615,15 +626,73 @@ const OrdersTable = ({
                         )}
                       </TableCell>
                     )}
-                    {/* Admin view: Estimated delivery date */}
+                    {/* Admin view: Estimated delivery date editable */}
                     {isAdmin && (
                       <TableCell className="text-xs">
-                        {order.estimated_delivery_date ? (
-                          <span className="font-medium text-primary">
-                            {format(new Date(order.estimated_delivery_date), "dd/MM/yyyy", { locale: es })}
-                          </span>
+                        {editingEstimatedDate === order.id ? (
+                          <div className="flex items-center gap-1">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    "h-7 w-28 justify-start text-left font-normal text-xs",
+                                    !estimatedDateValue && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-1 h-3 w-3" />
+                                  {estimatedDateValue ? format(estimatedDateValue, "dd/MM/yyyy", { locale: es }) : "Fecha..."}
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={estimatedDateValue}
+                                  onSelect={setEstimatedDateValue}
+                                  initialFocus
+                                  className="p-3 pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => {
+                                if (estimatedDateValue) {
+                                  onEstimatedDateChange?.(order.id, format(estimatedDateValue, 'yyyy-MM-dd'));
+                                }
+                                setEditingEstimatedDate(null);
+                              }}
+                            >
+                              <Check className="w-3 h-3 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => setEditingEstimatedDate(null)}
+                            >
+                              <X className="w-3 h-3 text-muted-foreground" />
+                            </Button>
+                          </div>
                         ) : (
-                          <span className="text-muted-foreground">-</span>
+                          <span
+                            className="cursor-pointer hover:text-primary"
+                            onClick={() => {
+                              setEditingEstimatedDate(order.id);
+                              setEstimatedDateValue(order.estimated_delivery_date ? new Date(order.estimated_delivery_date) : undefined);
+                            }}
+                          >
+                            {order.estimated_delivery_date ? (
+                              <span className="font-medium text-primary">
+                                {format(new Date(order.estimated_delivery_date), "dd/MM/yyyy", { locale: es })}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground italic">Agregar...</span>
+                            )}
+                          </span>
                         )}
                       </TableCell>
                     )}

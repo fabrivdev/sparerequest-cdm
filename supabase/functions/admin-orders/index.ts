@@ -373,6 +373,35 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (action === 'updateEstimatedDate') {
+      const { estimatedDeliveryDate } = body;
+      
+      if (!orderId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ estimated_delivery_date: estimatedDeliveryDate || null })
+        .eq('id', orderId);
+
+      if (error) {
+        console.error('Error updating estimated date:', error);
+        return new Response(
+          JSON.stringify({ error: 'Error al actualizar fecha estimada' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     if (action === 'updateShippingMethod') {
       if (!orderId || !shippingMethod) {
         return new Response(
