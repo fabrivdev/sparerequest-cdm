@@ -128,7 +128,7 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     };
   }, [orders]);
 
-  // Top SKUs with brand + code
+  // Top SKUs with brand + code - sorted by request count (times requested)
   const topSkus = useMemo(() => {
     const skuMap: Record<string, { label: string; sku: string; brand: string; count: number; quantity: number }> = {};
     
@@ -148,8 +148,14 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     });
     
     return Object.values(skuMap)
-      .sort((a, b) => b.quantity - a.quantity)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10);
+  }, [orders]);
+
+  // Count of unique SKUs requested
+  const uniqueSkusCount = useMemo(() => {
+    const uniqueSkus = new Set(orders.map(o => `${o.brand}|${o.product_code}`));
+    return uniqueSkus.size;
   }, [orders]);
 
   // Orders by branch
@@ -357,8 +363,9 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Package className="w-5 h-5 text-primary" />
-              Top 10 SKUs más pedidos
+              Top 10 SKUs más solicitados
             </CardTitle>
+            <p className="text-xs text-muted-foreground">Cantidad de veces solicitado</p>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -378,8 +385,8 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Bar 
-                      dataKey="quantity" 
-                      name="Unidades"
+                      dataKey="count" 
+                      name="Veces solicitado"
                       fill="hsl(75, 46%, 44%)" 
                       radius={[0, 8, 8, 0]}
                     />
@@ -530,6 +537,15 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
                   </div>
                   <span className="text-2xl font-bold text-primary">
                     {summaryStats.activeSellers}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
+                  <div className="flex items-center gap-3">
+                    <Tag className="w-5 h-5 text-primary" />
+                    <span className="text-muted-foreground">Items Únicos</span>
+                  </div>
+                  <span className="text-2xl font-bold text-primary">
+                    {uniqueSkusCount}
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl">
