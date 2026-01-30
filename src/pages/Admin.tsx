@@ -169,10 +169,10 @@ const Admin = () => {
     setUpdatingOrderId(null);
   };
 
-  const handleOrderNumberChange = async (orderId: string, orderNumber: string) => {
+  const handleOrderNumberChange = async (orderId: string, orderNumber: string, estimatedDeliveryDate?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('admin-orders', {
-        body: { action: 'updateOrderNumber', password, orderId, orderNumber },
+        body: { action: 'updateOrderNumber', password, orderId, orderNumber, estimatedDeliveryDate },
       });
 
       if (error || data.error) {
@@ -182,10 +182,36 @@ const Admin = () => {
 
       setOrders((prev) =>
         prev.map((order) =>
-          order.id === orderId ? { ...order, order_number: orderNumber || null } : order
+          order.id === orderId ? { 
+            ...order, 
+            order_number: orderNumber || null,
+            estimated_delivery_date: estimatedDeliveryDate || order.estimated_delivery_date
+          } : order
         )
       );
       toast.success('Número de pedido actualizado');
+    } catch (err) {
+      toast.error('Error al actualizar');
+    }
+  };
+
+  const handleEstimatedDateChange = async (orderId: string, estimatedDeliveryDate: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'updateEstimatedDate', password, orderId, estimatedDeliveryDate },
+      });
+
+      if (error || data.error) {
+        toast.error(data?.error || 'Error al actualizar');
+        return;
+      }
+
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId ? { ...order, estimated_delivery_date: estimatedDeliveryDate } : order
+        )
+      );
+      toast.success('Fecha estimada actualizada');
     } catch (err) {
       toast.error('Error al actualizar');
     }
@@ -528,6 +554,7 @@ const Admin = () => {
               adminPassword={password}
               onStatusChange={handleStatusChange}
               onOrderNumberChange={handleOrderNumberChange}
+              onEstimatedDateChange={handleEstimatedDateChange}
               onShippingMethodChange={handleShippingMethodChange}
               updatingOrderId={updatingOrderId}
               showExport
