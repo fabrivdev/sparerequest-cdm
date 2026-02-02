@@ -121,11 +121,15 @@ const Admin = () => {
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
-    // Validate on frontend that 'entregado' requires order_number
+    // Validate on frontend that 'entregado' requires order_number and estimated_delivery_date
     if (newStatus === 'entregado') {
       const order = orders.find(o => o.id === orderId);
       if (!order?.order_number || order.order_number.trim() === '') {
         toast.error('Debe ingresar un número de pedido antes de marcar como entregado');
+        return;
+      }
+      if (!order?.estimated_delivery_date) {
+        toast.error('Debe ingresar una fecha estimada antes de marcar como entregado');
         return;
       }
     }
@@ -245,13 +249,20 @@ const Admin = () => {
   };
 
   const handleBulkStatusChange = async (newStatus: string, orderNumber?: string, estimatedDeliveryDate?: string) => {
-    // Validate on frontend that 'entregado' requires order_number for all selected
+    // Validate on frontend that 'entregado' requires order_number and estimated_delivery_date for all selected
     if (newStatus === 'entregado') {
       const ordersWithoutNumber = orders.filter(
         o => selectedOrders.includes(o.id) && (!o.order_number || o.order_number.trim() === '')
       );
       if (ordersWithoutNumber.length > 0) {
         toast.error(`${ordersWithoutNumber.length} pedido(s) no tienen número de pedido`);
+        return;
+      }
+      const ordersWithoutDate = orders.filter(
+        o => selectedOrders.includes(o.id) && !o.estimated_delivery_date
+      );
+      if (ordersWithoutDate.length > 0) {
+        toast.error(`${ordersWithoutDate.length} pedido(s) no tienen fecha estimada`);
         return;
       }
     }

@@ -267,17 +267,24 @@ Deno.serve(async (req) => {
         );
       }
 
-      // If changing to 'entregado', check that order_number exists
+      // If changing to 'entregado', check that order_number and estimated_delivery_date exist
       if (newStatus === 'entregado') {
         const { data: orderData } = await supabase
           .from('orders')
-          .select('order_number')
+          .select('order_number, estimated_delivery_date')
           .eq('id', orderId)
           .single();
         
         if (!orderData?.order_number || orderData.order_number.trim() === '') {
           return new Response(
             JSON.stringify({ error: 'Debe ingresar un número de pedido antes de marcar como entregado' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        if (!orderData?.estimated_delivery_date) {
+          return new Response(
+            JSON.stringify({ error: 'Debe ingresar una fecha estimada antes de marcar como entregado' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -484,17 +491,25 @@ Deno.serve(async (req) => {
         );
       }
 
-      // If changing to 'entregado', check that all orders have order_number
+      // If changing to 'entregado', check that all orders have order_number and estimated_delivery_date
       if (newStatus === 'entregado') {
         const { data: ordersData } = await supabase
           .from('orders')
-          .select('id, order_number')
+          .select('id, order_number, estimated_delivery_date')
           .in('id', orderIds);
         
         const ordersWithoutNumber = ordersData?.filter(o => !o.order_number || o.order_number.trim() === '') || [];
         if (ordersWithoutNumber.length > 0) {
           return new Response(
             JSON.stringify({ error: `${ordersWithoutNumber.length} pedido(s) no tienen número de pedido. Ingrese el número antes de marcar como entregado.` }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const ordersWithoutDate = ordersData?.filter(o => !o.estimated_delivery_date) || [];
+        if (ordersWithoutDate.length > 0) {
+          return new Response(
+            JSON.stringify({ error: `${ordersWithoutDate.length} pedido(s) no tienen fecha estimada. Ingrese la fecha antes de marcar como entregado.` }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
