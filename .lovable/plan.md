@@ -1,129 +1,174 @@
 
-# Plan: Agregar Precio Terrestre al Catálogo de Productos
+# Plan: Corregir Bug de Fecha y Mejorar Bulk Actions
 
-## Resumen del Cambio
-Se necesita agregar una nueva columna `price_terrestre` a la tabla de productos y actualizar toda la lógica de cálculo de precios para que el método de envío "Terrestre" use este nuevo precio en lugar del precio "Aéreo". También se debe actualizar el manejo especial de CLAAS-ARG y los componentes de carga/descarga del catálogo.
-
----
-
-## Cambios Identificados
-
-### 1. Base de Datos
-Nueva columna en la tabla `products`:
-
-| Columna | Tipo | Nullable | Default |
-|---------|------|----------|---------|
-| `price_terrestre` | numeric | No | 0 |
+## Resumen
+Se deben corregir dos problemas:
+1. **Bug de timezone**: Al seleccionar una fecha (ej: 03/02), se guarda un día antes (02/02)
+2. **Bulk actions incompleto**: Si pedidos están en "solicitado" sin fecha estimada, al seleccionarlos debe aparecer la opción de agregar fecha
 
 ---
 
-### 2. Archivos a Modificar
+## Problema 1: Bug de Timezone en Fechas
 
-| Archivo | Descripción del Cambio |
-|---------|------------------------|
-| `src/components/ProductCatalogUpload.tsx` | Agregar columna TERRESTRE al parsing del Excel (columna 5) y al export |
-| `src/components/ProductFormModal.tsx` | Agregar campo `price_terrestre` al formulario de alta manual |
-| `src/components/OrderForm.tsx` | Actualizar lógica para obtener precio según shipping method |
-| `src/components/OrderEditModal.tsx` | Agregar `price_terrestre` a la query de productos |
-| `src/components/OrdersTable.tsx` | Actualizar cálculo de precio en export Excel |
-| `supabase/functions/admin-orders/index.ts` | Actualizar getOrders y updateShippingMethod para usar `price_terrestre` |
+### Causa del problema
+Cuando JavaScript parsea una fecha en formato `yyyy-MM-dd` con `new Date("2025-02-03")`, la interpreta en UTC (medianoche UTC). Para usuarios en zonas horarias negativas (ej: Argentina GMT-3), esto resulta en que la fecha se muestre como el día anterior.
 
----
+### Solución
+Crear funciones helper para manejar fechas locales correctamente:
 
-### 3. Lógica de Precios Actualizada
-
-Actualmente:
 ```text
-aereo → price_aereo
-maritimo → price_maritimo
-terrestre → price_aereo (incorrecto)
+// Formatear Date a string yyyy-MM-dd en timezone local
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Parsear string yyyy-MM-dd a Date en timezone local
+function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 ```
 
-Nueva lógica:
-```text
-aereo → price_aereo
-maritimo → price_maritimo
-terrestre → price_terrestre
-```
+### Archivos a modificar
 
----
-
-### 4. Formato del Excel del Catálogo
-
-**Estructura esperada del archivo Excel (6 columnas):**
-
-| Columna | Nombre |
+| Archivo | Cambio |
 |---------|--------|
-| A | Marca |
-| B | Código |
-| C | Nombre |
-| D | AEREO |
-| E | MARITIMO |
-| F | TERRESTRE |
+| `src/lib/utils.ts` | Agregar funciones `formatLocalDate` y `parseLocalDate` |
+| `src/components/OrdersTable.tsx` | Usar `parseLocalDate` en línea 685 para cargar fecha existente, y `formatLocalDate` en línea 664 para guardar |
+| `src/components/BulkActionsBar.tsx` | Usar `formatLocalDate` en línea 128 al confirmar |
+
+---
+
+## Problema 2: Mostrar Formulario de Fecha en Bulk Actions
+
+### Causa del problema
+Actualmente el `BulkActionsBar` solo verifica `selectedOrdersNeedOrderNumber` para decidir si mostrar el formulario de ingreso. Si todos los pedidos ya tienen order_number pero les falta estimated_delivery_date, el formulario no aparece y no se puede pasar a "entregado".
+
+### Solución
+Agregar una nueva prop `selectedOrdersNeedEstimatedDate` y modificar la lógica para mostrar el formulario cuando falte cualquiera de los dos campos (order_number O estimated_delivery_date).
+
+### Archivos a modificar
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/components/BulkActionsBar.tsx` | Agregar prop `selectedOrdersNeedEstimatedDate`, modificar `handleStatusSelect` para considerar ambos campos |
+| `src/pages/Admin.tsx` | Pasar nueva prop calculando si algún pedido seleccionado no tiene fecha estimada |
 
 ---
 
 ## Detalles Técnicos
 
-### Migración SQL
-```sql
-ALTER TABLE public.products 
-ADD COLUMN price_terrestre numeric NOT NULL DEFAULT 0;
-```
+### src/lib/utils.ts
+Agregar al final del archivo:
 
-### ProductCatalogUpload.tsx
-- Actualizar interface `Product` para incluir `price_terrestre`
-- Modificar `parseExcel()` para leer columna 5 (TERRESTRE)
-- Actualizar `handleDownloadCatalog()` para incluir columna TERRESTRE en el export
-- Ajustar validación de precios faltantes
-
-### ProductFormModal.tsx
-- Agregar campo `price_terrestre` al schema zod
-- Agregar input para Precio Terrestre en el formulario
-- Incluir `price_terrestre` en insert/update
-
-### OrderForm.tsx
-- Modificar query de productos: `select('name, price_aereo, price_maritimo, price_terrestre')`
-- Actualizar lógica de `setProductPrice()` para usar precio según `shippingMethod`
-- Recalcular precio cuando cambia el método de envío
-
-### OrderEditModal.tsx
-- Agregar `price_terrestre` a la query de productos
-
-### OrdersTable.tsx
-- Actualizar cálculo de `unitPrice` en `exportToExcel()`:
 ```typescript
-const unitPrice = order.shipping_method === 'maritimo' 
-  ? (product?.price_maritimo || 0) 
-  : order.shipping_method === 'terrestre'
-    ? (product?.price_terrestre || 0)
-    : (product?.price_aereo || 0);
+// Format Date to yyyy-MM-dd string in local timezone
+export function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Parse yyyy-MM-dd string to Date in local timezone
+export function parseLocalDate(dateStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
 ```
 
-### admin-orders/index.ts
-- Actualizar `getOrders`: agregar `price_terrestre` a la query y al `priceMap`
-- Actualizar cálculo de `unitPrice` para usar lógica de 3 precios
-- Actualizar `updateShippingMethod`: incluir `price_terrestre` y ajustar cálculo
+### src/components/OrdersTable.tsx
+
+1. Importar las funciones:
+```typescript
+import { cn, formatLocalDate, parseLocalDate } from '@/lib/utils';
+```
+
+2. Línea 664 - cambiar formato al guardar:
+```typescript
+// Antes:
+onEstimatedDateChange?.(order.id, format(estimatedDateValue, 'yyyy-MM-dd'));
+
+// Después:
+onEstimatedDateChange?.(order.id, formatLocalDate(estimatedDateValue));
+```
+
+3. Línea 685 - cambiar parseo al cargar:
+```typescript
+// Antes:
+setEstimatedDateValue(order.estimated_delivery_date ? new Date(order.estimated_delivery_date) : undefined);
+
+// Después:
+setEstimatedDateValue(order.estimated_delivery_date ? parseLocalDate(order.estimated_delivery_date) : undefined);
+```
+
+### src/components/BulkActionsBar.tsx
+
+1. Importar función:
+```typescript
+import { cn, formatLocalDate } from '@/lib/utils';
+```
+
+2. Agregar nueva prop a la interface:
+```typescript
+selectedOrdersNeedEstimatedDate?: boolean;
+```
+
+3. Modificar lógica de handleStatusSelect:
+```typescript
+// Antes (línea 101-109):
+} else if (status === 'solicitado' || status === 'pte_envio' || status === 'entregado') {
+  if (selectedOrdersNeedOrderNumber) {
+    setPendingStatus(status);
+  } else {
+    handleStatusChange(status);
+  }
+}
+
+// Después:
+} else if (status === 'solicitado' || status === 'pte_envio' || status === 'entregado') {
+  // Mostrar formulario si falta order_number O estimated_delivery_date
+  if (selectedOrdersNeedOrderNumber || selectedOrdersNeedEstimatedDate) {
+    setPendingStatus(status);
+  } else {
+    handleStatusChange(status);
+  }
+}
+```
+
+4. Cambiar formato de fecha al confirmar:
+```typescript
+// Línea 128:
+const estDateStr = formatLocalDate(estimatedDate);
+```
+
+### src/pages/Admin.tsx
+
+1. Agregar nueva prop al BulkActionsBar:
+```typescript
+selectedOrdersNeedEstimatedDate={orders.some(
+  o => selectedOrders.includes(o.id) && !o.estimated_delivery_date
+)}
+```
 
 ---
 
-## Caso Especial: CLAAS-ARG
+## Resumen de Cambios
 
-Los productos de CLAAS-ARG que no están en el catálogo ya se manejan con precio $0. Este comportamiento se mantiene sin cambios, ya que el precio terrestre también será $0 para productos no catalogados.
-
----
-
-## Flujo de Trabajo para el Usuario
-
-1. Descargar el catálogo actual (tendrá 5 columnas)
-2. Agregar la columna TERRESTRE con los precios correspondientes
-3. Subir el nuevo catálogo de 6 columnas
-4. Los precios se aplicarán automáticamente según el método de envío seleccionado
+| Archivo | Tipo de Cambio |
+|---------|----------------|
+| `src/lib/utils.ts` | Agregar 2 funciones helper |
+| `src/components/OrdersTable.tsx` | Actualizar imports + 2 líneas |
+| `src/components/BulkActionsBar.tsx` | Actualizar imports + interface + lógica |
+| `src/pages/Admin.tsx` | Agregar 1 prop al componente |
 
 ---
 
-## Impacto
-- Pedidos existentes: Sin cambio (continuarán usando los precios calculados al momento de creación)
-- Nuevos pedidos: Usarán el precio correcto según el método de envío
-- Exportaciones: Mostrarán el precio correcto según el shipping method del pedido
+## Resultado Esperado
 
+1. Al seleccionar fecha 03/02, se guardará correctamente como 03/02
+2. Si selecciono pedidos en "solicitado" sin fecha estimada y elijo cambiar a "entregado", aparecerá el formulario para ingresar Nro. Pedido y Fecha Estimada
+3. No se podrá pasar a "entregado" sin tener ambos campos completos
