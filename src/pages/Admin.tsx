@@ -548,6 +548,9 @@ const Admin = () => {
               selectedOrdersNeedOrderNumber={orders.some(
                 o => selectedOrders.includes(o.id) && (!o.order_number || o.order_number.trim() === '')
               )}
+              selectedOrdersNeedEstimatedDate={orders.some(
+                o => selectedOrders.includes(o.id) && !o.estimated_delivery_date
+              )}
               orders={orders}
               selectedOrders={selectedOrders}
               onSelectByOrderNumber={(orderNumber) => {

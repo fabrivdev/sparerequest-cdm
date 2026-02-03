@@ -35,7 +35,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalDate, parseLocalDate } from '@/lib/utils';
 import OrderDetailModal from './OrderDetailModal';
 import OrderEditModal from './OrderEditModal';
 import AdminOrderEditModal from './AdminOrderEditModal';
@@ -661,7 +661,7 @@ const OrdersTable = ({
                               className="h-6 w-6"
                               onClick={() => {
                                 if (estimatedDateValue) {
-                                  onEstimatedDateChange?.(order.id, format(estimatedDateValue, 'yyyy-MM-dd'));
+                                  onEstimatedDateChange?.(order.id, formatLocalDate(estimatedDateValue));
                                 }
                                 setEditingEstimatedDate(null);
                               }}
@@ -682,7 +682,7 @@ const OrdersTable = ({
                             className="cursor-pointer hover:text-primary"
                             onClick={() => {
                               setEditingEstimatedDate(order.id);
-                              setEstimatedDateValue(order.estimated_delivery_date ? new Date(order.estimated_delivery_date) : undefined);
+                              setEstimatedDateValue(order.estimated_delivery_date ? parseLocalDate(order.estimated_delivery_date) : undefined);
                             }}
                           >
                             {order.estimated_delivery_date ? (

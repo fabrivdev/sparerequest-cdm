@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Trash2, RefreshCw, Loader2, X, Check, AlertTriangle, Link, Plane, Ship, Truck, CalendarIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatLocalDate } from '@/lib/utils';
 
 interface Order {
   id: string;
@@ -42,6 +42,7 @@ interface BulkActionsBarProps {
   onDelete: () => Promise<void>;
   onClearSelection: () => void;
   selectedOrdersNeedOrderNumber?: boolean;
+  selectedOrdersNeedEstimatedDate?: boolean;
   orders?: Order[];
   selectedOrders?: string[];
   onSelectByOrderNumber?: (orderNumber: string) => void;
@@ -62,6 +63,7 @@ const BulkActionsBar = ({
   onDelete,
   onClearSelection,
   selectedOrdersNeedOrderNumber = true,
+  selectedOrdersNeedEstimatedDate = false,
   orders = [],
   selectedOrders = [],
   onSelectByOrderNumber
@@ -99,11 +101,11 @@ const BulkActionsBar = ({
       // For pending and cancelado, apply directly (no order number needed)
       handleStatusChange(status);
     } else if (status === 'solicitado' || status === 'pte_envio' || status === 'entregado') {
-      // For solicitado, pte_envio and entregado, check if we need order number
-      if (selectedOrdersNeedOrderNumber) {
+      // For solicitado, pte_envio and entregado, check if we need order number OR estimated date
+      if (selectedOrdersNeedOrderNumber || selectedOrdersNeedEstimatedDate) {
         setPendingStatus(status);
       } else {
-        // All orders already have order_number, proceed directly
+        // All orders already have order_number and estimated_delivery_date, proceed directly
         handleStatusChange(status);
       }
     }
@@ -125,7 +127,7 @@ const BulkActionsBar = ({
     if (!estimatedDate) {
       return; // Don't allow empty estimated date
     }
-    const estDateStr = format(estimatedDate, 'yyyy-MM-dd');
+    const estDateStr = formatLocalDate(estimatedDate);
     await handleStatusChange(pendingStatus!, orderNumber, estDateStr);
   };
 
