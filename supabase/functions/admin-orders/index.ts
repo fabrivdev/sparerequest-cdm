@@ -307,6 +307,7 @@ Deno.serve(async (req) => {
           updateData.requested_at = null;
           updateData.delivered_at = null;
           updateData.order_number = null;
+          updateData.estimated_delivery_date = null;
         }
       } else if (newStatus === 'solicitado') {
         updateData.requested_at = now;
