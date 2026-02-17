@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -78,6 +80,30 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
     
     return { total, needsInvoicing, invoiced, stockOnly };
   }, [deliveredOrders]);
+
+  const handleExportExcel = () => {
+    const data = deliveredOrders.map(order => ({
+      'Fecha Entrega': order.delivered_at ? format(new Date(order.delivered_at), 'dd/MM/yyyy', { locale: es }) : '-',
+      'Nro. Pedido': order.order_number || '-',
+      'Usuario': (order as any).user_name || '-',
+      'Marca': order.brand,
+      'Código': order.product_code,
+      'Cantidad': order.quantity,
+      'Sucursal': order.branch_destination,
+      'Observación': order.observation || '-',
+      'Destino': order.order_destination === 'cliente' ? 'Cliente' : order.order_destination === 'stock' ? 'Stock' : order.order_destination === 'ambos' ? 'Ambos' : order.order_destination,
+      'Facturado': order.order_destination === 'stock' ? 'N/A' : order.is_invoiced ? 'Sí' : 'Pendiente',
+      'Nro. Factura': order.invoice_number || '-',
+      'Cant. Facturada': order.invoiced_quantity ?? '-',
+      'Obs. Factura': order.invoice_observation || '-',
+      'Motivo No Fact.': order.not_invoiced_reason || '-',
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Entregados');
+    XLSX.writeFile(wb, `Entregados_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
 
   const getDestinationBadge = (destination: string) => {
     const destInfo = ORDER_DESTINATIONS.find(d => d.value === destination);
@@ -211,15 +237,27 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
         </Card>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por código, marca, nro. pedido..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="h-10 bg-secondary/50 border-0 pl-9 text-sm rounded-xl"
-        />
+      {/* Search + Export */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por código, marca, nro. pedido..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="h-10 bg-secondary/50 border-0 pl-9 text-sm rounded-xl"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportExcel}
+          disabled={deliveredOrders.length === 0}
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Exportar Excel
+        </Button>
       </div>
 
       {/* Table */}
