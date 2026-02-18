@@ -50,6 +50,66 @@ export type Database = {
         }
         Relationships: []
       }
+      branch_sales: {
+        Row: {
+          branch: string
+          brand: string
+          id: string
+          product_code: string
+          quantity_sold: number
+          updated_at: string
+          year_month: string
+        }
+        Insert: {
+          branch: string
+          brand: string
+          id?: string
+          product_code: string
+          quantity_sold?: number
+          updated_at?: string
+          year_month: string
+        }
+        Update: {
+          branch?: string
+          brand?: string
+          id?: string
+          product_code?: string
+          quantity_sold?: number
+          updated_at?: string
+          year_month?: string
+        }
+        Relationships: []
+      }
+      branch_stock: {
+        Row: {
+          branch: string
+          brand: string
+          id: string
+          product_code: string
+          product_name: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          branch: string
+          brand: string
+          id?: string
+          product_code: string
+          product_name: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          branch?: string
+          brand?: string
+          id?: string
+          product_code?: string
+          product_name?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       branches: {
         Row: {
           created_at: string
@@ -263,6 +323,33 @@ export type Database = {
         }
         Relationships: []
       }
+      stock_upload_log: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          records_count: number
+          upload_type: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          records_count?: number
+          upload_type: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          records_count?: number
+          upload_type?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       support_conversations: {
         Row: {
           branch: string
@@ -342,6 +429,139 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transfer_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          transfer_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          transfer_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_alerts_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_status_log: {
+        Row: {
+          changed_by: string
+          changed_by_name: string
+          created_at: string
+          from_status: string | null
+          id: string
+          observation: string | null
+          to_status: string
+          transfer_id: string
+        }
+        Insert: {
+          changed_by: string
+          changed_by_name: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          observation?: string | null
+          to_status: string
+          transfer_id: string
+        }
+        Update: {
+          changed_by?: string
+          changed_by_name?: string
+          created_at?: string
+          from_status?: string | null
+          id?: string
+          observation?: string | null
+          to_status?: string
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_status_log_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfers: {
+        Row: {
+          approved_quantity: number | null
+          brand: string
+          created_at: string
+          dispatched_quantity: number | null
+          id: string
+          observation: string | null
+          priority: string
+          product_code: string
+          product_name: string
+          received_quantity: number | null
+          requested_quantity: number
+          requester_branch: string
+          requester_user_id: string
+          source_branch: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_quantity?: number | null
+          brand: string
+          created_at?: string
+          dispatched_quantity?: number | null
+          id?: string
+          observation?: string | null
+          priority?: string
+          product_code: string
+          product_name: string
+          received_quantity?: number | null
+          requested_quantity: number
+          requester_branch: string
+          requester_user_id: string
+          source_branch: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_quantity?: number | null
+          brand?: string
+          created_at?: string
+          dispatched_quantity?: number | null
+          id?: string
+          observation?: string | null
+          priority?: string
+          product_code?: string
+          product_name?: string
+          received_quantity?: number | null
+          requested_quantity?: number
+          requester_branch?: string
+          requester_user_id?: string
+          source_branch?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
