@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen } from 'lucide-react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, ArrowLeftRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -145,6 +145,15 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
                   <User className="w-5 h-5" />
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate('/transfers')}
+                className="h-10 w-10 text-muted-foreground hover:text-primary"
+                title="Transferencias"
+              >
+                <ArrowLeftRight className="w-5 h-5" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

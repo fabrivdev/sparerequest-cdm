@@ -2,3 +2,6 @@ project_id = "akudtsszgzfbahoaipvd"
 
 [functions.admin-orders]
 verify_jwt = false
+
+[functions.transfer-operations]
+verify_jwt = false
