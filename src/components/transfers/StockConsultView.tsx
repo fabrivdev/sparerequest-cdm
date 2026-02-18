@@ -10,6 +10,7 @@ import { BRANCHES } from '@/constants/branches';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TransferRequestModal from './TransferRequestModal';
+import StockPDFUpload from './StockPDFUpload';
 
 interface StockItem {
   brand: string;
@@ -193,6 +194,9 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
           </Table>
         </div>
       )}
+
+      {/* Stock Upload */}
+      <StockPDFUpload userId={userId} onSuccess={fetchStock} />
 
       {/* Transfer Request Modal */}
       {selectedItem && (
