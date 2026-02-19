@@ -14,7 +14,7 @@ export type Branch = typeof BRANCHES[number];
 
 // ERP branch code → branch name mapping (from Datapar system)
 export const BRANCH_CODE_MAP: Record<number, string> = {
-  1: 'CENTRAL',
+  1: 'SANTA RITA',
   2: 'KATUETE',
   3: 'CAMPO 9',
   4: 'MISIONES',
