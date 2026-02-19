@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, RefreshCw, Clock } from 'lucide-react';
-import { BRANCHES } from '@/constants/branches';
+
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TransferRequestModal from './TransferRequestModal';
@@ -62,6 +62,11 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
 
   const products = Object.values(groupedStock);
 
+  // Dynamic branches: only show branches that have stock > 0 for at least one product
+  const activeBranches = Array.from(
+    new Set(stock.filter(s => s.quantity > 0).map(s => s.branch))
+  ).sort();
+
   const handleRowClick = (product: { brand: string; product_code: string; product_name: string }) => {
     setSelectedItem(product);
     setShowTransferModal(true);
@@ -109,7 +114,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
               <TableRow className="bg-muted/50">
                 <TableHead className="font-semibold">Código</TableHead>
                 <TableHead className="font-semibold">Nombre</TableHead>
-                {BRANCHES.map(branch => (
+                {activeBranches.map(branch => (
                   <TableHead key={branch} className="font-semibold text-center text-xs">
                     {branch}
                   </TableHead>
@@ -120,7 +125,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
             <TableBody>
               {products.map((product) => {
                 const key = `${product.brand}|${product.product_code}`;
-                const total = BRANCHES.reduce((sum, branch) => sum + (product.branches[branch] ?? 0), 0);
+                const total = activeBranches.reduce((sum, branch) => sum + (product.branches[branch] ?? 0), 0);
 
                 return (
                   <TableRow
@@ -130,7 +135,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
                   >
                     <TableCell className="font-medium">{product.product_code}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{product.product_name}</TableCell>
-                    {BRANCHES.map(branch => {
+                    {activeBranches.map(branch => {
                       const qty = product.branches[branch] ?? 0;
                       return (
                         <TableCell key={branch} className="text-center">
