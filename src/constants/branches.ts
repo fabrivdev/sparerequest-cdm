@@ -1,6 +1,6 @@
 // Branch names matching ERP (Datapar) names
 export const BRANCHES = [
-  'CENTRAL',
+  'SANTA RITA',
   'KATUETE',
   'CAMPO 9',
   'MISIONES',
