@@ -151,7 +151,8 @@ const StockPDFUpload = ({ userId, onSuccess }: StockPDFUploadProps) => {
           }
         }
 
-        if (!productCode) continue;
+        // Skip blank codes or codes that are actually subgroup names (start with parenthesis)
+        if (!productCode || productCode.startsWith('(')) continue;
 
         const brand = extractBrandFromSubGroup(subGroup);
         const key = `${brand}|${productCode}|${branchName}`;
