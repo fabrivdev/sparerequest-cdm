@@ -238,6 +238,60 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- deleteTransfer ----
+    if (action === 'deleteTransfer') {
+      const { transferId, userId } = body;
+      if (!transferId || !userId) {
+        return new Response(JSON.stringify({ error: 'Faltan parámetros' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get current transfer
+      const { data: current, error: fetchErr } = await supabase
+        .from('transfers')
+        .select('*')
+        .eq('id', transferId)
+        .single();
+
+      if (fetchErr || !current) {
+        return new Response(JSON.stringify({ error: 'Transferencia no encontrada' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Only creator can delete, and only if still Pendiente
+      if (current.requester_user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Solo el creador puede eliminar la transferencia' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (current.status !== 'Pendiente') {
+        return new Response(JSON.stringify({ error: 'Solo se pueden eliminar transferencias en estado Pendiente' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Delete status logs first
+      await supabase.from('transfer_status_log').delete().eq('transfer_id', transferId);
+      // Delete alerts
+      await supabase.from('transfer_alerts').delete().eq('transfer_id', transferId);
+      // Delete the transfer
+      const { error: delErr } = await supabase.from('transfers').delete().eq('id', transferId);
+
+      if (delErr) {
+        console.error('Error deleting transfer:', delErr);
+        return new Response(JSON.stringify({ error: 'Error al eliminar transferencia' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // ---- getStock ----
     if (action === 'getStock') {
       const { brand, productCode, branch } = body;
