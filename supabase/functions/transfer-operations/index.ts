@@ -242,29 +242,47 @@ Deno.serve(async (req) => {
     if (action === 'getStock') {
       const { brand, productCode, branch } = body;
 
-      let query = supabase.from('branch_stock').select('*');
-      if (brand) query = query.eq('brand', brand);
-      if (productCode) query = query.ilike('product_code', `%${productCode}%`);
-      if (branch) query = query.eq('branch', branch);
+      // Fetch ALL records in batches of 1000 to overcome default limit
+      const allData: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
 
-      const { data, error } = await query.order('brand').order('product_code');
+      while (true) {
+        let query = supabase.from('branch_stock').select('*');
+        if (brand) query = query.eq('brand', brand);
+        if (productCode) query = query.ilike('product_code', `%${productCode}%`);
+        if (branch) query = query.eq('branch', branch);
 
-      if (error) {
-        return new Response(JSON.stringify({ error: 'Error al obtener stock' }), {
-          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        const { data, error } = await query
+          .order('brand')
+          .order('product_code')
+          .range(offset, offset + batchSize - 1);
+
+        if (error) {
+          console.error('Error fetching stock batch:', error);
+          return new Response(JSON.stringify({ error: 'Error al obtener stock' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        if (data && data.length > 0) {
+          allData.push(...data);
+          if (data.length < batchSize) break;
+          offset += batchSize;
+        } else {
+          break;
+        }
       }
 
-      // Get last upload date
-      const { data: lastUpload } = await supabase
-        .from('stock_upload_log')
-        .select('created_at')
-        .eq('upload_type', 'stock')
-        .order('created_at', { ascending: false })
+      // Get last update directly from branch_stock
+      const { data: lastRecord } = await supabase
+        .from('branch_stock')
+        .select('updated_at')
+        .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      return new Response(JSON.stringify({ stock: data, lastUpdate: lastUpload?.created_at }), {
+      return new Response(JSON.stringify({ stock: allData, lastUpdate: lastRecord?.updated_at }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
