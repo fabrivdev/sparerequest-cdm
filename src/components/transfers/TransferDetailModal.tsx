@@ -9,7 +9,18 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TRANSFER_STATUS_COLORS, VALID_TRANSITIONS, TransferStatus } from '@/constants/transferStatuses';
-import { Loader2, Clock, User, ArrowRight } from 'lucide-react';
+import { Loader2, Clock, User, ArrowRight, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface TransferDetailModalProps {
   isOpen: boolean;
@@ -26,6 +37,7 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
   const [statusLog, setStatusLog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [actionObservation, setActionObservation] = useState('');
   const [actionQuantity, setActionQuantity] = useState('');
 
@@ -70,6 +82,25 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
     }
     setUpdating(false);
   };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const { data, error } = await supabase.functions.invoke('transfer-operations', {
+      body: { action: 'deleteTransfer', transferId, userId },
+    });
+
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al eliminar');
+    } else {
+      toast.success('Transferencia eliminada');
+      onStatusChange();
+      onClose();
+    }
+    setDeleting(false);
+  };
+
+  const canDelete = transfer?.status === 'Pendiente' && transfer?.requester_user_id === userId;
+
 
   // Determine available actions based on role
   const getAvailableActions = () => {
@@ -252,6 +283,35 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
                 </Button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Delete button - only for creator when Pendiente */}
+        {canDelete && (
+          <div className="mt-4 border-t border-border pt-4">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full text-destructive border-destructive/30 hover:bg-destructive/10 gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Eliminar transferencia
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>¿Eliminar esta transferencia?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta acción no se puede deshacer. Se eliminará permanentemente la solicitud de transferencia.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    {deleting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                    Eliminar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </DialogContent>

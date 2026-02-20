@@ -164,7 +164,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {lastUpdate && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="w-3.5 h-3.5" />
@@ -173,18 +173,18 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
       )}
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[200px]">
+      <div className="flex gap-2 items-end">
+        <div className="flex-1">
           <Input
-            placeholder="Buscar código de producto..."
+            placeholder="Buscar código..."
             value={searchCode}
             onChange={(e) => setSearchCode(e.target.value)}
-            className="h-10"
+            className="h-9 text-sm"
           />
         </div>
-        <Button onClick={fetchStock} disabled={loading} size="sm" className="gap-1.5">
+        <Button onClick={fetchStock} disabled={loading} size="sm" className="gap-1.5 h-9">
           {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          Buscar
+          <span className="hidden sm:inline">Buscar</span>
         </Button>
       </div>
 
@@ -201,7 +201,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
             <span>Página {currentPage} de {totalPages}</span>
           </div>
 
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-xl border border-border overflow-x-auto -mx-3 sm:mx-0">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">

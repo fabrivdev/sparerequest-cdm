@@ -8,6 +8,7 @@ import { TRANSFER_STATUS_COLORS, TransferStatus } from '@/constants/transferStat
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { RefreshCw, Send, Inbox } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import TransferDetailModal from './TransferDetailModal';
 
 interface Transfer {
@@ -41,10 +42,10 @@ const MyTransfersView = ({ userBranch, userId, userName }: MyTransfersViewProps)
   const [loading, setLoading] = useState(false);
   const [subTab, setSubTab] = useState('sent');
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
+  const isMobile = useIsMobile();
 
   const fetchTransfers = async () => {
     setLoading(true);
-
     const [sentRes, receivedRes] = await Promise.all([
       supabase.functions.invoke('transfer-operations', {
         body: { action: 'getTransfers', userId, type: 'sent' },
@@ -53,55 +54,48 @@ const MyTransfersView = ({ userBranch, userId, userName }: MyTransfersViewProps)
         body: { action: 'getTransfers', branch: userBranch, type: 'received' },
       }),
     ]);
-
     if (sentRes.data) setSentTransfers(sentRes.data.transfers || []);
     if (receivedRes.data) setReceivedTransfers(receivedRes.data.transfers || []);
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchTransfers();
-  }, []);
-
-  const transfers = subTab === 'sent' ? sentTransfers : receivedTransfers;
+  useEffect(() => { fetchTransfers(); }, []);
 
   const pendingSentCount = sentTransfers.filter(t => t.status === 'Pendiente').length;
   const pendingReceivedCount = receivedTransfers.filter(t => t.status === 'Pendiente').length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
-          <div className="flex items-center justify-between mb-4">
-            <TabsList>
-              <TabsTrigger value="sent" className="gap-1.5">
-                <Send className="w-3.5 h-3.5" />
-                Enviadas
-                {pendingSentCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">{pendingSentCount}</Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="received" className="gap-1.5">
-                <Inbox className="w-3.5 h-3.5" />
-                Recibidas
-                {pendingReceivedCount > 0 && (
-                  <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">{pendingReceivedCount}</Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
-            <Button variant="ghost" size="sm" onClick={fetchTransfers} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
+    <div className="space-y-3">
+      <Tabs value={subTab} onValueChange={setSubTab} className="w-full">
+        <div className="flex items-center justify-between mb-3">
+          <TabsList>
+            <TabsTrigger value="sent" className="gap-1.5 text-xs sm:text-sm">
+              <Send className="w-3.5 h-3.5" />
+              Enviadas
+              {pendingSentCount > 0 && (
+                <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">{pendingSentCount}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="received" className="gap-1.5 text-xs sm:text-sm">
+              <Inbox className="w-3.5 h-3.5" />
+              Recibidas
+              {pendingReceivedCount > 0 && (
+                <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0">{pendingReceivedCount}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          <Button variant="ghost" size="sm" onClick={fetchTransfers} disabled={loading}>
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
 
-          <TabsContent value="sent">
-            <TransferTable transfers={sentTransfers} onSelect={setSelectedTransfer} type="sent" />
-          </TabsContent>
-          <TabsContent value="received">
-            <TransferTable transfers={receivedTransfers} onSelect={setSelectedTransfer} type="received" />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="sent">
+          <TransferList transfers={sentTransfers} onSelect={setSelectedTransfer} type="sent" isMobile={isMobile} />
+        </TabsContent>
+        <TabsContent value="received">
+          <TransferList transfers={receivedTransfers} onSelect={setSelectedTransfer} type="received" isMobile={isMobile} />
+        </TabsContent>
+      </Tabs>
 
       {selectedTransfer && (
         <TransferDetailModal
@@ -118,11 +112,45 @@ const MyTransfersView = ({ userBranch, userId, userName }: MyTransfersViewProps)
   );
 };
 
-const TransferTable = ({ transfers, onSelect, type }: { transfers: any[]; onSelect: (t: any) => void; type: string }) => {
+const TransferList = ({ transfers, onSelect, type, isMobile }: { transfers: any[]; onSelect: (t: any) => void; type: string; isMobile: boolean }) => {
   if (transfers.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground">
-        <p>No hay transferencias {type === 'sent' ? 'enviadas' : 'recibidas'}</p>
+      <div className="text-center py-10 text-muted-foreground text-sm">
+        No hay transferencias {type === 'sent' ? 'enviadas' : 'recibidas'}
+      </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <div className="space-y-2">
+        {transfers.map((t) => (
+          <div
+            key={t.id}
+            className="p-3 rounded-xl border border-border bg-card active:bg-muted/50 transition-colors"
+            onClick={() => onSelect(t)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm truncate">{t.brand} - {t.product_code}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {type === 'sent' ? t.source_branch : t.requester_branch} · {t.requested_quantity} uds
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                <Badge className={`text-[10px] ${TRANSFER_STATUS_COLORS[t.status as TransferStatus] || ''}`}>
+                  {t.status}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">
+                  {format(new Date(t.created_at), 'dd/MM/yy', { locale: es })}
+                </span>
+              </div>
+            </div>
+            {t.priority === 'urgente' && (
+              <Badge variant="destructive" className="text-[10px] mt-1.5">urgente</Badge>
+            )}
+          </div>
+        ))}
       </div>
     );
   }
@@ -132,31 +160,29 @@ const TransferTable = ({ transfers, onSelect, type }: { transfers: any[]; onSele
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">
-            <TableHead>Fecha</TableHead>
-            <TableHead>Marca</TableHead>
-            <TableHead>Código</TableHead>
-            <TableHead>Cantidad</TableHead>
-            <TableHead>{type === 'sent' ? 'Origen' : 'Destino'}</TableHead>
-            <TableHead>Prioridad</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead className="text-xs">Fecha</TableHead>
+            <TableHead className="text-xs">Código</TableHead>
+            <TableHead className="text-xs">Cant.</TableHead>
+            <TableHead className="text-xs">{type === 'sent' ? 'Origen' : 'Destino'}</TableHead>
+            <TableHead className="text-xs">Prior.</TableHead>
+            <TableHead className="text-xs">Estado</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {transfers.map((t) => (
             <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30" onClick={() => onSelect(t)}>
-              <TableCell className="text-sm">
+              <TableCell className="text-xs py-2">
                 {format(new Date(t.created_at), 'dd/MM/yy', { locale: es })}
               </TableCell>
-              <TableCell className="font-medium">{t.brand}</TableCell>
-              <TableCell>{t.product_code}</TableCell>
-              <TableCell>{t.requested_quantity}</TableCell>
-              <TableCell className="text-sm">{type === 'sent' ? t.source_branch : t.requester_branch}</TableCell>
-              <TableCell>
+              <TableCell className="font-medium text-xs py-2">{t.product_code}</TableCell>
+              <TableCell className="text-xs py-2">{t.requested_quantity}</TableCell>
+              <TableCell className="text-xs py-2">{type === 'sent' ? t.source_branch : t.requester_branch}</TableCell>
+              <TableCell className="py-2">
                 <Badge variant={t.priority === 'urgente' ? 'destructive' : 'secondary'} className="text-[10px]">
                   {t.priority}
                 </Badge>
               </TableCell>
-              <TableCell>
+              <TableCell className="py-2">
                 <Badge className={`text-[10px] ${TRANSFER_STATUS_COLORS[t.status as TransferStatus] || ''}`}>
                   {t.status}
                 </Badge>
