@@ -5,9 +5,8 @@ export const BRANCHES = [
   'CAMPO 9',
   'MISIONES',
   'LOMA PLATA',
-  'SANTA ROSA DEL AGUARAY',
+  'SANTA ROSA',
   'REGION SAN ALBERTO',
-  'REGION ITAPUA',
 ] as const;
 
 export type Branch = typeof BRANCHES[number];
@@ -20,7 +19,6 @@ export const BRANCH_CODE_MAP: Record<number, string> = {
   4: 'MISIONES',
   5: 'LOMA PLATA',
   // 6: 'REPLICABI', // Excluded from transfers
-  7: 'SANTA ROSA DEL AGUARAY',
+  7: 'SANTA ROSA',
   8: 'REGION SAN ALBERTO',
-  9: 'REGION ITAPUA',
 };
