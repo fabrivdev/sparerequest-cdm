@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -39,6 +40,32 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
   const [showManual, setShowManual] = useState(false);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingTransferCount, setPendingTransferCount] = useState(0);
+
+  // Fetch pending transfers count for user's branch
+  useEffect(() => {
+    if (!profile?.branch) return;
+
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from('transfers')
+        .select('*', { count: 'exact', head: true })
+        .eq('source_branch', profile.branch)
+        .eq('status', 'Pendiente');
+      setPendingTransferCount(count || 0);
+    };
+
+    fetchCount();
+
+    const channel = supabase
+      .channel('header-transfer-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transfers' }, () => {
+        fetchCount();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.branch]);
 
   const checkAdminSession = (): boolean => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -139,13 +166,18 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
                 <button
                   onClick={() => navigate('/transfers')}
                   className={cn(
-                    'px-3 py-1.5 text-sm font-medium rounded-md transition-all',
+                    'px-3 py-1.5 text-sm font-medium rounded-md transition-all relative',
                     location.pathname === '/transfers'
                       ? 'bg-background text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
                 >
                   Transferencias
+                  {pendingTransferCount > 0 && (
+                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 min-w-5 flex items-center justify-center p-0 text-[10px]">
+                      {pendingTransferCount}
+                    </Badge>
+                  )}
                 </button>
               </div>
             </div>
