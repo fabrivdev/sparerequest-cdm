@@ -33,6 +33,24 @@ const InTransitView = ({ userBranch, userId, userName }: InTransitViewProps) => 
 
   useEffect(() => { fetchTransfers(); }, []);
 
+  // Realtime auto-refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel('in-transit-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transfers' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (['Aceptada', 'Despachada', 'Recibida'].includes(row?.status)) {
+            fetchTransfers();
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
