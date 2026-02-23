@@ -1,48 +1,60 @@
 
 
-## Plan: Corregir consulta de stock y fecha de actualización
+## Plan: Notificaciones en tiempo real para transferencias
 
-### Problema 1: Solo se ven 488 productos (de 14,571 únicos)
+### Objetivo
+Cuando alguien crea una transferencia solicitando stock de otra sucursal, todos los usuarios de esa sucursal origen deben recibir una notificacion visual y sonora en tiempo real, sin necesidad de recargar la pagina.
 
-La consulta al backend tiene un limite implícito de 1000 filas. Con 32,915 registros en la tabla `branch_stock`, solo llegan ~1000 filas al frontend, que al agruparse generan ~488 productos.
+### Arquitectura
 
-**Solución**: Modificar la acción `getStock` en la función backend para paginar y devolver TODOS los registros usando `.range()` en un loop interno.
+Se usara Supabase Realtime sobre la tabla `transfers` para detectar nuevas inserciones y cambios de estado. Cada vista de transferencias escuchara estos eventos y actualizara automaticamente.
 
-### Problema 2: La fecha de actualización no se actualiza al subir desde admin
-
-El `stock_upload_log` solo registra cargas hechas desde el componente `StockPDFUpload`. Si el admin tiene un flujo diferente de carga, o si la carga falló silenciosamente, no se genera un nuevo log. Además, la consulta `getStock` solo busca el upload más reciente de tipo 'stock'.
-
-**Solución**: Cambiar la fuente de la fecha de actualización para usar directamente el `MAX(updated_at)` de la tabla `branch_stock`, que siempre refleja la última modificación real de datos.
+Ademas, se agregara un indicador de "nuevas transferencias" en la pestana "Mis Trans." con un badge de conteo y un toast con sonido cuando llega una nueva solicitud dirigida a la sucursal del usuario.
 
 ---
 
-### Cambios técnicos
+### Cambios tecnicos
 
-#### 1. Edge Function `transfer-operations/index.ts` - acción `getStock`
+#### 1. Habilitar Realtime en la tabla `transfers`
 
-Reemplazar la consulta simple por un loop que traiga todos los registros en lotes de 1000:
-
-```text
-// Pseudocódigo
-let allData = [];
-let offset = 0;
-while (true) {
-  const batch = query.range(offset, offset + 999);
-  allData.push(...batch);
-  if (batch.length < 1000) break;
-  offset += 1000;
-}
-```
-
-Para la fecha de actualización, reemplazar la consulta a `stock_upload_log` por:
-
+Migracion SQL:
 ```sql
-SELECT MAX(updated_at) as last_update FROM branch_stock
+ALTER PUBLICATION supabase_realtime ADD TABLE public.transfers;
 ```
 
-Esto se hará usando `.select('updated_at').order('updated_at', { ascending: false }).limit(1)` sobre `branch_stock`.
+#### 2. Crear componente `TransferNotificationListener`
 
-#### 2. No se requieren cambios en el frontend
+Un nuevo componente (`src/components/transfers/TransferNotificationListener.tsx`) que:
+- Se suscribe a `postgres_changes` en la tabla `transfers` (evento INSERT y UPDATE)
+- Filtra eventos donde `source_branch` coincide con la sucursal del usuario (nuevas solicitudes dirigidas a su sucursal)
+- Al detectar una nueva transferencia:
+  - Muestra un toast con el detalle (marca, codigo, sucursal solicitante)
+  - Reproduce el sonido de notificacion usando el hook `useNotificationSound` existente
+  - Incrementa un contador de "no vistas"
 
-El componente `StockConsultView.tsx` ya maneja correctamente la agrupación, paginación visual (100 por página) y ordenamiento. Solo necesita recibir todos los datos desde el backend.
+#### 3. Integrar en `Transfers.tsx`
+
+- Montar `TransferNotificationListener` pasandole `userBranch` y un callback para actualizar el badge
+- Agregar un badge con contador de nuevas transferencias en la pestana "Mis Trans."
+- Al hacer click en la pestana, resetear el contador
+
+#### 4. Auto-refresh en `MyTransfersView`
+
+- Agregar suscripcion Realtime dentro de `MyTransfersView` para refrescar automaticamente las listas cuando hay cambios en `transfers` que involucren la sucursal del usuario (como origen o como solicitante)
+- Esto elimina la necesidad de pulsar el boton de refrescar manualmente
+
+#### 5. Auto-refresh en `InTransitView`
+
+- Suscripcion similar para actualizar la vista de transito cuando una transferencia cambia a estado "Aceptada" o "Despachada"
+
+### Archivos a crear
+- `src/components/transfers/TransferNotificationListener.tsx`
+
+### Archivos a modificar
+- `src/pages/Transfers.tsx` - montar listener y badge en tabs
+- `src/components/transfers/MyTransfersView.tsx` - agregar realtime auto-refresh
+- `src/components/transfers/InTransitView.tsx` - agregar realtime auto-refresh
+
+### Migracion de base de datos
+- Habilitar realtime en tabla `transfers`
 
