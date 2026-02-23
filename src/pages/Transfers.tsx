@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -7,10 +7,12 @@ import ProfileSetup from '@/components/ProfileSetup';
 import LoadingScreen from '@/components/LoadingScreen';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, ArrowLeftRight, Truck, CheckCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import StockConsultView from '@/components/transfers/StockConsultView';
 import MyTransfersView from '@/components/transfers/MyTransfersView';
 import InTransitView from '@/components/transfers/InTransitView';
 import ClosedTransfersView from '@/components/transfers/ClosedTransfersView';
+import TransferNotificationListener from '@/components/transfers/TransferNotificationListener';
 import SupportButton from '@/components/support/SupportButton';
 
 interface Profile {
@@ -26,6 +28,18 @@ const Transfers = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stock');
+  const [newTransferCount, setNewTransferCount] = useState(0);
+
+  const handleNewTransfer = useCallback(() => {
+    setNewTransferCount(prev => prev + 1);
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (value === 'my-transfers') {
+      setNewTransferCount(0);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -66,7 +80,7 @@ const Transfers = () => {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="w-full grid grid-cols-4 mb-4">
             <TabsTrigger value="stock" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-3">
               <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -77,6 +91,9 @@ const Transfers = () => {
               <ArrowLeftRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Mis Transferencias</span>
               <span className="sm:hidden">Mis Trans.</span>
+              {newTransferCount > 0 && (
+                <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0 min-w-[18px] justify-center">{newTransferCount}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="in-transit" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-3">
               <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -106,11 +123,18 @@ const Transfers = () => {
       </main>
 
       {profile && user && (
-        <SupportButton
+        <>
+          <TransferNotificationListener
+            userBranch={profile.branch}
+            userId={user.id}
+            onNewTransfer={handleNewTransfer}
+          />
+          <SupportButton
           userId={user.id}
           userName={profile.full_name || 'Usuario'}
           branch={profile.branch}
         />
+        </>
       )}
     </div>
   );

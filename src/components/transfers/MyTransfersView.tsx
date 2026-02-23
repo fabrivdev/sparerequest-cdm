@@ -61,6 +61,24 @@ const MyTransfersView = ({ userBranch, userId, userName }: MyTransfersViewProps)
 
   useEffect(() => { fetchTransfers(); }, []);
 
+  // Realtime auto-refresh
+  useEffect(() => {
+    const channel = supabase
+      .channel('my-transfers-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transfers' },
+        (payload) => {
+          const row = (payload.new || payload.old) as any;
+          if (row?.source_branch === userBranch || row?.requester_branch === userBranch || row?.requester_user_id === userId) {
+            fetchTransfers();
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [userBranch, userId]);
+
   const pendingSentCount = sentTransfers.filter(t => t.status === 'Pendiente').length;
   const pendingReceivedCount = receivedTransfers.filter(t => t.status === 'Pendiente').length;
 
