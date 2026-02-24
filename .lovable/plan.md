@@ -1,60 +1,76 @@
 
 
-## Plan: Notificaciones en tiempo real para transferencias
+## Plan: Notificaciones visuales para transferencias en tránsito + Simplificar flujo (Aceptar = En Tránsito)
 
-### Objetivo
-Cuando alguien crea una transferencia solicitando stock de otra sucursal, todos los usuarios de esa sucursal origen deben recibir una notificacion visual y sonora en tiempo real, sin necesidad de recargar la pagina.
+### Problema 1: No hay indicador visual de transferencias en tránsito pendientes de recibir
 
-### Arquitectura
+Actualmente el badge del header solo cuenta transferencias con estado "Pendiente" dirigidas a tu sucursal. Pero cuando una transferencia esta "Aceptada" o "Despachada" (en transito hacia tu sucursal), no hay ningun indicador que te avise que tenes algo por recibir.
 
-Se usara Supabase Realtime sobre la tabla `transfers` para detectar nuevas inserciones y cambios de estado. Cada vista de transferencias escuchara estos eventos y actualizara automaticamente.
+**Solucion**: Agregar un segundo contador en el header y en la pestana "En Transito" que muestre cuantas transferencias en transito van dirigidas a tu sucursal (donde tu sucursal es `requester_branch`).
 
-Ademas, se agregara un indicador de "nuevas transferencias" en la pestana "Mis Trans." con un badge de conteo y un toast con sonido cuando llega una nueva solicitud dirigida a la sucursal del usuario.
+### Problema 2: El flujo tiene un paso innecesario (Aceptar -> Despachar)
+
+Actualmente: Pendiente -> Aceptada -> Despachada -> Recibida
+El usuario quiere: Pendiente -> Despachada (aceptar = despachar directamente)
+
+**Solucion**: Al aceptar, el backend escribira directamente el estado "Despachada" en vez de "Aceptada", combinando ambos pasos en uno.
 
 ---
 
 ### Cambios tecnicos
 
-#### 1. Habilitar Realtime en la tabla `transfers`
+#### 1. Backend `transfer-operations/index.ts` - Simplificar flujo
 
-Migracion SQL:
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.transfers;
+En la seccion `updateTransferStatus`, cuando `newStatus === 'Aceptada'`:
+- Cambiar el estado final a `'Despachada'` directamente
+- Guardar la cantidad en `approved_quantity` Y `dispatched_quantity`
+- El log registrara la transicion como Pendiente -> Despachada
+
+#### 2. Frontend `transferStatuses.ts` - Actualizar transiciones validas
+
+Cambiar las transiciones:
+```text
+Antes:
+  Pendiente -> [Aceptada, Rechazada, Cancelada]
+  Aceptada -> [Despachada]
+
+Despues:
+  Pendiente -> [Aceptada, Rechazada, Cancelada]  (el boton sigue diciendo "Aceptada" pero el backend lo convierte a Despachada)
+  // Se elimina la transicion Aceptada -> Despachada ya que no existira mas ese estado intermedio
 ```
 
-#### 2. Crear componente `TransferNotificationListener`
+Se eliminara `Aceptada` del objeto `VALID_TRANSITIONS` ya que las transferencias pasaran directamente a `Despachada`.
 
-Un nuevo componente (`src/components/transfers/TransferNotificationListener.tsx`) que:
-- Se suscribe a `postgres_changes` en la tabla `transfers` (evento INSERT y UPDATE)
-- Filtra eventos donde `source_branch` coincide con la sucursal del usuario (nuevas solicitudes dirigidas a su sucursal)
-- Al detectar una nueva transferencia:
-  - Muestra un toast con el detalle (marca, codigo, sucursal solicitante)
-  - Reproduce el sonido de notificacion usando el hook `useNotificationSound` existente
-  - Incrementa un contador de "no vistas"
+#### 3. Frontend `TransferDetailModal.tsx` - Renombrar boton
 
-#### 3. Integrar en `Transfers.tsx`
+El boton que dice "Aceptada" se renombrara a "Aceptar y Despachar" para que quede claro que es un solo paso.
 
-- Montar `TransferNotificationListener` pasandole `userBranch` y un callback para actualizar el badge
-- Agregar un badge con contador de nuevas transferencias en la pestana "Mis Trans."
-- Al hacer click en la pestana, resetear el contador
+#### 4. Header `Header.tsx` - Agregar badge de "en transito hacia mi"
 
-#### 4. Auto-refresh en `MyTransfersView`
+Ademas del conteo de transferencias Pendientes dirigidas a mi sucursal (como `source_branch`), agregar un conteo de transferencias con estado "Despachada" donde mi sucursal es `requester_branch` (es decir, cosas que me mandaron y tengo que marcar como recibidas).
 
-- Agregar suscripcion Realtime dentro de `MyTransfersView` para refrescar automaticamente las listas cuando hay cambios en `transfers` que involucren la sucursal del usuario (como origen o como solicitante)
-- Esto elimina la necesidad de pulsar el boton de refrescar manualmente
+Mostrar ambos badges:
+- Badge rojo en "Transferencias": pendientes por atender (como origen) + despachadas por recibir (como destino)
 
-#### 5. Auto-refresh en `InTransitView`
+#### 5. Pestana "En Transito" en `Transfers.tsx` - Badge de pendientes por recibir
 
-- Suscripcion similar para actualizar la vista de transito cuando una transferencia cambia a estado "Aceptada" o "Despachada"
+Agregar un badge en la pestana "En Transito" mostrando cuantas transferencias despachadas van hacia mi sucursal.
 
-### Archivos a crear
-- `src/components/transfers/TransferNotificationListener.tsx`
+#### 6. `TransferNotificationListener.tsx` - Notificar cambios a Despachada
+
+Agregar notificacion cuando una transferencia cambia a estado "Despachada" y la sucursal destino (`requester_branch`) es la del usuario. Esto avisara "Te enviaron un repuesto, esta en camino".
+
+#### 7. Backend `in_transit` query update
+
+Actualizar el filtro de `in_transit` para que ya no incluya `'Aceptada'` (solo `'Despachada'`), ya que ese estado intermedio deja de existir.
 
 ### Archivos a modificar
-- `src/pages/Transfers.tsx` - montar listener y badge en tabs
-- `src/components/transfers/MyTransfersView.tsx` - agregar realtime auto-refresh
-- `src/components/transfers/InTransitView.tsx` - agregar realtime auto-refresh
 
-### Migracion de base de datos
-- Habilitar realtime en tabla `transfers`
+- `supabase/functions/transfer-operations/index.ts` - Logica de aceptar = despachar + filtro in_transit
+- `src/constants/transferStatuses.ts` - Transiciones validas
+- `src/components/transfers/TransferDetailModal.tsx` - Renombrar boton
+- `src/components/Header.tsx` - Badge combinado (pendientes + en transito hacia mi)
+- `src/pages/Transfers.tsx` - Badge en pestana En Transito
+- `src/components/transfers/TransferNotificationListener.tsx` - Notificar despachos hacia mi sucursal
+- `src/components/transfers/InTransitView.tsx` - Actualizar filtro realtime
 
