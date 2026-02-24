@@ -158,12 +158,18 @@ const AdminDashboard = ({ orders }: AdminDashboardProps) => {
     return uniqueSkus.size;
   }, [orders]);
 
-  // Orders by branch
+  // Orders by branch (normalize variant names)
   const ordersByBranch = useMemo(() => {
     const branchMap: Record<string, number> = {};
     
+    const normalizeBranch = (name: string) => {
+      if (name.startsWith('SANTA ROSA')) return 'SANTA ROSA';
+      return name;
+    };
+    
     orders.forEach(o => {
-      branchMap[o.branch_destination] = (branchMap[o.branch_destination] || 0) + 1;
+      const branch = normalizeBranch(o.branch_destination);
+      branchMap[branch] = (branchMap[branch] || 0) + 1;
     });
     
     return Object.entries(branchMap)
