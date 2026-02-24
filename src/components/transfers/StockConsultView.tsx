@@ -35,6 +35,7 @@ const ITEMS_PER_PAGE = 100;
 const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProps) => {
   const [stock, setStock] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const [searchCode, setSearchCode] = useState('');
   const [selectedItem, setSelectedItem] = useState<{ brand: string; product_code: string; product_name: string } | null>(null);
@@ -44,17 +45,42 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
 
   const fetchStock = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke('transfer-operations', {
-      body: { action: 'getStock', productCode: searchCode || undefined },
-    });
+    setStock([]);
+    setCurrentPage(1);
 
-    if (!error && data) {
-      setStock(data.stock || []);
-      setLastUpdate(data.lastUpdate || null);
+    const BATCH_SIZE = 5000;
+    let offset = 0;
+    let hasMore = true;
+    let allStock: StockItem[] = [];
+    let update: string | null = null;
+
+    while (hasMore) {
+      if (offset > 0) setLoadingMore(true);
+      const { data, error } = await supabase.functions.invoke('transfer-operations', {
+        body: { action: 'getStock', productCode: searchCode || undefined, offset, limit: BATCH_SIZE },
+      });
+
+      if (error || !data) break;
+
+      const batch = data.stock || [];
+      if (data.lastUpdate) update = data.lastUpdate;
+
+      allStock = [...allStock, ...batch];
+      setStock(allStock);
+      setLastUpdate(update);
+
+      if (batch.length < BATCH_SIZE) {
+        hasMore = false;
+      } else {
+        offset += BATCH_SIZE;
+      }
+
+      // After first batch, mark initial loading done so UI renders
+      if (offset === BATCH_SIZE) setLoading(false);
     }
 
     setLoading(false);
-    setCurrentPage(1);
+    setLoadingMore(false);
   };
 
   useEffect(() => {
@@ -197,7 +223,10 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
       ) : (
         <>
           <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>{sortedProducts.length} productos encontrados</span>
+            <span>
+              {sortedProducts.length} productos encontrados
+              {loadingMore && <span className="ml-2 text-primary animate-pulse">cargando más...</span>}
+            </span>
             <span>Página {currentPage} de {totalPages}</span>
           </div>
 
