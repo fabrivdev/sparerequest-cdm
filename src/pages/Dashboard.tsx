@@ -12,6 +12,7 @@ import ViewToggle from '@/components/ViewToggle';
 import LoadingScreen from '@/components/LoadingScreen';
 import SupportButton from '@/components/support/SupportButton';
 import DeliveredOrdersView from '@/components/DeliveredOrdersView';
+import TransferAnnouncementModal, { ANNOUNCEMENT_KEY } from '@/components/TransferAnnouncementModal';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -41,6 +42,7 @@ const Dashboard = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
+  const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [filters, setFilters] = useState<OrderFiltersState>({
@@ -160,6 +162,13 @@ const Dashboard = () => {
     fetchProfile();
     fetchBranches();
   }, [user]);
+
+  // Show transfers announcement once after login
+  useEffect(() => {
+    if (profile && !localStorage.getItem(ANNOUNCEMENT_KEY)) {
+      setShowAnnouncement(true);
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (profile) {
@@ -424,6 +433,12 @@ const Dashboard = () => {
           branch={profile.branch}
         />
       )}
+
+      {/* Transfers Announcement */}
+      <TransferAnnouncementModal
+        isOpen={showAnnouncement}
+        onClose={() => setShowAnnouncement(false)}
+      />
     </div>
   );
 };
