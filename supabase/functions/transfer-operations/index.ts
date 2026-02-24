@@ -300,7 +300,8 @@ Deno.serve(async (req) => {
     if (action === 'getStock') {
       const { brand, productCode, branch, offset: reqOffset, limit: reqLimit } = body;
 
-      const batchSize = reqLimit || 1000;
+      const internalBatch = 1000;
+      const maxRecords = reqLimit || Infinity;
       const startOffset = reqOffset || 0;
       const allData: any[] = [];
       let offset = startOffset;
@@ -314,7 +315,7 @@ Deno.serve(async (req) => {
         const { data, error } = await query
           .order('brand')
           .order('product_code')
-          .range(offset, offset + batchSize - 1);
+          .range(offset, offset + internalBatch - 1);
 
         if (error) {
           console.error('Error fetching stock batch:', error);
@@ -325,10 +326,9 @@ Deno.serve(async (req) => {
 
         if (data && data.length > 0) {
           allData.push(...data);
-          if (data.length < batchSize) break;
-          // If caller specified a limit, stop after reaching it
-          if (reqLimit && allData.length >= reqLimit) break;
-          offset += batchSize;
+          if (data.length < internalBatch) break;
+          if (allData.length >= maxRecords) break;
+          offset += internalBatch;
         } else {
           break;
         }
