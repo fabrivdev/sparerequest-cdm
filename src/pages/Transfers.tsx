@@ -29,6 +29,7 @@ const Transfers = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stock');
   const [newTransferCount, setNewTransferCount] = useState(0);
+  const [inTransitCount, setInTransitCount] = useState(0);
 
   const handleNewTransfer = useCallback(() => {
     setNewTransferCount(prev => prev + 1);
@@ -39,7 +40,32 @@ const Transfers = () => {
     if (value === 'my-transfers') {
       setNewTransferCount(0);
     }
+    if (value === 'in-transit') {
+      setInTransitCount(0);
+    }
   };
+
+  // Fetch in-transit count for badge
+  useEffect(() => {
+    if (!profile?.branch) return;
+    const fetchInTransit = async () => {
+      const { count } = await supabase
+        .from('transfers')
+        .select('*', { count: 'exact', head: true })
+        .eq('requester_branch', profile.branch)
+        .eq('status', 'Despachada');
+      setInTransitCount(count || 0);
+    };
+    fetchInTransit();
+
+    const channel = supabase
+      .channel('in-transit-badge')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transfers' }, () => {
+        fetchInTransit();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [profile?.branch]);
 
   useEffect(() => {
     if (!user) return;
@@ -99,6 +125,9 @@ const Transfers = () => {
               <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">En Tránsito</span>
               <span className="sm:hidden">Tránsito</span>
+              {inTransitCount > 0 && (
+                <Badge variant="destructive" className="ml-1 text-[10px] px-1.5 py-0 min-w-[18px] justify-center">{inTransitCount}</Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="closed" className="gap-1 text-[11px] sm:text-sm px-1 sm:px-3">
               <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />

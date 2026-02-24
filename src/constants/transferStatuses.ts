@@ -25,7 +25,6 @@ export const TRANSFER_STATUS_COLORS: Record<TransferStatus, string> = {
 // Valid transitions: fromStatus -> [allowed next statuses]
 export const VALID_TRANSITIONS: Record<string, string[]> = {
   'Pendiente': ['Aceptada', 'Rechazada', 'Cancelada'],
-  'Aceptada': ['Despachada'],
   'Despachada': ['Recibida'],
   'Recibida': ['Cerrada', 'Incidencia'],
   'Incidencia': ['Cerrada'],

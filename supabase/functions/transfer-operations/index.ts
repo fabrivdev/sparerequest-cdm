@@ -148,7 +148,11 @@ Deno.serve(async (req) => {
       const updateData: Record<string, any> = { status: newStatus };
 
       if (newStatus === 'Aceptada') {
-        updateData.approved_quantity = quantity || current.requested_quantity;
+        // Accept = Dispatch in one step
+        updateData.status = 'Despachada';
+        const qty = quantity || current.requested_quantity;
+        updateData.approved_quantity = qty;
+        updateData.dispatched_quantity = qty;
       } else if (newStatus === 'Despachada') {
         updateData.dispatched_quantity = quantity || current.approved_quantity || current.requested_quantity;
       } else if (newStatus === 'Recibida') {
@@ -201,7 +205,7 @@ Deno.serve(async (req) => {
       if (status) query = query.eq('status', status);
       if (type === 'sent' && userId) query = query.eq('requester_user_id', userId);
       if (type === 'received' && branch) query = query.eq('source_branch', branch);
-      if (type === 'in_transit') query = query.in('status', ['Aceptada', 'Despachada']);
+      if (type === 'in_transit') query = query.in('status', ['Despachada']);
       if (type === 'closed') query = query.in('status', ['Cerrada', 'Rechazada', 'Cancelada', 'Incidencia']);
 
       const { data, error } = await query;

@@ -47,12 +47,20 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
     if (!profile?.branch) return;
 
     const fetchCount = async () => {
-      const { count } = await supabase
-        .from('transfers')
-        .select('*', { count: 'exact', head: true })
-        .eq('source_branch', profile.branch)
-        .eq('status', 'Pendiente');
-      setPendingTransferCount(count || 0);
+      // Count pending transfers where I'm the source + dispatched transfers where I'm the destination
+      const [pendingRes, inTransitRes] = await Promise.all([
+        supabase
+          .from('transfers')
+          .select('*', { count: 'exact', head: true })
+          .eq('source_branch', profile.branch)
+          .eq('status', 'Pendiente'),
+        supabase
+          .from('transfers')
+          .select('*', { count: 'exact', head: true })
+          .eq('requester_branch', profile.branch)
+          .eq('status', 'Despachada'),
+      ]);
+      setPendingTransferCount((pendingRes.count || 0) + (inTransitRes.count || 0));
     };
 
     fetchCount();

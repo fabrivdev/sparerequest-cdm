@@ -51,13 +51,23 @@ const TransferNotificationListener = ({ userBranch, userId, onNewTransfer }: Tra
         (payload) => {
           const transfer = payload.new as any;
           const old = payload.old as any;
-          // Notify requester when their transfer status changes
-          if (transfer.requester_user_id === userId && transfer.status !== old.status) {
-            playNotificationSound();
-            toast({
-              title: '🔄 Transferencia actualizada',
-              description: `${transfer.product_code}: ${old.status} → ${transfer.status}`,
-            });
+          if (transfer.status !== old?.status) {
+            // Notify requester when their transfer status changes
+            if (transfer.requester_user_id === userId) {
+              playNotificationSound();
+              toast({
+                title: '🔄 Transferencia actualizada',
+                description: `${transfer.product_code}: ${old.status} → ${transfer.status}`,
+              });
+            }
+            // Notify destination branch when a transfer is dispatched to them
+            if (transfer.status === 'Despachada' && transfer.requester_branch === userBranch && transfer.requester_user_id !== userId) {
+              playNotificationSound();
+              toast({
+                title: '🚚 Repuesto en camino',
+                description: `${transfer.brand} - ${transfer.product_code} desde ${transfer.source_branch}`,
+              });
+            }
           }
         }
       )
