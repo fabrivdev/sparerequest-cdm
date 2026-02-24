@@ -23,10 +23,16 @@ interface Profile {
 }
 
 const Transfers = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
+    }
+  }, [user, loading, navigate]);
   const [activeTab, setActiveTab] = useState('stock');
   const [newTransferCount, setNewTransferCount] = useState(0);
   const [inTransitCount, setInTransitCount] = useState(0);
