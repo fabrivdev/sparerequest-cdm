@@ -298,12 +298,12 @@ Deno.serve(async (req) => {
 
     // ---- getStock ----
     if (action === 'getStock') {
-      const { brand, productCode, branch } = body;
+      const { brand, productCode, branch, offset: reqOffset, limit: reqLimit } = body;
 
-      // Fetch ALL records in batches of 1000 to overcome default limit
+      const batchSize = reqLimit || 1000;
+      const startOffset = reqOffset || 0;
       const allData: any[] = [];
-      let offset = 0;
-      const batchSize = 1000;
+      let offset = startOffset;
 
       while (true) {
         let query = supabase.from('branch_stock').select('*');
@@ -326,6 +326,8 @@ Deno.serve(async (req) => {
         if (data && data.length > 0) {
           allData.push(...data);
           if (data.length < batchSize) break;
+          // If caller specified a limit, stop after reaching it
+          if (reqLimit && allData.length >= reqLimit) break;
           offset += batchSize;
         } else {
           break;
