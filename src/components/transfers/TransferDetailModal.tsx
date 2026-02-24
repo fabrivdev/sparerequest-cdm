@@ -279,7 +279,7 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
                   disabled={updating}
                 >
                   {updating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
-                  {status}
+                  {status === 'Aceptada' ? 'Aceptar y Despachar' : status}
                 </Button>
               ))}
             </div>

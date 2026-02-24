@@ -42,7 +42,7 @@ const InTransitView = ({ userBranch, userId, userName }: InTransitViewProps) => 
         { event: '*', schema: 'public', table: 'transfers' },
         (payload) => {
           const row = (payload.new || payload.old) as any;
-          if (['Aceptada', 'Despachada', 'Recibida'].includes(row?.status)) {
+          if (['Despachada', 'Recibida'].includes(row?.status)) {
             fetchTransfers();
           }
         }
