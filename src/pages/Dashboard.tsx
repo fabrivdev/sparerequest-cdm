@@ -182,9 +182,28 @@ const Dashboard = () => {
     }
   }, [profile, view, selectedBranch]);
 
-  // Track user presence for admin to see online users
+  // Track user presence for admin to see online users + log session
   useEffect(() => {
     if (!user || !profile) return;
+
+    let sessionId: string | null = null;
+    const connectedAt = Date.now();
+
+    // Create a session record
+    const createSession = async () => {
+      const { data } = await supabase
+        .from('user_sessions')
+        .insert({
+          user_id: user.id,
+          user_name: profile.full_name || 'Usuario',
+          branch: profile.branch,
+        })
+        .select('id')
+        .single();
+      if (data) sessionId = data.id;
+    };
+
+    createSession();
 
     const channel = supabase
       .channel('online_users')
@@ -202,7 +221,20 @@ const Dashboard = () => {
         }
       });
 
+    // On unmount, update session with disconnected_at and duration
     return () => {
+      if (sessionId) {
+        const now = new Date();
+        const durationMin = Math.max(1, Math.round((now.getTime() - connectedAt) / 60000));
+        supabase
+          .from('user_sessions')
+          .update({
+            disconnected_at: now.toISOString(),
+            duration_minutes: durationMin,
+          })
+          .eq('id', sessionId)
+          .then(() => {});
+      }
       supabase.removeChannel(channel);
     };
   }, [user, profile]);

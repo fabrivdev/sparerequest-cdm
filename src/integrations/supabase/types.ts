@@ -596,6 +596,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_sessions: {
+        Row: {
+          branch: string
+          connected_at: string
+          disconnected_at: string | null
+          duration_minutes: number | null
+          id: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          branch?: string
+          connected_at?: string
+          disconnected_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          user_id: string
+          user_name?: string
+        }
+        Update: {
+          branch?: string
+          connected_at?: string
+          disconnected_at?: string | null
+          duration_minutes?: number | null
+          id?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
