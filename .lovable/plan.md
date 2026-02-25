@@ -1,76 +1,116 @@
 
 
-## Plan: Notificaciones visuales para transferencias en tránsito + Simplificar flujo (Aceptar = En Tránsito)
+# Plan: Contador de pendientes en Entregados + Sistema de notificaciones para usuarios
 
-### Problema 1: No hay indicador visual de transferencias en tránsito pendientes de recibir
+## Resumen
 
-Actualmente el badge del header solo cuenta transferencias con estado "Pendiente" dirigidas a tu sucursal. Pero cuando una transferencia esta "Aceptada" o "Despachada" (en transito hacia tu sucursal), no hay ningun indicador que te avise que tenes algo por recibir.
-
-**Solucion**: Agregar un segundo contador en el header y en la pestana "En Transito" que muestre cuantas transferencias en transito van dirigidas a tu sucursal (donde tu sucursal es `requester_branch`).
-
-### Problema 2: El flujo tiene un paso innecesario (Aceptar -> Despachar)
-
-Actualmente: Pendiente -> Aceptada -> Despachada -> Recibida
-El usuario quiere: Pendiente -> Despachada (aceptar = despachar directamente)
-
-**Solucion**: Al aceptar, el backend escribira directamente el estado "Despachada" en vez de "Aceptada", combinando ambos pasos en uno.
+Se agregan dos funcionalidades:
+1. **Contador de pendientes de facturar** en la pestaña/vista de Entregados, con alerta visual para que el usuario actualice sus datos.
+2. **Centro de notificaciones** para usuarios (similar al que ya tiene el admin), con notificaciones en tiempo real sobre cambios de estado de pedidos, pedidos entregados, transferencias recibidas y transferencias en tránsito.
 
 ---
 
-### Cambios tecnicos
+## 1. Contador de pendientes en Entregados
 
-#### 1. Backend `transfer-operations/index.ts` - Simplificar flujo
+### Cambios en `ViewToggle.tsx`
+- Agregar una prop `pendingInvoiceCount` al componente.
+- Mostrar un badge rojo junto al botón "Entregados" cuando haya pedidos sin facturar (similar al badge de transferencias en el Header).
 
-En la seccion `updateTransferStatus`, cuando `newStatus === 'Aceptada'`:
-- Cambiar el estado final a `'Despachada'` directamente
-- Guardar la cantidad en `approved_quantity` Y `dispatched_quantity`
-- El log registrara la transicion como Pendiente -> Despachada
+### Cambios en `Dashboard.tsx`
+- Calcular el conteo de pedidos entregados sin facturar (donde `status === 'entregado'`, `order_destination !== 'stock'` y `is_invoiced === false`).
+- Pasar ese conteo al `ViewToggle`.
 
-#### 2. Frontend `transferStatuses.ts` - Actualizar transiciones validas
+### Cambios en `DeliveredOrdersView.tsx`
+- Agregar un banner/alerta al inicio de la vista cuando hay pedidos pendientes de facturar, con un mensaje tipo: "Tienes X pedidos pendientes de actualizar datos de facturación".
 
-Cambiar las transiciones:
+---
+
+## 2. Sistema de notificaciones para usuarios
+
+### Nueva tabla: `user_notifications`
+Crear una tabla en la base de datos con:
+- `id` (uuid, PK)
+- `user_id` (uuid, destinatario)
+- `type` (text: `order_status_change`, `order_delivered`, `transfer_request`, `transfer_dispatched`, `transfer_received`, etc.)
+- `title` (text)
+- `message` (text)
+- `is_read` (boolean, default false)
+- `created_at` (timestamptz)
+- `metadata` (jsonb, opcional para datos extra como order_id, transfer_id)
+
+Con RLS para que cada usuario solo vea sus propias notificaciones. Habilitar realtime en la tabla.
+
+### Generacion de notificaciones (Edge Function)
+Modificar la edge function `admin-orders` para que al cambiar el estado de un pedido, inserte una notificacion en `user_notifications` para el dueño del pedido. Lo mismo en `transfer-operations` para transferencias.
+
+Tipos de notificaciones:
+- **Cambio de estado**: "Tu pedido [codigo] cambio a [nuevo estado]"
+- **Pedido entregado**: "Tu pedido [codigo] fue marcado como entregado. Actualiza los datos de facturacion."
+- **Transferencia recibida**: "Nueva solicitud de transferencia de [sucursal] para [codigo]"
+- **Transferencia despachada**: "El repuesto [codigo] fue despachado desde [sucursal]"
+
+### Nuevo componente: `UserNotifications.tsx`
+- Icono de campana en el Header (similar al `AdminNotifications.tsx`).
+- Popover con lista de notificaciones, ordenadas por fecha.
+- Badge con contador de no leidas.
+- Boton para marcar como leida (click individual) y marcar todas como leidas.
+- Sonido de notificacion al recibir una nueva (reutilizando `useNotificationSound`).
+- Suscripcion realtime a la tabla `user_notifications` filtrada por `user_id`.
+
+### Cambios en `Header.tsx`
+- Importar y renderizar el componente `UserNotifications` junto a los demas botones de accion, pasandole el `userId` del usuario autenticado.
+
+---
+
+## Detalles tecnicos
+
+### Migracion SQL
 ```text
-Antes:
-  Pendiente -> [Aceptada, Rechazada, Cancelada]
-  Aceptada -> [Despachada]
+CREATE TABLE user_notifications (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL,
+  type text NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  is_read boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  metadata jsonb DEFAULT '{}'
+);
 
-Despues:
-  Pendiente -> [Aceptada, Rechazada, Cancelada]  (el boton sigue diciendo "Aceptada" pero el backend lo convierte a Despachada)
-  // Se elimina la transicion Aceptada -> Despachada ya que no existira mas ese estado intermedio
+ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own notifications
+CREATE POLICY "Users can view own notifications" ON user_notifications
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Users can update (mark read) their own
+CREATE POLICY "Users can update own notifications" ON user_notifications
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Users can delete their own
+CREATE POLICY "Users can delete own notifications" ON user_notifications
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- Service role can insert (from edge functions)
+CREATE POLICY "Service role can insert notifications" ON user_notifications
+  FOR INSERT WITH CHECK (true);
+
+-- Enable realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE user_notifications;
 ```
 
-Se eliminara `Aceptada` del objeto `VALID_TRANSITIONS` ya que las transferencias pasaran directamente a `Despachada`.
+### Edge function changes
+- En `admin-orders`: al cambiar status de un pedido (acciones `updateOrder`, `bulkUpdateStatus`), insertar registro en `user_notifications` con el service role client.
+- En `transfer-operations`: al crear/despachar transferencias, insertar notificaciones para los usuarios involucrados.
 
-#### 3. Frontend `TransferDetailModal.tsx` - Renombrar boton
+### Archivos nuevos
+- `src/components/UserNotifications.tsx`
 
-El boton que dice "Aceptada" se renombrara a "Aceptar y Despachar" para que quede claro que es un solo paso.
-
-#### 4. Header `Header.tsx` - Agregar badge de "en transito hacia mi"
-
-Ademas del conteo de transferencias Pendientes dirigidas a mi sucursal (como `source_branch`), agregar un conteo de transferencias con estado "Despachada" donde mi sucursal es `requester_branch` (es decir, cosas que me mandaron y tengo que marcar como recibidas).
-
-Mostrar ambos badges:
-- Badge rojo en "Transferencias": pendientes por atender (como origen) + despachadas por recibir (como destino)
-
-#### 5. Pestana "En Transito" en `Transfers.tsx` - Badge de pendientes por recibir
-
-Agregar un badge en la pestana "En Transito" mostrando cuantas transferencias despachadas van hacia mi sucursal.
-
-#### 6. `TransferNotificationListener.tsx` - Notificar cambios a Despachada
-
-Agregar notificacion cuando una transferencia cambia a estado "Despachada" y la sucursal destino (`requester_branch`) es la del usuario. Esto avisara "Te enviaron un repuesto, esta en camino".
-
-#### 7. Backend `in_transit` query update
-
-Actualizar el filtro de `in_transit` para que ya no incluya `'Aceptada'` (solo `'Despachada'`), ya que ese estado intermedio deja de existir.
-
-### Archivos a modificar
-
-- `supabase/functions/transfer-operations/index.ts` - Logica de aceptar = despachar + filtro in_transit
-- `src/constants/transferStatuses.ts` - Transiciones validas
-- `src/components/transfers/TransferDetailModal.tsx` - Renombrar boton
-- `src/components/Header.tsx` - Badge combinado (pendientes + en transito hacia mi)
-- `src/pages/Transfers.tsx` - Badge en pestana En Transito
-- `src/components/transfers/TransferNotificationListener.tsx` - Notificar despachos hacia mi sucursal
-- `src/components/transfers/InTransitView.tsx` - Actualizar filtro realtime
+### Archivos modificados
+- `src/components/Header.tsx` (agregar campana de notificaciones)
+- `src/components/ViewToggle.tsx` (agregar badge de pendientes)
+- `src/components/DeliveredOrdersView.tsx` (agregar banner de alerta)
+- `src/pages/Dashboard.tsx` (calcular pendientes, pasar props)
+- `supabase/functions/admin-orders/index.ts` (insertar notificaciones al cambiar estado)
+- `supabase/functions/transfer-operations/index.ts` (insertar notificaciones de transferencias)
 
