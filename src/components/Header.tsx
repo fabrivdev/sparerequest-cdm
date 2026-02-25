@@ -31,9 +31,10 @@ interface HeaderProps {
   onNewOrder: () => void;
   onEditProfile?: () => void;
   profile?: Profile | null;
+  hideNewOrder?: boolean;
 }
 
-const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
+const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProps) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,13 +223,15 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
               >
                 <Shield className="w-5 h-5" />
               </Button>
-              <Button
-                onClick={onNewOrder}
-                className="h-10 gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="hidden sm:inline">Nuevo Pedido</span>
-              </Button>
+              {!hideNewOrder && (
+                <Button
+                  onClick={onNewOrder}
+                  className="h-10 gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">Nuevo Pedido</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
