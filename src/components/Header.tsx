@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen } from 'lucide-react';
+import UserNotifications from '@/components/UserNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -192,6 +193,7 @@ const Header = ({ onNewOrder, onEditProfile, profile }: HeaderProps) => {
 
             {/* Actions */}
             <div className="flex items-center gap-2">
+              {user && <UserNotifications userId={user.id} />}
               <Button
                 variant="ghost"
                 size="icon"

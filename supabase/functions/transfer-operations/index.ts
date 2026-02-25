@@ -116,6 +116,27 @@ Deno.serve(async (req) => {
         observation: transfer.observation || null,
       });
 
+      // Notify users in source branch about new transfer request
+      try {
+        const { data: sourceBranchUsers } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('branch', transfer.source_branch);
+
+        if (sourceBranchUsers && sourceBranchUsers.length > 0) {
+          const notifs = sourceBranchUsers.map(u => ({
+            user_id: u.user_id,
+            type: 'transfer_request',
+            title: 'Nueva solicitud de transferencia',
+            message: `${transfer.requester_branch} solicita ${transfer.brand} ${transfer.product_code} desde tu sucursal.`,
+            metadata: { transfer_id: newTransfer.id },
+          }));
+          await supabase.from('user_notifications').insert(notifs);
+        }
+      } catch (notifErr) {
+        console.error('Error creating transfer notification:', notifErr);
+      }
+
       return new Response(JSON.stringify({ success: true, transfer: newTransfer }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -187,6 +208,31 @@ Deno.serve(async (req) => {
         changed_by_name: userName || 'Usuario',
         observation: observation || null,
       });
+
+      // Notify requester about dispatch
+      try {
+        const finalStatus = updateData.status;
+        if (finalStatus === 'Despachada') {
+          // Notify the requester that their transfer was dispatched
+          await supabase.from('user_notifications').insert({
+            user_id: current.requester_user_id,
+            type: 'transfer_dispatched',
+            title: 'Transferencia despachada',
+            message: `El repuesto ${current.brand} ${current.product_code} fue despachado desde ${current.source_branch}.`,
+            metadata: { transfer_id: transferId },
+          });
+        } else if (finalStatus === 'Rechazada') {
+          await supabase.from('user_notifications').insert({
+            user_id: current.requester_user_id,
+            type: 'order_status_change',
+            title: 'Transferencia rechazada',
+            message: `Tu solicitud de ${current.brand} ${current.product_code} desde ${current.source_branch} fue rechazada.`,
+            metadata: { transfer_id: transferId },
+          });
+        }
+      } catch (notifErr) {
+        console.error('Error creating transfer status notification:', notifErr);
+      }
 
       return new Response(JSON.stringify({ success: true, newStatus: updateData.status }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

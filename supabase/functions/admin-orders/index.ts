@@ -337,6 +337,39 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Insert user notification for status change
+      try {
+        const { data: orderInfo } = await supabase
+          .from('orders')
+          .select('user_id, product_code, brand')
+          .eq('id', orderId)
+          .single();
+
+        if (orderInfo) {
+          const statusLabels: Record<string, string> = {
+            pending: 'Pendiente',
+            solicitado: 'Solicitado',
+            pte_envio: 'Pte. de envío',
+            entregado: 'Entregado',
+            cancelado: 'Cancelado',
+          };
+          const statusLabel = statusLabels[newStatus] || newStatus;
+          const isDelivered = newStatus === 'entregado';
+
+          await supabase.from('user_notifications').insert({
+            user_id: orderInfo.user_id,
+            type: isDelivered ? 'order_delivered' : 'order_status_change',
+            title: isDelivered ? 'Pedido entregado' : 'Cambio de estado',
+            message: isDelivered 
+              ? `Tu pedido ${orderInfo.brand} ${orderInfo.product_code} fue marcado como entregado. Actualiza los datos de facturación.`
+              : `Tu pedido ${orderInfo.brand} ${orderInfo.product_code} cambió a ${statusLabel}.`,
+            metadata: { order_id: orderId, new_status: newStatus },
+          });
+        }
+      } catch (notifErr) {
+        console.error('Error creating user notification:', notifErr);
+      }
+
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -569,6 +602,40 @@ Deno.serve(async (req) => {
           JSON.stringify({ error: 'Error al actualizar pedidos' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      // Insert user notifications for bulk status change
+      try {
+        const { data: ordersInfo } = await supabase
+          .from('orders')
+          .select('id, user_id, product_code, brand')
+          .in('id', orderIds);
+
+        if (ordersInfo && ordersInfo.length > 0) {
+          const statusLabels: Record<string, string> = {
+            pending: 'Pendiente',
+            solicitado: 'Solicitado',
+            pte_envio: 'Pte. de envío',
+            entregado: 'Entregado',
+            cancelado: 'Cancelado',
+          };
+          const statusLabel = statusLabels[newStatus] || newStatus;
+          const isDelivered = newStatus === 'entregado';
+
+          const notifs = ordersInfo.map(o => ({
+            user_id: o.user_id,
+            type: isDelivered ? 'order_delivered' : 'order_status_change',
+            title: isDelivered ? 'Pedido entregado' : 'Cambio de estado',
+            message: isDelivered 
+              ? `Tu pedido ${o.brand} ${o.product_code} fue marcado como entregado. Actualiza los datos de facturación.`
+              : `Tu pedido ${o.brand} ${o.product_code} cambió a ${statusLabel}.`,
+            metadata: { order_id: o.id, new_status: newStatus },
+          }));
+
+          await supabase.from('user_notifications').insert(notifs);
+        }
+      } catch (notifErr) {
+        console.error('Error creating bulk user notifications:', notifErr);
       }
 
       return new Response(

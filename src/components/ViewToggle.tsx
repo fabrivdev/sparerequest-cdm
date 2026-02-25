@@ -21,6 +21,7 @@ interface ViewToggleProps {
   onBranchChange?: (branch: string) => void;
   userBranch?: string;
   branches?: Branch[];
+  pendingInvoiceCount?: number;
 }
 
 const ViewToggle = ({ 
@@ -29,7 +30,8 @@ const ViewToggle = ({
   selectedBranch = '',
   onBranchChange,
   userBranch = '',
-  branches = []
+  branches = [],
+  pendingInvoiceCount = 0,
 }: ViewToggleProps) => {
   const activeBranches = branches.filter(b => b.is_active);
   
@@ -134,13 +136,18 @@ const ViewToggle = ({
       <button
         onClick={() => onViewChange('delivered')}
         className={cn(
-          'px-3 py-2 text-sm font-medium rounded-md transition-all',
+          'px-3 py-2 text-sm font-medium rounded-md transition-all relative',
           view === 'delivered'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
         Entregados
+        {pendingInvoiceCount > 0 && (
+          <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">
+            {pendingInvoiceCount > 99 ? '99+' : pendingInvoiceCount}
+          </span>
+        )}
       </button>
     </div>
   );
