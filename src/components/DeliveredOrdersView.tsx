@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users, X } from 'lucide-react';
+import { Package, Receipt, Loader2, Check, Save, AlertTriangle, User, Warehouse, Users, X, AlertCircle } from 'lucide-react';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ interface DeliveredOrdersViewProps {
   orders: Order[];
   onUpdate: () => void;
   userId: string;
+  pendingInvoiceCount?: number;
 }
 
 interface InvoiceModalData {
@@ -56,7 +57,7 @@ interface InvoiceModalData {
   notInvoicedReason: string;
 }
 
-const DeliveredOrdersView = ({ orders, onUpdate, userId }: DeliveredOrdersViewProps) => {
+const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0 }: DeliveredOrdersViewProps) => {
   const [modalData, setModalData] = useState<InvoiceModalData | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
@@ -391,6 +392,16 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId }: DeliveredOrdersViewPr
 
   return (
     <TooltipProvider>
+      {/* Pending Invoice Banner */}
+      {pendingInvoiceCount > 0 && !selectedOwner && (
+        <div className="mb-4 flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+          <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            Tienes <span className="font-bold">{pendingInvoiceCount}</span> pedido{pendingInvoiceCount !== 1 ? 's' : ''} pendiente{pendingInvoiceCount !== 1 ? 's' : ''} de actualizar datos de facturación.
+          </p>
+        </div>
+      )}
+
       {/* Delegate Selector */}
       <div className="mb-4">
         <DelegateSelector

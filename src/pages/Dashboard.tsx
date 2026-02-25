@@ -333,6 +333,17 @@ const Dashboard = () => {
     });
   }, [orders, branchOrders, view, filters]);
 
+  // Calculate pending invoice count
+  const pendingInvoiceCount = useMemo(() => {
+    return orders.filter(o => 
+      o.status === 'entregado' && 
+      (o.order_destination || 'cliente') !== 'stock' && 
+      !o.is_invoiced
+    ).length;
+  }, [orders]);
+
+  const currentOrders = view === 'my-orders' ? orders : view === 'branch-orders' ? branchOrders : orders.filter(o => o.status === 'entregado');
+
   // Show loading while checking profile
   if (profileLoading) {
     return <LoadingScreen />;
@@ -342,8 +353,6 @@ const Dashboard = () => {
   if (!profile && user) {
     return <ProfileSetup userId={user.id} onComplete={handleProfileComplete} />;
   }
-
-  const currentOrders = view === 'my-orders' ? orders : view === 'branch-orders' ? branchOrders : orders.filter(o => o.status === 'entregado');
 
   return (
     <div className="min-h-screen bg-background">
@@ -363,6 +372,7 @@ const Dashboard = () => {
             onBranchChange={setSelectedBranch}
             userBranch={profile?.branch || ''}
             branches={branches}
+            pendingInvoiceCount={pendingInvoiceCount}
           />
         </div>
 
@@ -386,7 +396,7 @@ const Dashboard = () => {
         {isLoading ? (
           <LoadingScreen />
         ) : view === 'delivered' ? (
-          <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} />
+          <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
         ) : currentOrders.length === 0 ? (
           <EmptyState onNewOrder={() => setIsFormOpen(true)} />
         ) : (
