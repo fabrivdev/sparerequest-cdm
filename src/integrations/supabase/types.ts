@@ -202,7 +202,9 @@ export type Database = {
           reason: string
           reassembled_at: string | null
           rejection_reason: string | null
+          salesperson: string | null
           serial_number: string
+          service_order_number: string | null
           status: string
           updated_at: string
         }
@@ -232,7 +234,9 @@ export type Database = {
           reason: string
           reassembled_at?: string | null
           rejection_reason?: string | null
+          salesperson?: string | null
           serial_number: string
+          service_order_number?: string | null
           status?: string
           updated_at?: string
         }
@@ -262,7 +266,9 @@ export type Database = {
           reason?: string
           reassembled_at?: string | null
           rejection_reason?: string | null
+          salesperson?: string | null
           serial_number?: string
+          service_order_number?: string | null
           status?: string
           updated_at?: string
         }

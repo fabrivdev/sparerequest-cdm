@@ -127,6 +127,10 @@ const UserNotifications = ({ userId }: UserNotificationsProps) => {
         return <ArrowRightLeft className="w-4 h-4 text-amber-500" />;
       case 'transfer_dispatched':
         return <Truck className="w-4 h-4 text-purple-500" />;
+      case 'desarme_approved':
+        return <CheckCheck className="w-4 h-4 text-green-500" />;
+      case 'desarme_rejected':
+        return <Bell className="w-4 h-4 text-destructive" />;
       default:
         return <Bell className="w-4 h-4 text-muted-foreground" />;
     }

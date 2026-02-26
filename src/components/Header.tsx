@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon, MoreVertical, Wrench } from 'lucide-react';
+import { useState } from 'react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon, MoreVertical } from 'lucide-react';
 import UserNotifications from '@/components/UserNotifications';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -52,39 +51,7 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
   const [showManual, setShowManual] = useState(false);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingTransferCount, setPendingTransferCount] = useState(0);
 
-  // Fetch pending transfers count for user's branch
-  useEffect(() => {
-    if (!profile?.branch) return;
-
-    const fetchCount = async () => {
-      const [pendingRes, inTransitRes] = await Promise.all([
-        supabase
-          .from('transfers')
-          .select('*', { count: 'exact', head: true })
-          .eq('source_branch', profile.branch)
-          .eq('status', 'Pendiente'),
-        supabase
-          .from('transfers')
-          .select('*', { count: 'exact', head: true })
-          .eq('requester_branch', profile.branch)
-          .eq('status', 'Despachada'),
-      ]);
-      setPendingTransferCount((pendingRes.count || 0) + (inTransitRes.count || 0));
-    };
-
-    fetchCount();
-
-    const channel = supabase
-      .channel('header-transfer-badge')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transfers' }, () => {
-        fetchCount();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [profile?.branch]);
 
   const checkAdminSession = (): boolean => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -168,50 +135,13 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
                   {profile?.full_name || user?.email} • {profile?.branch}
                 </p>
               </div>
-              {/* Section Switcher */}
-              <div className="ml-1 sm:ml-2 inline-flex bg-secondary/50 rounded-lg p-0.5 sm:p-1">
-                <button
-                  onClick={() => navigate('/')}
-                  className={cn(
-                    'px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all',
-                    location.pathname === '/'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  Compras
-                </button>
-                <button
-                  onClick={() => navigate('/transfers')}
-                  className={cn(
-                    'px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all relative',
-                    location.pathname === '/transfers'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <span className="sm:hidden">Transfer.</span>
-                  <span className="hidden sm:inline">Transferencias</span>
-                  {pendingTransferCount > 0 && (
-                    <Badge variant="destructive" className="absolute -top-2 -right-2 h-4 sm:h-5 min-w-4 sm:min-w-5 flex items-center justify-center p-0 text-[9px] sm:text-[10px]">
-                      {pendingTransferCount}
-                    </Badge>
-                  )}
-                </button>
-                {hasPermission('ver_desarmes') && (
-                  <button
-                    onClick={() => navigate('/desarmes')}
-                    className={cn(
-                      'px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all',
-                      location.pathname === '/desarmes'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <span className="sm:hidden">Desarm.</span>
-                    <span className="hidden sm:inline">Desarmes</span>
-                  </button>
-                )}
+              {/* Section name */}
+              <div className="ml-1 sm:ml-2">
+                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                  {location.pathname === '/' && 'Compras'}
+                  {location.pathname === '/transfers' && 'Transferencias'}
+                  {location.pathname === '/desarmes' && 'Desarmes'}
+                </span>
               </div>
             </div>
 

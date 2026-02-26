@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
+import AppLayout from '@/components/AppLayout';
 import OrderForm from '@/components/OrderForm';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
 import OrdersTable, { Order } from '@/components/OrdersTable';
@@ -57,431 +58,149 @@ const Dashboard = () => {
 
   const fetchProfile = async () => {
     if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error('Error fetching profile:', error);
-    }
-    
+    const { data, error } = await supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle();
+    if (error) console.error('Error fetching profile:', error);
     setProfile(data);
-    // Set default selected branch to user's branch
-    if (data?.branch) {
-      setSelectedBranch(data.branch);
-    }
+    if (data?.branch) setSelectedBranch(data.branch);
     setProfileLoading(false);
   };
 
   const fetchBranches = async () => {
-    const { data, error } = await supabase
-      .from('branches')
-      .select('name, is_active')
-      .order('name');
-
-    if (error) {
-      console.error('Error fetching branches:', error);
-    } else {
-      setBranches(data || []);
-    }
+    const { data, error } = await supabase.from('branches').select('name, is_active').order('name');
+    if (error) console.error('Error fetching branches:', error);
+    else setBranches(data || []);
   };
 
   const fetchOrders = async () => {
     if (!user) return;
-
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      toast.error('Error al cargar los pedidos');
-      console.error(error);
-    } else {
-      setOrders(data || []);
-    }
+    const { data, error } = await supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    if (error) { toast.error('Error al cargar los pedidos'); console.error(error); }
+    else setOrders(data || []);
     setIsLoading(false);
   };
 
   const fetchBranchOrders = async () => {
     if (!user || !profile) return;
-
-    // Build query based on selected branch
-    let query = supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    // Filter by branch if not "all"
-    if (selectedBranch && selectedBranch !== 'all') {
-      query = query.eq('branch_destination', selectedBranch);
-    }
-
+    let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+    if (selectedBranch && selectedBranch !== 'all') query = query.eq('branch_destination', selectedBranch);
     const { data: ordersData, error: ordersError } = await query;
-
-    if (ordersError) {
-      toast.error('Error al cargar los pedidos de la sucursal');
-      console.error(ordersError);
-      return;
-    }
-
-    if (!ordersData || ordersData.length === 0) {
-      setBranchOrders([]);
-      return;
-    }
-
-    // Get unique user_ids from orders
+    if (ordersError) { toast.error('Error al cargar los pedidos de la sucursal'); return; }
+    if (!ordersData || ordersData.length === 0) { setBranchOrders([]); return; }
     const userIds = [...new Set(ordersData.map(o => o.user_id))];
-    
-    // Fetch profiles for those users
-    const { data: profilesData, error: profilesError } = await supabase
-      .from('profiles')
-      .select('user_id, full_name')
-      .in('user_id', userIds);
-
-    if (profilesError) {
-      console.error('Error fetching profiles:', profilesError);
-    }
-
-    // Map profiles to orders
+    const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
-    
-    const ordersWithUsers: OrderWithUser[] = ordersData.map(order => ({
-      ...order,
-      user_name: profileMap.get(order.user_id) || 'Usuario desconocido',
-    }));
-
-    setBranchOrders(ordersWithUsers);
+    setBranchOrders(ordersData.map(order => ({ ...order, user_name: profileMap.get(order.user_id) || 'Usuario desconocido' })));
   };
 
-  useEffect(() => {
-    fetchProfile();
-    fetchBranches();
-  }, [user]);
+  useEffect(() => { fetchProfile(); fetchBranches(); }, [user]);
+  useEffect(() => { if (profile && !localStorage.getItem(ANNOUNCEMENT_KEY)) setShowAnnouncement(true); }, [profile]);
+  useEffect(() => { if (profile) fetchOrders(); }, [profile]);
+  useEffect(() => { if (profile && view === 'branch-orders') fetchBranchOrders(); }, [profile, view, selectedBranch]);
 
-  // Show transfers announcement once after login
-  useEffect(() => {
-    if (profile && !localStorage.getItem(ANNOUNCEMENT_KEY)) {
-      setShowAnnouncement(true);
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    if (profile) {
-      fetchOrders();
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    if (profile && view === 'branch-orders') {
-      fetchBranchOrders();
-    }
-  }, [profile, view, selectedBranch]);
-
-  // Track user presence for admin to see online users + log session
+  // Track user presence
   useEffect(() => {
     if (!user || !profile) return;
-
     let sessionId: string | null = null;
     const connectedAt = Date.now();
-
-    // Create a session record
     const createSession = async () => {
-      const { data } = await supabase
-        .from('user_sessions')
-        .insert({
-          user_id: user.id,
-          user_name: profile.full_name || 'Usuario',
-          branch: profile.branch,
-        })
-        .select('id')
-        .single();
+      const { data } = await supabase.from('user_sessions').insert({ user_id: user.id, user_name: profile.full_name || 'Usuario', branch: profile.branch }).select('id').single();
       if (data) sessionId = data.id;
     };
-
     createSession();
-
-    const channel = supabase
-      .channel('online_users')
-      .on('presence', { event: 'sync' }, () => {
-        // We don't need to do anything with the presence state on user side
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({
-            user_id: user.id,
-            user_name: profile.full_name || 'Usuario',
-            branch: profile.branch,
-            online_at: new Date().toISOString(),
-          });
-        }
-      });
-
-    // On unmount, update session with disconnected_at and duration
+    const channel = supabase.channel('online_users').on('presence', { event: 'sync' }, () => {}).subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') await channel.track({ user_id: user.id, user_name: profile.full_name || 'Usuario', branch: profile.branch, online_at: new Date().toISOString() });
+    });
     return () => {
       if (sessionId) {
         const now = new Date();
-        const durationMin = Math.max(1, Math.round((now.getTime() - connectedAt) / 60000));
-        supabase
-          .from('user_sessions')
-          .update({
-            disconnected_at: now.toISOString(),
-            duration_minutes: durationMin,
-          })
-          .eq('id', sessionId)
-          .then(() => {});
+        supabase.from('user_sessions').update({ disconnected_at: now.toISOString(), duration_minutes: Math.max(1, Math.round((now.getTime() - connectedAt) / 60000)) }).eq('id', sessionId).then(() => {});
       }
       supabase.removeChannel(channel);
     };
   }, [user, profile]);
 
-  const handleCreateOrder = async (orderData: {
-    brand: string;
-    productCode: string;
-    quantity: number;
-    branchDestination: string;
-    shippingMethod: string;
-    orderDestination: string;
-    observation: string;
-  }) => {
+  const handleCreateOrder = async (orderData: { brand: string; productCode: string; quantity: number; branchDestination: string; shippingMethod: string; orderDestination: string; observation: string; }) => {
     if (!user) return;
-
-    const { error } = await supabase.from('orders').insert({
-      user_id: user.id,
-      brand: orderData.brand,
-      product_code: orderData.productCode,
-      quantity: orderData.quantity,
-      branch_destination: orderData.branchDestination,
-      shipping_method: orderData.shippingMethod,
-      order_destination: orderData.orderDestination,
-      observation: orderData.observation || null,
-    });
-
-    if (error) {
-      toast.error('Error al crear el pedido');
-      throw error;
-    }
-
+    const { error } = await supabase.from('orders').insert({ user_id: user.id, brand: orderData.brand, product_code: orderData.productCode, quantity: orderData.quantity, branch_destination: orderData.branchDestination, shipping_method: orderData.shippingMethod, order_destination: orderData.orderDestination, observation: orderData.observation || null });
+    if (error) { toast.error('Error al crear el pedido'); throw error; }
     toast.success('Pedido creado exitosamente');
     fetchOrders();
-    if (view === 'branch-orders') {
-      fetchBranchOrders();
-    }
+    if (view === 'branch-orders') fetchBranchOrders();
   };
 
-  const handleUpdateOrder = async (orderId: string, data: {
-    brand: string;
-    product_code: string;
-    quantity: number;
-    branch_destination: string;
-    observation: string | null;
-  }) => {
-    const { error } = await supabase
-      .from('orders')
-      .update(data)
-      .eq('id', orderId);
-
-    if (error) {
-      toast.error('Error al actualizar el pedido');
-      throw error;
-    }
-
+  const handleUpdateOrder = async (orderId: string, data: { brand: string; product_code: string; quantity: number; branch_destination: string; observation: string | null; }) => {
+    const { error } = await supabase.from('orders').update(data).eq('id', orderId);
+    if (error) { toast.error('Error al actualizar el pedido'); throw error; }
     toast.success('Pedido actualizado exitosamente');
     fetchOrders();
-    if (view === 'branch-orders') {
-      fetchBranchOrders();
-    }
+    if (view === 'branch-orders') fetchBranchOrders();
   };
 
   const handleDeleteOrder = async (id: string) => {
-    // Find the order to check if it can be deleted
     const order = orders.find(o => o.id === id);
     if (order) {
       const hoursSinceCreation = (new Date().getTime() - new Date(order.created_at).getTime()) / (1000 * 60 * 60);
-      if (hoursSinceCreation > 24) {
-        toast.error('No se puede eliminar: pasaron más de 24 horas');
-        return;
-      }
-      if (order.status !== 'pending') {
-        toast.error('No se puede eliminar: el estado ya cambió');
-        return;
-      }
+      if (hoursSinceCreation > 24) { toast.error('No se puede eliminar: pasaron más de 24 horas'); return; }
+      if (order.status !== 'pending') { toast.error('No se puede eliminar: el estado ya cambió'); return; }
     }
-
     const { error } = await supabase.from('orders').delete().eq('id', id);
-
-    if (error) {
-      toast.error('Error al eliminar el pedido');
-    } else {
-      toast.success('Pedido eliminado');
-      setOrders((prev) => prev.filter((order) => order.id !== id));
-      if (view === 'branch-orders') {
-        setBranchOrders((prev) => prev.filter((order) => order.id !== id));
-      }
-    }
+    if (error) toast.error('Error al eliminar el pedido');
+    else { toast.success('Pedido eliminado'); setOrders(prev => prev.filter(o => o.id !== id)); if (view === 'branch-orders') setBranchOrders(prev => prev.filter(o => o.id !== id)); }
   };
 
-  const handleProfileComplete = () => {
-    fetchProfile();
-  };
-
-  const handleProfileUpdate = (updatedProfile: Profile) => {
-    setProfile(updatedProfile);
-    // Refresh branch orders if viewing them since branch might have changed
-    if (view === 'branch-orders') {
-      fetchBranchOrders();
-    }
-  };
-
-  // Get unique branches for filter dropdown (different from branches state)
   const filterBranches = useMemo(() => {
     const currentOrders = view === 'my-orders' ? orders : branchOrders;
-    return [...new Set(currentOrders.map((o) => o.branch_destination))].sort();
+    return [...new Set(currentOrders.map(o => o.branch_destination))].sort();
   }, [orders, branchOrders, view]);
 
-  // Apply filters
   const filteredOrders = useMemo(() => {
     const currentOrders = view === 'my-orders' ? orders : branchOrders;
-    return currentOrders.filter((order) => {
+    return currentOrders.filter(order => {
       const orderDate = new Date(order.created_at);
-      
       if (filters.dateFrom && orderDate < filters.dateFrom) return false;
-      if (filters.dateTo) {
-        const endOfDay = new Date(filters.dateTo);
-        endOfDay.setHours(23, 59, 59, 999);
-        if (orderDate > endOfDay) return false;
-      }
+      if (filters.dateTo) { const end = new Date(filters.dateTo); end.setHours(23, 59, 59, 999); if (orderDate > end) return false; }
       if (filters.brand && order.brand !== filters.brand) return false;
       if (filters.productCode && !order.product_code.toLowerCase().includes(filters.productCode.toLowerCase())) return false;
       if (filters.branch && order.branch_destination !== filters.branch) return false;
       if (filters.status && order.status !== filters.status) return false;
       if (filters.observation && (!order.observation || !order.observation.toLowerCase().includes(filters.observation.toLowerCase()))) return false;
-      
       return true;
     });
   }, [orders, branchOrders, view, filters]);
 
-  // Calculate pending invoice count
-  const pendingInvoiceCount = useMemo(() => {
-    return orders.filter(o => 
-      o.status === 'entregado' && 
-      (o.order_destination || 'cliente') !== 'stock' && 
-      !o.is_invoiced
-    ).length;
-  }, [orders]);
-
+  const pendingInvoiceCount = useMemo(() => orders.filter(o => o.status === 'entregado' && (o.order_destination || 'cliente') !== 'stock' && !o.is_invoiced).length, [orders]);
   const currentOrders = view === 'my-orders' ? orders : view === 'branch-orders' ? branchOrders : orders.filter(o => o.status === 'entregado');
 
-  // Show loading while checking profile
-  if (profileLoading) {
-    return <LoadingScreen />;
-  }
-
-  // Show profile setup if no profile exists
-  if (!profile && user) {
-    return <ProfileSetup userId={user.id} onComplete={handleProfileComplete} />;
-  }
+  if (profileLoading) return <LoadingScreen />;
+  if (!profile && user) return <ProfileSetup userId={user.id} onComplete={() => fetchProfile()} />;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header 
-        onNewOrder={() => setIsFormOpen(true)} 
-        onEditProfile={() => setShowProfileEdit(true)}
-        profile={profile}
-      />
-
+    <AppLayout userBranch={profile?.branch}>
+      <Header onNewOrder={() => setIsFormOpen(true)} onEditProfile={() => setShowProfileEdit(true)} profile={profile} />
       <main className="container mx-auto px-4 py-6">
-        {/* View Toggle */}
         <div className="mb-6">
-          <ViewToggle 
-            view={view} 
-            onViewChange={setView}
-            selectedBranch={selectedBranch}
-            onBranchChange={setSelectedBranch}
-            userBranch={profile?.branch || ''}
-            branches={branches}
-            pendingInvoiceCount={pendingInvoiceCount}
-          />
+          <ViewToggle view={view} onViewChange={setView} selectedBranch={selectedBranch} onBranchChange={setSelectedBranch} userBranch={profile?.branch || ''} branches={branches} pendingInvoiceCount={pendingInvoiceCount} />
         </div>
-
-        {/* Stats */}
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-foreground mb-1">
-            {view === 'my-orders' 
-              ? 'Mis Pedidos' 
-              : view === 'branch-orders' 
-                ? selectedBranch === 'all' 
-                  ? 'Todas las Sucursales' 
-                  : `Pedidos en ${selectedBranch}` 
-                : 'Pedidos Entregados'}
+            {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : 'Pedidos Entregados'}
           </h2>
-          <p className="text-sm text-muted-foreground">
-            {currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}
-          </p>
+          <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
         </div>
-
-        {/* Content */}
-        {isLoading ? (
-          <LoadingScreen />
-        ) : view === 'delivered' ? (
+        {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
-        ) : currentOrders.length === 0 ? (
-          <EmptyState onNewOrder={() => setIsFormOpen(true)} />
-        ) : (
+        ) : currentOrders.length === 0 ? <EmptyState onNewOrder={() => setIsFormOpen(true)} /> : (
           <>
-            <OrderFilters 
-              filters={filters} 
-              onFiltersChange={setFilters} 
-              branches={filterBranches}
-            />
-            <OrdersTable 
-              orders={filteredOrders} 
-              onDelete={handleDeleteOrder}
-              onUpdate={handleUpdateOrder}
-              showUserColumn={view === 'branch-orders'}
-              currentUserId={user?.id}
-            />
+            <OrderFilters filters={filters} onFiltersChange={setFilters} branches={filterBranches} />
+            <OrdersTable orders={filteredOrders} onDelete={handleDeleteOrder} onUpdate={handleUpdateOrder} showUserColumn={view === 'branch-orders'} currentUserId={user?.id} />
           </>
         )}
       </main>
-
-      {/* Order Form Modal */}
-      <OrderForm
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleCreateOrder}
-        defaultBranch={profile?.branch}
-      />
-
-      {/* Profile Edit Modal */}
-      {profile && (
-        <ProfileEditModal
-          isOpen={showProfileEdit}
-          onClose={() => setShowProfileEdit(false)}
-          profile={profile}
-          onUpdate={handleProfileUpdate}
-        />
-      )}
-
-      {/* Support Chat Button */}
-      {profile && user && (
-        <SupportButton
-          userId={user.id}
-          userName={profile.full_name || 'Usuario'}
-          branch={profile.branch}
-        />
-      )}
-
-      {/* Transfers Announcement */}
-      <TransferAnnouncementModal
-        isOpen={showAnnouncement}
-        onClose={() => setShowAnnouncement(false)}
-      />
-    </div>
+      <OrderForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSubmit={handleCreateOrder} defaultBranch={profile?.branch} />
+      {profile && <ProfileEditModal isOpen={showProfileEdit} onClose={() => setShowProfileEdit(false)} profile={profile} onUpdate={(p) => { setProfile(p); if (view === 'branch-orders') fetchBranchOrders(); }} />}
+      {profile && user && <SupportButton userId={user.id} userName={profile.full_name || 'Usuario'} branch={profile.branch} />}
+      <TransferAnnouncementModal isOpen={showAnnouncement} onClose={() => setShowAnnouncement(false)} />
+    </AppLayout>
   );
 };
 
