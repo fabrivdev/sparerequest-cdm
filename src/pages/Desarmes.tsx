@@ -15,6 +15,7 @@ import AuthorizeDesarmeModal from '@/components/desarmes/AuthorizeDesarmeModal';
 import DesarmeDetailModal from '@/components/desarmes/DesarmeDetailModal';
 import TrackingPanel from '@/components/desarmes/TrackingPanel';
 import { supabase } from '@/integrations/supabase/client';
+import ProfileSetup from '@/components/ProfileSetup';
 
 const Desarmes = () => {
   const { user } = useAuth();
@@ -28,15 +29,24 @@ const Desarmes = () => {
   const [showAuthorize, setShowAuthorize] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [pendingCotizar, setPendingCotizar] = useState(0);
   const [pendingAutorizar, setPendingAutorizar] = useState(0);
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
+  const fetchProfile = useCallback(() => {
+    if (!user) return;
+    supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => {
+      setProfile(data);
+      setProfileLoading(false);
+    });
+  }, [user]);
+
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
-    supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setProfile(data));
-  }, [user, navigate]);
+    fetchProfile();
+  }, [user, navigate, fetchProfile]);
 
   // Fetch pending counts for tabs
   useEffect(() => {
@@ -59,7 +69,8 @@ const Desarmes = () => {
   }, [hasPermission, refreshKey]);
 
   if (!user) return null;
-  if (loading) return <LoadingScreen />;
+  if (loading || profileLoading) return <LoadingScreen />;
+  if (!profile) return <ProfileSetup userId={user.id} onComplete={() => fetchProfile()} />;
 
   if (!hasPermission('ver_desarmes')) {
     return (
