@@ -81,14 +81,19 @@ const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
     const gatewayHeaders = {
       'Authorization': `Bearer ${LOVABLE_API_KEY}`,
       'X-Connection-Api-Key': SLACK_API_KEY,
-      'Content-Type': 'application/json',
     };
 
-    // Step 1: Get upload URL
+    const csvBytes = new TextEncoder().encode(csvContent);
+
+    // Step 1: Get upload URL (form-urlencoded)
+    const uploadParams = new URLSearchParams();
+    uploadParams.set('filename', filename);
+    uploadParams.set('length', String(csvBytes.length));
+
     const uploadUrlRes = await fetch(`${GATEWAY_URL}/files.getUploadURLExternal`, {
       method: 'POST',
-      headers: gatewayHeaders,
-      body: JSON.stringify({ filename, length: new TextEncoder().encode(csvContent).length }),
+      headers: { ...gatewayHeaders, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: uploadParams.toString(),
     });
     const uploadUrlData = await uploadUrlRes.json();
     if (!uploadUrlData.ok) {
@@ -110,7 +115,7 @@ const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
     // Step 3: Complete upload and share to channel
     const completeRes = await fetch(`${GATEWAY_URL}/files.completeUploadExternal`, {
       method: 'POST',
-      headers: gatewayHeaders,
+      headers: { ...gatewayHeaders, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         files: [{ id: uploadUrlData.file_id, title: filename }],
         channel_id: SLACK_CHANNEL,
