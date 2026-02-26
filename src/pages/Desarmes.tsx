@@ -6,6 +6,7 @@ import Header from '@/components/Header';
 import AppLayout from '@/components/AppLayout';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ShieldX } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DesarmesList from '@/components/desarmes/DesarmesList';
 import NewDesarmeModal from '@/components/desarmes/NewDesarmeModal';
@@ -27,6 +28,8 @@ const Desarmes = () => {
   const [showAuthorize, setShowAuthorize] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [profile, setProfile] = useState<any>(null);
+  const [pendingCotizar, setPendingCotizar] = useState(0);
+  const [pendingAutorizar, setPendingAutorizar] = useState(0);
 
   const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
@@ -34,6 +37,26 @@ const Desarmes = () => {
     if (!user) { navigate('/auth'); return; }
     supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle().then(({ data }) => setProfile(data));
   }, [user, navigate]);
+
+  // Fetch pending counts for tabs
+  useEffect(() => {
+    const canQuote = hasPermission('cotizar_desarme');
+    const canAuth = hasPermission('autorizar_desarme');
+    if (!canQuote && !canAuth) return;
+    const fetchCounts = async () => {
+      if (canQuote) {
+        const { count } = await supabase.from('desarmes').select('*', { count: 'exact', head: true }).eq('status', 'pendiente_cotizacion');
+        setPendingCotizar(count || 0);
+      }
+      if (canAuth) {
+        const { count } = await supabase.from('desarmes').select('*', { count: 'exact', head: true }).eq('status', 'pendiente_autorizacion');
+        setPendingAutorizar(count || 0);
+      }
+    };
+    fetchCounts();
+    const ch = supabase.channel('desarmes-tab-counts').on('postgres_changes', { event: '*', schema: 'public', table: 'desarmes' }, () => fetchCounts()).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [hasPermission, refreshKey]);
 
   if (!user) return null;
   if (loading) return <LoadingScreen />;
@@ -63,11 +86,11 @@ const Desarmes = () => {
     else setDetailId(desarme.id);
   };
 
-  const tabs: { value: string; label: string; shortLabel?: string }[] = [
+  const tabs: { value: string; label: string; shortLabel?: string; badge?: number }[] = [
     { value: 'mis', label: 'Desarmes', shortLabel: 'Desarmes' },
   ];
-  if (canQuote) tabs.push({ value: 'cotizar', label: 'Cotizar', shortLabel: 'Cotizar' });
-  if (canAuthorize) tabs.push({ value: 'autorizar', label: 'Autorizar', shortLabel: 'Autoriz.' });
+  if (canQuote) tabs.push({ value: 'cotizar', label: 'Cotizar', shortLabel: 'Cotizar', badge: pendingCotizar });
+  if (canAuthorize) tabs.push({ value: 'autorizar', label: 'Autorizar', shortLabel: 'Autoriz.', badge: pendingAutorizar });
   if (canTrack) tabs.push({ value: 'tracking', label: 'Seguimiento', shortLabel: 'Seguim.' });
 
   return (
@@ -77,9 +100,14 @@ const Desarmes = () => {
         <Tabs defaultValue="mis" className="space-y-4">
           <TabsList className="w-full justify-start">
             {tabs.map(t => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm">
+              <TabsTrigger key={t.value} value={t.value} className="text-xs sm:text-sm relative">
                 <span className="sm:hidden">{t.shortLabel || t.label}</span>
                 <span className="hidden sm:inline">{t.label}</span>
+                {(t.badge ?? 0) > 0 && (
+                  <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center p-0 text-[10px] ml-1.5">
+                    {t.badge! > 99 ? '99+' : t.badge}
+                  </Badge>
+                )}
               </TabsTrigger>
             ))}
           </TabsList>
