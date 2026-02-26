@@ -47,6 +47,7 @@ const Admin = () => {
   });
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [activeTab, setActiveTab] = useState('orders');
+  const [newUserRequestCount, setNewUserRequestCount] = useState(0);
 
   const getAdminSession = () => {
     const sessionData = localStorage.getItem(ADMIN_SESSION_KEY);
@@ -116,6 +117,29 @@ const Admin = () => {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  // Fetch new user request notifications count
+  useEffect(() => {
+    if (!password) return;
+    const fetchCount = async () => {
+      const { data, error } = await supabase.functions.invoke('admin-orders', {
+        body: { action: 'getNotifications', password },
+      });
+      if (!error && data?.notifications) {
+        const count = data.notifications.filter(
+          (n: any) => n.type === 'new_user_request' && !n.is_read
+        ).length;
+        setNewUserRequestCount(count);
+      }
+    };
+    fetchCount();
+    const channel = supabase
+      .channel('admin-new-user-requests')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_notifications' }, () => fetchCount())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [password]);
+
 
   const handleLogout = () => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
@@ -524,9 +548,14 @@ const Admin = () => {
               <ArrowLeftRight className="w-4 h-4" />
               <span className="hidden sm:inline">Transfer.</span>
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center gap-2">
+            <TabsTrigger value="users" className="flex items-center gap-2 relative">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Usuarios</span>
+              {newUserRequestCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {newUserRequestCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />

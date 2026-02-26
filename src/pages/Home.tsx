@@ -166,7 +166,7 @@ const Home = () => {
 
         <div>
           <h2 className="text-base font-semibold text-foreground mb-4">Módulos</h2>
-          <ModuleCards />
+          <ModuleCards userName={userName} userBranch={profile?.branch} />
         </div>
 
         <Separator />

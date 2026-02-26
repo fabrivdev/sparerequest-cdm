@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeftRight, Wrench, Plus, Filter, Pencil, Clock, Truck, CheckCircle, FileText, Search, Shield, Info } from 'lucide-react';
+import { Package, ArrowLeftRight, Wrench, Plus, Filter, Pencil, Clock, Truck, CheckCircle, FileText, Search, Shield, Info, UserPlus, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface ModuleDetail {
   icon: React.ElementType;
@@ -22,13 +25,20 @@ interface Module {
   details: ModuleDetail[];
 }
 
-const ModuleCards = () => {
+interface ModuleCardsProps {
+  userName?: string | null;
+  userBranch?: string;
+}
+
+const ModuleCards = ({ userName, userBranch }: ModuleCardsProps) => {
   const navigate = useNavigate();
-  const { hasPermission } = useUserPermissions();
+  const { user } = useAuth();
+  const { hasPermission, loading: permissionsLoading } = useUserPermissions();
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
+  const [notifying, setNotifying] = useState(false);
 
   const modules: Module[] = [
-    {
+    ...(hasPermission('ver_compras') ? [{
       id: 'compras',
       title: 'Compras',
       description: 'Gestiona solicitudes de repuestos, seguimiento de pedidos y facturación',
@@ -41,8 +51,8 @@ const ModuleCards = () => {
         { icon: Pencil, title: 'Editar o Eliminar', desc: 'Editar solo en estado Pendiente. Eliminar si está Pendiente y pasaron menos de 24h.' },
         { icon: FileText, title: 'Facturación', desc: 'Al entregar, indica si fue facturado (nro. factura) o no facturado (motivo).' },
       ],
-    },
-    {
+    }] : []),
+    ...(hasPermission('ver_transferencias') ? [{
       id: 'transferencias',
       title: 'Transferencias',
       description: 'Consulta stock entre sucursales y solicita transferencias',
@@ -54,7 +64,7 @@ const ModuleCards = () => {
         { icon: Truck, title: 'En Tránsito', desc: 'Repuestos despachados hacia tu sucursal. Confirma recepción indicando cantidad recibida.' },
         { icon: CheckCircle, title: 'Cerradas', desc: 'Historial de transferencias completadas o rechazadas.' },
       ],
-    },
+    }] : []),
     ...(hasPermission('ver_desarmes') ? [{
       id: 'desarmes',
       title: 'Desarmes',
@@ -70,6 +80,53 @@ const ModuleCards = () => {
     }] : []),
   ];
 
+  const handleNotifyAdmin = async () => {
+    if (!user) return;
+    setNotifying(true);
+    try {
+      const { error } = await supabase.functions.invoke('admin-orders', {
+        body: {
+          action: 'createNotification',
+          type: 'new_user_request',
+          userId: user.id,
+          userName: userName || 'Usuario nuevo',
+          message: `${userName || 'Un usuario nuevo'} (${userBranch || 'Sin sucursal'}) solicita habilitación de módulos.`,
+        },
+      });
+      if (error) throw error;
+      toast.success('Notificación enviada al administrador');
+    } catch {
+      toast.error('Error al enviar notificación');
+    }
+    setNotifying(false);
+  };
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (modules.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 px-4 text-center animate-fade-in">
+        <div className="w-16 h-16 bg-muted rounded-2xl flex items-center justify-center mb-4">
+          <UserPlus className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <h3 className="text-lg font-semibold text-foreground mb-1">Sin módulos habilitados</h3>
+        <p className="text-sm text-muted-foreground mb-5 max-w-sm">
+          El administrador debe asignarte los módulos que podrás utilizar. Notifícale para que configure tus permisos.
+        </p>
+        <Button onClick={handleNotifyAdmin} disabled={notifying} className="gap-2">
+          {notifying ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+          Notificar al Administrador
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -83,7 +140,7 @@ const ModuleCards = () => {
           >
             <CardContent className="p-6 flex flex-col flex-1 items-center text-center gap-4 group">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
-                <mod.icon className="w-7 h-7 text-primary transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6 animate-[pulse_4s_ease-in-out_infinite]" />
+                <mod.icon className="w-7 h-7 text-primary transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6" />
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-semibold text-foreground">{mod.title}</h3>
