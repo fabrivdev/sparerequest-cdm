@@ -130,6 +130,8 @@ const MyTransfersView = ({ userBranch, userId, userName }: MyTransfersViewProps)
   );
 };
 
+const DEST_LABELS_MAP: Record<string, string> = { stock: 'Stock', cliente: 'Cliente', ambos: 'Ambos' };
+
 const TransferList = ({ transfers, onSelect, type, isMobile }: { transfers: any[]; onSelect: (t: any) => void; type: string; isMobile: boolean }) => {
   if (transfers.length === 0) {
     return (
@@ -153,6 +155,9 @@ const TransferList = ({ transfers, onSelect, type, isMobile }: { transfers: any[
                 <p className="font-medium text-sm truncate">{t.brand} - {t.product_code}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {type === 'sent' ? t.source_branch : t.requester_branch} · {t.requested_quantity} uds
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {DEST_LABELS_MAP[t.transfer_destination] || 'Stock'}{t.client_name ? ` · ${t.client_name}` : ''}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -182,6 +187,7 @@ const TransferList = ({ transfers, onSelect, type, isMobile }: { transfers: any[
             <TableHead className="text-xs">Código</TableHead>
             <TableHead className="text-xs">Cant.</TableHead>
             <TableHead className="text-xs">{type === 'sent' ? 'Origen' : 'Destino'}</TableHead>
+            <TableHead className="text-xs">Destino</TableHead>
             <TableHead className="text-xs">Prior.</TableHead>
             <TableHead className="text-xs">Estado</TableHead>
           </TableRow>
@@ -195,6 +201,7 @@ const TransferList = ({ transfers, onSelect, type, isMobile }: { transfers: any[
               <TableCell className="font-medium text-xs py-2">{t.product_code}</TableCell>
               <TableCell className="text-xs py-2">{t.requested_quantity}</TableCell>
               <TableCell className="text-xs py-2">{type === 'sent' ? t.source_branch : t.requester_branch}</TableCell>
+              <TableCell className="text-xs py-2">{DEST_LABELS_MAP[t.transfer_destination] || 'Stock'}</TableCell>
               <TableCell className="py-2">
                 <Badge variant={t.priority === 'urgente' ? 'destructive' : 'secondary'} className="text-[10px]">
                   {t.priority}

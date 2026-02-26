@@ -79,7 +79,7 @@ const InTransitView = ({ userBranch, userId, userName }: InTransitViewProps) => 
                     {t.source_branch} → {t.requester_branch}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t.dispatched_quantity || t.approved_quantity || t.requested_quantity} uds
+                    {t.dispatched_quantity || t.approved_quantity || t.requested_quantity} uds · {({stock:'Stock',cliente:'Cliente',ambos:'Ambos'} as Record<string,string>)[t.transfer_destination] || 'Stock'}{t.client_name ? ` · ${t.client_name}` : ''}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -103,6 +103,7 @@ const InTransitView = ({ userBranch, userId, userName }: InTransitViewProps) => 
                 <TableHead className="text-xs">Código</TableHead>
                 <TableHead className="text-xs">Cant.</TableHead>
                 <TableHead className="text-xs">Origen → Destino</TableHead>
+                <TableHead className="text-xs">Para</TableHead>
                 <TableHead className="text-xs">Estado</TableHead>
               </TableRow>
             </TableHeader>
@@ -113,6 +114,7 @@ const InTransitView = ({ userBranch, userId, userName }: InTransitViewProps) => 
                   <TableCell className="font-medium text-xs py-2">{t.product_code}</TableCell>
                   <TableCell className="text-xs py-2">{t.dispatched_quantity || t.approved_quantity || t.requested_quantity}</TableCell>
                   <TableCell className="text-xs py-2">{t.source_branch} → {t.requester_branch}</TableCell>
+                  <TableCell className="text-xs py-2">{({stock:'Stock',cliente:'Cliente',ambos:'Ambos'} as Record<string,string>)[t.transfer_destination] || 'Stock'}</TableCell>
                   <TableCell className="py-2">
                     <Badge className={`text-[10px] ${TRANSFER_STATUS_COLORS[t.status as TransferStatus] || ''}`}>{t.status}</Badge>
                   </TableCell>
