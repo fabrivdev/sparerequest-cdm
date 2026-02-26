@@ -88,20 +88,11 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 <Plus className="w-4 h-4 text-primary" />
                 Crear Nuevo Pedido
               </h3>
-              <ul className="text-sm text-muted-foreground space-y-1.5">
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-medium">1.</span>
-                  Haz clic en <strong>"Nuevo Pedido"</strong> en la esquina superior derecha.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-medium">2.</span>
-                  Selecciona el <strong>proveedor/marca</strong>, ingresa el <strong>código</strong> y la <strong>cantidad</strong>.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary font-medium">3.</span>
-                  Elige la <strong>sucursal de destino</strong>, el <strong>destino</strong> (Cliente, Stock o Ambos) y opcionalmente una <strong>observación</strong>.
-                </li>
-              </ul>
+              <div className="text-sm text-muted-foreground space-y-1.5">
+                <p><span className="text-primary font-medium">1.</span> Haz clic en <strong>"Nuevo Pedido"</strong> en la esquina superior derecha.</p>
+                <p><span className="text-primary font-medium">2.</span> Selecciona proveedor/marca, ingresa código y cantidad.</p>
+                <p><span className="text-primary font-medium">3.</span> Elige sucursal de destino, destino (Cliente, Stock o Ambos) y opcionalmente una observación.</p>
+              </div>
             </section>
 
             {/* Estados */}
