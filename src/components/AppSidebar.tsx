@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, ArrowLeftRight, Wrench, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Package, ArrowLeftRight, Wrench, ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -66,18 +66,29 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
   return (
     <aside className={cn(
       'sticky top-0 h-screen border-r border-border bg-card/50 backdrop-blur-sm flex flex-col transition-all duration-200 z-40',
-      collapsed ? 'w-14' : 'w-48'
+      collapsed ? 'w-[52px]' : 'w-52'
     )}>
-      {/* Logo + CDM + collapse toggle */}
-      <div className="flex items-center gap-2 p-2 border-b border-border">
-        <img src="/favicon.png" alt="CDM" className="w-7 h-7 flex-shrink-0 rounded" />
-        {!collapsed && <span className="text-sm font-semibold text-foreground truncate">CDM</span>}
-        <Button variant="ghost" size="icon" className={cn("h-7 w-7 flex-shrink-0", collapsed ? '' : 'ml-auto')} onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
-        </Button>
+      {/* Logo header */}
+      <div className={cn(
+        'flex items-center border-b border-border',
+        collapsed ? 'justify-center p-3' : 'gap-2 px-3 py-3'
+      )}>
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          title={collapsed ? 'Expandir menú' : ''}
+        >
+          <img src="/favicon.png" alt="CDM" className="w-8 h-8 flex-shrink-0 rounded" />
+          {!collapsed && <span className="text-sm font-semibold text-foreground">CDM</span>}
+        </button>
+        {!collapsed && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0 ml-auto" onClick={() => setCollapsed(true)}>
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
-      <nav className="flex-1 py-2 space-y-1 px-2">
+      <nav className="flex-1 py-3 space-y-1 px-2">
         {items.map(item => {
           const isActive = location.pathname === item.path;
           const content = (
@@ -85,17 +96,18 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all relative',
+                'w-full flex items-center rounded-lg font-medium transition-all relative',
+                collapsed ? 'justify-center p-2.5' : 'gap-3 px-3 py-2.5',
                 isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span className="truncate text-xs">{item.label}</span>}
+              <item.icon className={cn('flex-shrink-0', collapsed ? 'w-5 h-5' : 'w-[18px] h-[18px]')} />
+              {!collapsed && <span className="truncate text-sm">{item.label}</span>}
               {item.badge > 0 && (
                 <Badge variant="destructive" className={cn(
-                  'h-4.5 min-w-4.5 flex items-center justify-center p-0 text-[10px]',
+                  'h-5 min-w-5 flex items-center justify-center p-0 text-[10px]',
                   collapsed ? 'absolute -top-1 -right-1' : 'ml-auto'
                 )}>
                   {item.badge > 99 ? '99+' : item.badge}
