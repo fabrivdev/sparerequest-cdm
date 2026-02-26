@@ -5,9 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, DollarSign, AlertTriangle } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Loader2, DollarSign, AlertTriangle, CalendarIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface QuoteDesarmeModalProps {
   isOpen: boolean;
@@ -18,7 +23,7 @@ interface QuoteDesarmeModalProps {
 
 const QuoteDesarmeModal = ({ isOpen, onClose, desarme, onQuoted }: QuoteDesarmeModalProps) => {
   const [quotedValue, setQuotedValue] = useState('');
-  const [deadline, setDeadline] = useState('');
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
   const [shippingMethod, setShippingMethod] = useState('');
   const [observations, setObservations] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,7 +40,7 @@ const QuoteDesarmeModal = ({ isOpen, onClose, desarme, onQuoted }: QuoteDesarmeM
         action: 'quoteDesarme',
         desarmeId: desarme.id,
         quoted_value: quotedValue,
-        quoted_deadline: deadline || null,
+        quoted_deadline: deadline ? format(deadline, 'yyyy-MM-dd') : null,
         quoted_shipping_method: shippingMethod || null,
         quote_observations: observations || null,
       },
@@ -45,7 +50,7 @@ const QuoteDesarmeModal = ({ isOpen, onClose, desarme, onQuoted }: QuoteDesarmeM
       toast.error(data?.error || 'Error al cotizar');
     } else {
       toast.success('Cotización registrada');
-      setQuotedValue(''); setDeadline(''); setShippingMethod(''); setObservations('');
+      setQuotedValue(''); setDeadline(undefined); setShippingMethod(''); setObservations('');
       onQuoted();
       onClose();
     }
@@ -82,8 +87,25 @@ const QuoteDesarmeModal = ({ isOpen, onClose, desarme, onQuoted }: QuoteDesarmeM
             <Input type="number" step="0.01" min="0" value={quotedValue} onChange={e => setQuotedValue(e.target.value)} placeholder="0.00" className="h-9 text-sm" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Plazo Estimado</Label>
-            <Input value={deadline} onChange={e => setDeadline(e.target.value)} placeholder="Ej: 15 días" className="h-9 text-sm" />
+            <Label className="text-xs">Plazo Estimado de Entrega</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className={cn("w-full h-9 justify-start text-left text-sm font-normal", !deadline && "text-muted-foreground")}>
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {deadline ? format(deadline, "dd/MM/yyyy", { locale: es }) : 'Seleccionar fecha'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={deadline}
+                  onSelect={setDeadline}
+                  disabled={(date) => date < new Date()}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Método de Envío Sugerido</Label>

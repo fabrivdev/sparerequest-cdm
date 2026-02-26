@@ -58,6 +58,12 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
 
   const isOverDeadline = (d: any) => {
     if (!d.quoted_deadline) return false;
+    // Support date format (yyyy-MM-dd) or legacy text format (e.g. "15 días")
+    const deadlineDate = new Date(d.quoted_deadline);
+    if (!isNaN(deadlineDate.getTime())) {
+      return new Date() > deadlineDate;
+    }
+    // Legacy: try to parse number of days
     const deadlineDays = parseInt(d.quoted_deadline);
     if (isNaN(deadlineDays)) return false;
     return getDays(d.created_at) > deadlineDays;
@@ -190,7 +196,12 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                               <span>{days}d</span>
-                              {part.quoted_deadline && <span>/ plazo: {part.quoted_deadline}</span>}
+                              {part.quoted_deadline && (
+                                <span>/ plazo: {(() => {
+                                  const d = new Date(part.quoted_deadline);
+                                  return !isNaN(d.getTime()) ? d.toLocaleDateString('es-PY') : part.quoted_deadline;
+                                })()}</span>
+                              )}
                               {over && <span className="text-destructive font-medium">⚠ Excedido</span>}
                               {part.service_order_number && <span>O.S.: {part.service_order_number}</span>}
                             </div>
