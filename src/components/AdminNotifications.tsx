@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, AlertTriangle, DollarSign, Check, CheckCheck, Trash2 } from 'lucide-react';
+import { Bell, AlertTriangle, DollarSign, Check, CheckCheck, Trash2, UserPlus } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -137,6 +137,8 @@ const AdminNotifications = ({ password }: AdminNotificationsProps) => {
         return <AlertTriangle className="w-4 h-4 text-amber-500" />;
       case 'zero_price_order':
         return <DollarSign className="w-4 h-4 text-red-500" />;
+      case 'new_user_request':
+        return <UserPlus className="w-4 h-4 text-primary" />;
       default:
         return <Bell className="w-4 h-4 text-muted-foreground" />;
     }

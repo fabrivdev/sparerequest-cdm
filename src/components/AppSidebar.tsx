@@ -59,8 +59,8 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
 
   const items = [
     { path: '/home', label: 'Inicio', icon: Home, badge: 0 },
-    { path: '/dashboard', label: 'Compras', icon: Package, badge: 0 },
-    { path: '/transfers', label: 'Transferencias', icon: ArrowLeftRight, badge: pendingTransfers },
+    ...(hasPermission('ver_compras') ? [{ path: '/dashboard', label: 'Compras', icon: Package, badge: 0 }] : []),
+    ...(hasPermission('ver_transferencias') ? [{ path: '/transfers', label: 'Transferencias', icon: ArrowLeftRight, badge: pendingTransfers }] : []),
     ...(canDesarmes ? [{ path: '/desarmes', label: 'Desarmes', icon: Wrench, badge: desarmesBadge }] : []),
   ];
 
