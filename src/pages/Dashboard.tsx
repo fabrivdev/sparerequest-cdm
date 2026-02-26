@@ -180,7 +180,7 @@ const Dashboard = () => {
     <AppLayout userBranch={profile?.branch}>
       <Header onNewOrder={() => setIsFormOpen(true)} onEditProfile={() => setShowProfileEdit(true)} profile={profile} />
       <main className="container mx-auto px-4 py-6">
-        <div className="mb-6 overflow-hidden">
+        <div className="mb-6">
           <ViewToggle view={view} onViewChange={setView} selectedBranch={selectedBranch} onBranchChange={setSelectedBranch} userBranch={profile?.branch || ''} branches={branches} pendingInvoiceCount={pendingInvoiceCount} />
         </div>
         <div className="mb-4 flex items-center justify-between">
