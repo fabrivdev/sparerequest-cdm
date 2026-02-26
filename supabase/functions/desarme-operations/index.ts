@@ -7,7 +7,7 @@ const corsHeaders = {
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/slack/api';
 const SLACK_CHANNEL = '#nuevo-canal';
-
+const SLACK_CHANNEL_ID_REGEX = /^[CGDZ][A-Z0-9]{8,}$/;
 // ── CSV helper ──────────────────────────────────────────────────────────
 const csvEscape = (v: any): string => {
   if (v === null || v === undefined) return '';
@@ -40,6 +40,43 @@ const buildCSV = (desarme: any, action: string, emails: Record<string, string>, 
     emails.authorizer || '', names.authorizer || '',
   ];
   return headers.map(csvEscape).join(',') + '\n' + row.map(csvEscape).join(',') + '\n';
+};
+
+// ── Slack helpers ───────────────────────────────────────────────────────
+const resolveSlackChannelId = async (
+  channelRef: string,
+  gatewayHeaders: Record<string, string>
+): Promise<string | null> => {
+  if (SLACK_CHANNEL_ID_REGEX.test(channelRef)) return channelRef;
+
+  const targetChannelName = channelRef.replace(/^#/, '').trim().toLowerCase();
+  let cursor = '';
+
+  do {
+    const params = new URLSearchParams();
+    params.set('exclude_archived', 'true');
+    params.set('limit', '200');
+    params.set('types', 'public_channel,private_channel');
+    if (cursor) params.set('cursor', cursor);
+
+    const listRes = await fetch(`${GATEWAY_URL}/conversations.list?${params.toString()}`, {
+      method: 'GET',
+      headers: gatewayHeaders,
+    });
+    const listData = await listRes.json();
+
+    if (!listData.ok) {
+      console.error('Slack conversations.list failed:', JSON.stringify(listData));
+      return null;
+    }
+
+    const match = (listData.channels || []).find((c: any) => (c?.name || '').toLowerCase() === targetChannelName);
+    if (match?.id) return match.id;
+
+    cursor = listData.response_metadata?.next_cursor || '';
+  } while (cursor);
+
+  return null;
 };
 
 // ── Slack CSV upload ────────────────────────────────────────────────────
@@ -112,13 +149,19 @@ const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
       return;
     }
 
+    const channelId = await resolveSlackChannelId(SLACK_CHANNEL, gatewayHeaders);
+    if (!channelId) {
+      console.error(`Slack channel not found or not accessible: ${SLACK_CHANNEL}`);
+      return;
+    }
+
     // Step 3: Complete upload and share to channel
     const completeRes = await fetch(`${GATEWAY_URL}/files.completeUploadExternal`, {
       method: 'POST',
-      headers: { ...gatewayHeaders, 'Content-Type': 'application/json' },
+      headers: { ...gatewayHeaders, 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
         files: [{ id: uploadUrlData.file_id, title: filename }],
-        channel_id: SLACK_CHANNEL,
+        channel_id: channelId,
         initial_comment: `📋 Desarme ${desarme.desarme_number} — ${action}`,
       }),
     });
