@@ -16,6 +16,8 @@ import RecentActivity from '@/components/home/RecentActivity';
 import NotificationsPreview from '@/components/home/NotificationsPreview';
 import AnnouncementsSection from '@/components/home/AnnouncementsSection';
 import ProfileEditModal from '@/components/ProfileEditModal';
+import ProfileSetup from '@/components/ProfileSetup';
+import LoadingScreen from '@/components/LoadingScreen';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000;
@@ -26,6 +28,7 @@ const Home = () => {
   const { theme, setTheme } = useTheme();
   const [userName, setUserName] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
@@ -35,7 +38,7 @@ const Home = () => {
     if (!loading && !user) navigate('/auth');
   }, [user, loading, navigate]);
 
-  useEffect(() => {
+  const fetchProfile = () => {
     if (!user) return;
     supabase
       .from('profiles')
@@ -44,8 +47,13 @@ const Home = () => {
       .maybeSingle()
       .then(({ data }) => {
         setProfile(data);
+        setProfileLoading(false);
         if (data?.full_name) setUserName(data.full_name.split(' ')[0]);
       });
+  };
+
+  useEffect(() => {
+    fetchProfile();
   }, [user]);
 
   const checkAdminSession = (): boolean => {
@@ -101,6 +109,8 @@ const Home = () => {
   }
 
   if (!user) return null;
+  if (profileLoading) return <LoadingScreen />;
+  if (!profile) return <ProfileSetup userId={user.id} onComplete={() => fetchProfile()} />;
 
   return (
     <AppLayout>
