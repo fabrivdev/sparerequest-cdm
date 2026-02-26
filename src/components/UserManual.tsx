@@ -23,7 +23,13 @@ import {
   FileText,
   Building2,
   MapPin,
-  XCircle
+  XCircle,
+  ArrowLeftRight,
+  Search,
+  Bell,
+  MessageCircle,
+  BarChart3,
+  User
 } from 'lucide-react';
 
 interface UserManualProps {
@@ -63,193 +69,249 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                 Bienvenido
               </h3>
               <p className="text-sm text-muted-foreground">
-                Esta aplicación te permite gestionar solicitudes de repuestos de manera simple y eficiente. 
-                Puedes crear pedidos, ver su estado y hacer seguimiento hasta su entrega.
+                Esta aplicación te permite gestionar solicitudes de repuestos y transferencias entre sucursales. 
+                Navega entre las secciones <strong>Compras</strong> y <strong>Transferencias</strong> usando los botones en la barra superior.
               </p>
             </section>
 
+            {/* ═══════ SECCIÓN COMPRAS ═══════ */}
+            <div className="border-t border-border pt-4">
+              <h2 className="text-base font-bold text-foreground mb-3 flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Sección: Compras
+              </h2>
+            </div>
+
             {/* Crear Pedido */}
             <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Plus className="w-5 h-5 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-primary" />
                 Crear Nuevo Pedido
               </h3>
-              <ul className="text-sm text-muted-foreground space-y-2">
+              <ul className="text-sm text-muted-foreground space-y-1.5">
                 <li className="flex items-start gap-2">
-                  <span className="text-primary">1.</span>
-                  Haz clic en el botón <strong>"Nuevo Pedido"</strong> en la esquina superior derecha.
+                  <span className="text-primary font-medium">1.</span>
+                  Haz clic en <strong>"Nuevo Pedido"</strong> en la esquina superior derecha.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary">2.</span>
-                  Selecciona el <strong>proveedor/marca</strong> del repuesto.
+                  <span className="text-primary font-medium">2.</span>
+                  Selecciona el <strong>proveedor/marca</strong>, ingresa el <strong>código</strong> y la <strong>cantidad</strong>.
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-primary">3.</span>
-                  Ingresa el <strong>código del producto</strong> exactamente como aparece en el catálogo.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">4.</span>
-                  Indica la <strong>cantidad</strong> requerida.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">5.</span>
-                  Selecciona la <strong>sucursal de destino</strong>.
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">6.</span>
-                  Indica el <strong>destino del pedido</strong> (Cliente, Stock o Ambos).
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-primary">7.</span>
-                  Opcionalmente, agrega una <strong>observación</strong>.
+                  <span className="text-primary font-medium">3.</span>
+                  Elige la <strong>sucursal de destino</strong>, el <strong>destino</strong> (Cliente, Stock o Ambos) y opcionalmente una <strong>observación</strong>.
                 </li>
               </ul>
             </section>
 
             {/* Estados */}
             <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
                 Estados de los Pedidos
               </h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                  <div className="w-8 h-8 bg-red-500/10 rounded-lg flex items-center justify-center">
-                    <Clock className="w-4 h-4 text-red-500" />
+              <div className="space-y-2">
+                {[
+                  { icon: Clock, color: 'text-red-500', bg: 'bg-red-500/10', name: 'Pendiente', desc: 'Esperando ser procesado.' },
+                  { icon: Truck, color: 'text-yellow-500', bg: 'bg-yellow-500/10', name: 'Solicitado', desc: 'Solicitado al proveedor.' },
+                  { icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10', name: 'Pte. Envío', desc: 'Llegó, pendiente de enviar a destino.' },
+                  { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', name: 'Entregado', desc: 'Recibido en la sucursal de destino.' },
+                  { icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-500/10', name: 'Cancelado', desc: 'No se procesará.' },
+                ].map(({ icon: Icon, color, bg, name, desc }) => (
+                  <div key={name} className="flex items-center gap-3 p-2.5 bg-secondary/50 rounded-lg">
+                    <div className={`w-7 h-7 ${bg} rounded-lg flex items-center justify-center shrink-0`}>
+                      <Icon className={`w-3.5 h-3.5 ${color}`} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-foreground">{name}</p>
+                      <p className="text-xs text-muted-foreground">{desc}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Pendiente</p>
-                    <p className="text-xs text-muted-foreground">El pedido fue creado y está esperando ser procesado.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                  <div className="w-8 h-8 bg-yellow-500/10 rounded-lg flex items-center justify-center">
-                    <Truck className="w-4 h-4 text-yellow-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Solicitado</p>
-                    <p className="text-xs text-muted-foreground">El pedido fue solicitado al proveedor.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                  <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
-                    <Package className="w-4 h-4 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Pte. Envío</p>
-                    <p className="text-xs text-muted-foreground">El pedido llegó y está pendiente de enviar a destino.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                  <div className="w-8 h-8 bg-green-500/10 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Entregado</p>
-                    <p className="text-xs text-muted-foreground">El pedido fue recibido en la sucursal de destino.</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-secondary/50 rounded-lg">
-                  <div className="w-8 h-8 bg-gray-500/10 rounded-lg flex items-center justify-center">
-                    <XCircle className="w-4 h-4 text-gray-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Cancelado</p>
-                    <p className="text-xs text-muted-foreground">El pedido fue cancelado y no se procesará.</p>
-                  </div>
-                </div>
+                ))}
               </div>
+            </section>
+
+            {/* Vistas */}
+            <section>
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Vistas Disponibles
+              </h3>
+              <ul className="text-sm text-muted-foreground space-y-1.5">
+                <li>• <strong>Mis Pedidos:</strong> Tus pedidos personales.</li>
+                <li>• <strong>Pedidos en mi Sucursal:</strong> Todos los pedidos destinados a tu sucursal, incluyendo los de otros usuarios.</li>
+                <li>• <strong>Entregados:</strong> Pedidos entregados con datos de facturación. Si tenés pedidos pendientes de facturar, verás una alerta.</li>
+              </ul>
             </section>
 
             {/* Filtros */}
             <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Filter className="w-5 h-5 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Filter className="w-4 h-4 text-primary" />
                 Filtrar Pedidos
               </h3>
-              <p className="text-sm text-muted-foreground mb-2">
-                Puedes filtrar tus pedidos por:
-              </p>
-              <ul className="text-sm text-muted-foreground space-y-1 ml-4">
-                <li>• <strong>Fecha:</strong> Rango de fechas de creación</li>
-                <li>• <strong>Marca:</strong> Proveedor del repuesto</li>
-                <li>• <strong>Código:</strong> Buscar por código de producto</li>
-                <li>• <strong>Sucursal:</strong> Filtrar por destino</li>
-                <li>• <strong>Estado:</strong> Pendiente, Solicitado, Pte. Envío, Entregado o Cancelado</li>
-              </ul>
-            </section>
-
-            {/* Ver pedidos de sucursal */}
-            <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Ver Pedidos de mi Sucursal
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Cambia la vista a <strong>"Pedidos en mi sucursal"</strong> para ver todos los pedidos 
-                destinados a tu sucursal, incluyendo los de otros usuarios. Esto te permite coordinar 
-                con tu equipo y tener visibilidad completa de los repuestos en camino.
+              <p className="text-xs text-muted-foreground">
+                Filtra por <strong>fecha</strong>, <strong>marca</strong>, <strong>código</strong>, <strong>sucursal</strong>, <strong>estado</strong> u <strong>observación</strong>.
               </p>
             </section>
 
             {/* Editar y eliminar */}
             <section>
-              <h3 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2">
-                <Pencil className="w-5 h-5 text-primary" />
-                Editar o Eliminar Pedidos
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-primary" />
+                Editar o Eliminar
               </h3>
-              <div className="text-sm text-muted-foreground space-y-3">
-                <div className="flex items-start gap-3">
-                  <Pencil className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <p>Puedes <strong>editar</strong> un pedido mientras esté en estado <strong>Pendiente</strong>.</p>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <div className="flex items-start gap-2">
+                  <Pencil className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-xs"><strong>Editar:</strong> Solo mientras el pedido esté en estado <strong>Pendiente</strong>.</p>
                 </div>
-                <div className="flex items-start gap-3">
-                  <Trash2 className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" />
-                  <p>Puedes <strong>eliminar</strong> un pedido solo si está en estado <strong>Pendiente</strong> y han pasado menos de <strong>24 horas</strong> desde su creación.</p>
+                <div className="flex items-start gap-2">
+                  <Trash2 className="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                  <p className="text-xs"><strong>Eliminar:</strong> Solo si está <strong>Pendiente</strong> y pasaron menos de <strong>24 horas</strong>.</p>
                 </div>
               </div>
             </section>
 
-            {/* Separador Admin */}
-            <div className="border-t border-border pt-6">
-              <h2 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">
-                <Shield className="w-6 h-6 text-primary" />
+            {/* Facturación */}
+            <section>
+              <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Facturación de Entregados
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Cuando un pedido es entregado, se debe indicar si fue <strong>facturado</strong> (ingresando número de factura y cantidad) 
+                o <strong>no facturado</strong> (seleccionando el motivo: Stock, Garantía, No corresponde, etc.). 
+                El badge en "Entregados" muestra cuántos pedidos tenés pendientes de actualizar.
+              </p>
+            </section>
+
+            {/* ═══════ SECCIÓN TRANSFERENCIAS ═══════ */}
+            <div className="border-t border-border pt-4">
+              <h2 className="text-base font-bold text-foreground mb-3 flex items-center gap-2">
+                <ArrowLeftRight className="w-5 h-5 text-primary" />
+                Sección: Transferencias
+              </h2>
+              <p className="text-xs text-muted-foreground mb-3">
+                Permite solicitar repuestos entre sucursales. Accedé desde el botón <strong>"Transferencias"</strong> en la barra superior.
+              </p>
+            </div>
+
+            <section>
+              <div className="space-y-3">
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Search className="w-3.5 h-3.5 text-primary" />
+                    Consulta de Stock
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Buscá productos disponibles en otras sucursales. Si encontrás lo que necesitás, 
+                    podés solicitar una transferencia directamente desde los resultados.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <ArrowLeftRight className="w-3.5 h-3.5 text-primary" />
+                    Mis Transferencias
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Acá ves las transferencias que solicitaste y las que te solicitaron. Podés 
+                    <strong> aprobar, rechazar o despachar</strong> transferencias según corresponda.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Truck className="w-3.5 h-3.5 text-primary" />
+                    En Tránsito
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Repuestos que ya fueron despachados hacia tu sucursal. Cuando los recibas, 
+                    confirmá la recepción indicando la cantidad recibida.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <CheckCircle className="w-3.5 h-3.5 text-primary" />
+                    Cerradas
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Historial de transferencias completadas (recibidas) o rechazadas.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ═══════ HERRAMIENTAS GENERALES ═══════ */}
+            <div className="border-t border-border pt-4">
+              <h2 className="text-base font-bold text-foreground mb-3 flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                Herramientas Generales
+              </h2>
+            </div>
+
+            <section>
+              <div className="space-y-3">
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Bell className="w-3.5 h-3.5 text-primary" />
+                    Notificaciones
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    La campana en la barra superior te avisa en tiempo real cuando cambia el estado de un pedido, 
+                    se entrega un repuesto o hay actividad en tus transferencias. Las notificaciones incluyen sonido.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <MessageCircle className="w-3.5 h-3.5 text-primary" />
+                    Soporte
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    El botón flotante de chat te permite comunicarte directamente con el administrador 
+                    para consultas, reclamos o asistencia.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    Perfil
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Editá tu nombre y sucursal desde el ícono de usuario en la barra superior.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* ═══════ ADMIN ═══════ */}
+            <div className="border-t border-border pt-4">
+              <h2 className="text-base font-bold text-foreground mb-3 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
                 Funciones de Administrador
               </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                El administrador gestiona el flujo completo de los pedidos y la configuración del sistema.
+              <p className="text-xs text-muted-foreground mb-3">
+                Accedé al panel con el ícono de escudo en la barra superior.
               </p>
               
-              <div className="space-y-4">
-                {/* Gestión de estados */}
+              <div className="space-y-3">
                 <div className="p-3 bg-secondary/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-primary" />
                     Gestión de Estados
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    Cambiar estados de pedidos (Pendiente → Solicitado → Pte. Envío → Entregado), 
-                    asignar números de pedido y realizar acciones masivas sobre múltiples pedidos.
+                    Cambiar estados de pedidos, asignar números de pedido y realizar acciones masivas.
                   </p>
                 </div>
 
-                {/* Facturación */}
                 <div className="p-3 bg-secondary/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-primary" />
-                    Proceso de Facturación
-                  </h4>
-                  <p className="text-xs text-muted-foreground">
-                    Al entregar un pedido, se indica si fue facturado (Sí/No). Si fue facturado, 
-                    se ingresa el número de factura y cantidad. Si no fue facturado, se selecciona 
-                    el motivo (Stock, Garantía, No corresponde, etc.).
-                  </p>
-                </div>
-
-                {/* Catálogo */}
-                <div className="p-3 bg-secondary/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-                    <Package className="w-4 h-4 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Package className="w-3.5 h-3.5 text-primary" />
                     Catálogo de Productos
                   </h4>
                   <p className="text-xs text-muted-foreground">
@@ -257,35 +319,38 @@ const UserManual = ({ isOpen, onClose }: UserManualProps) => {
                   </p>
                 </div>
 
-                {/* Configuración */}
                 <div className="p-3 bg-secondary/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <Building2 className="w-3.5 h-3.5 text-primary" />
                     Proveedores y Sucursales
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    En la sección de <strong>Configuración</strong>, el administrador puede agregar, 
-                    editar o eliminar <strong>proveedores/marcas</strong> (con colores personalizados) 
-                    y <strong>sucursales</strong>. Las sucursales inactivas no aparecerán en los formularios.
+                    Agregar, editar o eliminar proveedores (con colores) y sucursales desde Configuración.
                   </p>
                 </div>
 
-                {/* Dashboard */}
                 <div className="p-3 bg-secondary/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-primary" />
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-primary" />
                     Dashboard de Control
                   </h4>
                   <p className="text-xs text-muted-foreground">
-                    Panel con métricas en tiempo real: tiempos de gestión, productos más solicitados, 
-                    distribución por sucursal y marca, valores totales y ranking de usuarios.
+                    Métricas en tiempo real: tiempos de gestión, productos más solicitados, 
+                    distribución por sucursal/marca y ranking de usuarios.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-secondary/30 rounded-lg">
+                  <h4 className="text-xs font-semibold text-foreground mb-1 flex items-center gap-2">
+                    <BarChart3 className="w-3.5 h-3.5 text-primary" />
+                    Estadísticas de Uso
+                  </h4>
+                  <p className="text-xs text-muted-foreground">
+                    Dentro de "Usuarios en línea", accedé a estadísticas de conexión: 
+                    frecuencia, duración de sesiones, horarios pico y actividad por sucursal.
                   </p>
                 </div>
               </div>
-
-              <p className="text-xs text-muted-foreground/70 mt-4">
-                Accede al panel de administrador haciendo clic en el ícono de escudo en la barra superior.
-              </p>
             </div>
           </div>
         </ScrollArea>
