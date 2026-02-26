@@ -8,52 +8,131 @@ const corsHeaders = {
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/slack/api';
 const SLACK_CHANNEL = '#nuevo-canal';
 
-const sendSlackNotification = async (text: string) => {
+// ── CSV helper ──────────────────────────────────────────────────────────
+const csvEscape = (v: any): string => {
+  if (v === null || v === undefined) return '';
+  const s = String(v);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+};
+
+const buildCSV = (desarme: any, action: string, emails: Record<string, string>, names: Record<string, string>): string => {
+  const headers = [
+    'Numero de Desarme','Accion','Fecha',
+    'Marca','Modelo','Numero de Serie','Cliente','Sucursal',
+    'Codigo de Producto','Nombre de Producto','Cantidad','Motivo',
+    'Es Urgente','Vendedor','Estado Actual',
+    'Valor Cotizado','Plazo','Metodo de Envio','Observaciones Cotizacion',
+    'Motivo de Rechazo','Nro Orden de Servicio',
+    'Email Creador','Nombre Creador',
+    'Email Cotizador','Nombre Cotizador',
+    'Email Autorizador','Nombre Autorizador',
+  ];
+  const row = [
+    desarme.desarme_number, action, new Date().toISOString(),
+    desarme.brand, desarme.model, desarme.serial_number, desarme.client_name, desarme.branch,
+    desarme.product_code, desarme.product_name, desarme.quantity, desarme.reason,
+    desarme.is_urgent ? 'Si' : 'No', desarme.salesperson, desarme.status,
+    desarme.quoted_value, desarme.quoted_deadline, desarme.quoted_shipping_method, desarme.quote_observations,
+    desarme.rejection_reason, desarme.service_order_number,
+    emails.creator || '', names.creator || '',
+    emails.quoter || '', names.quoter || '',
+    emails.authorizer || '', names.authorizer || '',
+  ];
+  return headers.map(csvEscape).join(',') + '\n' + row.map(csvEscape).join(',') + '\n';
+};
+
+// ── Slack CSV upload ────────────────────────────────────────────────────
+const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SLACK_API_KEY = Deno.env.get('SLACK_API_KEY');
+    if (!LOVABLE_API_KEY) { console.error('Slack CSV skipped: LOVABLE_API_KEY not configured'); return; }
+    if (!SLACK_API_KEY) { console.error('Slack CSV skipped: SLACK_API_KEY not configured'); return; }
 
-    if (!LOVABLE_API_KEY) {
-      console.error('Slack notification skipped: LOVABLE_API_KEY is not configured');
-      return;
+    // Gather emails from auth.users
+    const userIds = [desarme.created_by, desarme.quoted_by, desarme.authorized_by].filter(Boolean);
+    const emailMap: Record<string, string> = {};
+    for (const uid of userIds) {
+      const { data } = await supabase.auth.admin.getUserById(uid);
+      if (data?.user?.email) emailMap[uid] = data.user.email;
     }
 
-    if (!SLACK_API_KEY) {
-      console.error('Slack notification skipped: SLACK_API_KEY is not configured');
-      return;
-    }
+    // Gather names from profiles
+    const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
+    const nameMap: Record<string, string> = {};
+    profiles?.forEach((p: any) => { nameMap[p.user_id] = p.full_name || 'Usuario'; });
 
-    const res = await fetch(`${GATEWAY_URL}/chat.postMessage`, {
+    const emails = {
+      creator: emailMap[desarme.created_by] || '',
+      quoter: desarme.quoted_by ? (emailMap[desarme.quoted_by] || '') : '',
+      authorizer: desarme.authorized_by ? (emailMap[desarme.authorized_by] || '') : '',
+    };
+    const names = {
+      creator: nameMap[desarme.created_by] || 'Usuario',
+      quoter: desarme.quoted_by ? (nameMap[desarme.quoted_by] || '') : '',
+      authorizer: desarme.authorized_by ? (nameMap[desarme.authorized_by] || '') : '',
+    };
+
+    const csvContent = buildCSV(desarme, action, emails, names);
+    const today = new Date().toISOString().slice(0, 10);
+    const filename = `${desarme.desarme_number}_${action}_${today}.csv`;
+
+    const gatewayHeaders = {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'X-Connection-Api-Key': SLACK_API_KEY,
+      'Content-Type': 'application/json',
+    };
+
+    // Step 1: Get upload URL
+    const uploadUrlRes = await fetch(`${GATEWAY_URL}/files.getUploadURLExternal`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'X-Connection-Api-Key': SLACK_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ channel: SLACK_CHANNEL, text, username: 'CDM Desarmes', icon_emoji: ':wrench:' }),
+      headers: gatewayHeaders,
+      body: JSON.stringify({ filename, length: new TextEncoder().encode(csvContent).length }),
     });
-
-    const rawBody = await res.text();
-    let parsedBody: any = null;
-    try {
-      parsedBody = rawBody ? JSON.parse(rawBody) : null;
-    } catch {
-      parsedBody = { raw: rawBody };
+    const uploadUrlData = await uploadUrlRes.json();
+    if (!uploadUrlData.ok) {
+      console.error('Slack getUploadURLExternal failed:', JSON.stringify(uploadUrlData));
+      return;
     }
 
-    if (!res.ok || parsedBody?.ok === false) {
-      console.error(`Slack notification failed [${res.status}]: ${JSON.stringify(parsedBody)}`);
+    // Step 2: Upload file content
+    const putRes = await fetch(uploadUrlData.upload_url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: csvContent,
+    });
+    if (!putRes.ok) {
+      console.error(`Slack file upload PUT failed [${putRes.status}]`);
       return;
+    }
+
+    // Step 3: Complete upload and share to channel
+    const completeRes = await fetch(`${GATEWAY_URL}/files.completeUploadExternal`, {
+      method: 'POST',
+      headers: gatewayHeaders,
+      body: JSON.stringify({
+        files: [{ id: uploadUrlData.file_id, title: filename }],
+        channel_id: SLACK_CHANNEL,
+        initial_comment: `📋 Desarme ${desarme.desarme_number} — ${action}`,
+      }),
+    });
+    const completeData = await completeRes.json();
+    if (!completeData.ok) {
+      console.error('Slack completeUploadExternal failed:', JSON.stringify(completeData));
     }
   } catch (e) {
-    console.error('Slack notification error:', e);
+    console.error('Slack CSV upload error:', e);
   }
 };
 
+// ── Helpers ─────────────────────────────────────────────────────────────
+const respond = (body: any, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+// ── Main handler ────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -61,16 +140,12 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    if (!authHeader?.startsWith('Bearer ')) return respond({ error: 'No autorizado' }, 401);
 
     const anonClient = createClient(supabaseUrl, supabaseAnonKey, { global: { headers: { Authorization: authHeader } } });
     const token = authHeader.replace('Bearer ', '');
     const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
-      return new Response(JSON.stringify({ error: 'No autorizado' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    if (claimsError || !claimsData?.claims) return respond({ error: 'No autorizado' }, 401);
     const userId = claimsData.claims.sub as string;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -93,39 +168,35 @@ Deno.serve(async (req) => {
       });
     };
 
+    // Helper: fetch full desarme for CSV
+    const getFullDesarme = async (id: string) => {
+      const { data } = await supabase.from('desarmes').select('*').eq('id', id).single();
+      return data;
+    };
+
     const body = await req.json();
     const { action } = body;
 
     // ===== CREATE DESARME =====
     if (action === 'createDesarme') {
-      if (!(await checkPerm('crear_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para crear desarmes' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('crear_desarme'))) return respond({ error: 'Sin permiso para crear desarmes' }, 403);
       const { brand, model, serial_number, client_name, branch, product_code, product_name, quantity, reason, is_urgent, salesperson } = body;
-      if (!brand || !model || !serial_number || !client_name || !branch || !product_code || !quantity || !reason) {
-        return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!brand || !model || !serial_number || !client_name || !branch || !product_code || !quantity || !reason) return respond({ error: 'Faltan campos obligatorios' }, 400);
       const { data, error } = await supabase.from('desarmes').insert({
         created_by: userId, brand, model, serial_number, client_name, branch,
         product_code, product_name: product_name || null,
         quantity: parseInt(quantity), reason, is_urgent: !!is_urgent,
         salesperson: salesperson || null,
       }).select().single();
-      if (error) {
-        console.error('Error creating desarme:', error);
-        return new Response(JSON.stringify({ error: 'Error al crear desarme' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (error) { console.error('Error creating desarme:', error); return respond({ error: 'Error al crear desarme' }, 500); }
       await logStatus(data.id, null, 'pendiente_cotizacion', userId, 'Desarme creado');
-      const creatorName = await getUserName(userId);
-      sendSlackNotification(`:new: *Nuevo desarme ${data.desarme_number}* creado por ${creatorName}\n• ${brand} ${model} – Cliente: ${client_name}\n• Sucursal: ${branch} | Código: ${product_code}`);
-      return new Response(JSON.stringify({ desarme: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      sendSlackCSV(data, supabase, 'Creado');
+      return respond({ desarme: data });
     }
 
     // ===== GET DESARMES =====
     if (action === 'getDesarmes') {
-      if (!(await checkPerm('ver_desarmes'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('ver_desarmes'))) return respond({ error: 'Sin permiso' }, 403);
       const { statusFilter, view } = body;
       let query = supabase.from('desarmes').select('*').order('created_at', { ascending: false });
       if (statusFilter) query = query.eq('status', statusFilter);
@@ -134,14 +205,10 @@ Deno.serve(async (req) => {
       } else if (view === 'autorizar') {
         query = supabase.from('desarmes').select('*').eq('status', 'pendiente_autorizacion').order('is_urgent', { ascending: false }).order('created_at', { ascending: true });
       } else if (view === 'tracking') {
-        query = supabase.from('desarmes').select('*')
-          .order('is_urgent', { ascending: false })
-          .order('created_at', { ascending: true });
+        query = supabase.from('desarmes').select('*').order('is_urgent', { ascending: false }).order('created_at', { ascending: true });
       }
       const { data, error } = await query;
-      if (error) {
-        return new Response(JSON.stringify({ error: 'Error al obtener desarmes' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (error) return respond({ error: 'Error al obtener desarmes' }, 500);
       const userIds = [...new Set([
         ...data.map((d: any) => d.created_by),
         ...data.filter((d: any) => d.quoted_by).map((d: any) => d.quoted_by),
@@ -156,189 +223,140 @@ Deno.serve(async (req) => {
         quoted_by_name: d.quoted_by ? (nameMap[d.quoted_by] || 'Usuario') : null,
         authorized_by_name: d.authorized_by ? (nameMap[d.authorized_by] || 'Usuario') : null,
       }));
-      return new Response(JSON.stringify({ desarmes: enriched }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return respond({ desarmes: enriched });
     }
 
     // ===== GET DESARME DETAIL =====
     if (action === 'getDesarmeDetail') {
-      if (!(await checkPerm('ver_desarmes'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('ver_desarmes'))) return respond({ error: 'Sin permiso' }, 403);
       const { desarmeId } = body;
-      if (!desarmeId) return new Response(JSON.stringify({ error: 'Falta desarmeId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
       const { data: desarme, error } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
-      if (error || !desarme) return new Response(JSON.stringify({ error: 'Desarme no encontrado' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error || !desarme) return respond({ error: 'Desarme no encontrado' }, 404);
       const { data: logs } = await supabase.from('desarme_status_log').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
-      return new Response(JSON.stringify({ desarme, logs: logs || [] }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return respond({ desarme, logs: logs || [] });
     }
 
     // ===== QUOTE DESARME =====
     if (action === 'quoteDesarme') {
-      if (!(await checkPerm('cotizar_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para cotizar' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('cotizar_desarme'))) return respond({ error: 'Sin permiso para cotizar' }, 403);
       const { desarmeId, quoted_value, quoted_deadline, quoted_shipping_method, quote_observations } = body;
-      if (!desarmeId || quoted_value === undefined) return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId || quoted_value === undefined) return respond({ error: 'Faltan campos obligatorios' }, 400);
       const { data: current } = await supabase.from('desarmes').select('status, desarme_number').eq('id', desarmeId).single();
-      if (!current || current.status !== 'pendiente_cotizacion') return new Response(JSON.stringify({ error: 'El desarme no está pendiente de cotización' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!current || current.status !== 'pendiente_cotizacion') return respond({ error: 'El desarme no está pendiente de cotización' }, 400);
       const { error } = await supabase.from('desarmes').update({
         status: 'pendiente_autorizacion', quoted_value: parseFloat(quoted_value),
         quoted_deadline: quoted_deadline || null, quoted_shipping_method: quoted_shipping_method || null,
         quote_observations: quote_observations || null, quoted_by: userId, quoted_at: new Date().toISOString(),
       }).eq('id', desarmeId);
-      if (error) return new Response(JSON.stringify({ error: 'Error al cotizar' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) return respond({ error: 'Error al cotizar' }, 500);
       await logStatus(desarmeId, 'pendiente_cotizacion', 'pendiente_autorizacion', userId, `Cotizado: $${quoted_value}`);
-      const quoterName = await getUserName(userId);
-      sendSlackNotification(`:moneybag: *${current.desarme_number} cotizado* por ${quoterName}\n• Valor: $${quoted_value}${quoted_deadline ? ` | Plazo: ${quoted_deadline}` : ''}`);
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Cotizado');
+      return respond({ success: true });
     }
 
     // ===== AUTHORIZE DESARME =====
     if (action === 'authorizeDesarme') {
-      if (!(await checkPerm('autorizar_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para autorizar' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('autorizar_desarme'))) return respond({ error: 'Sin permiso para autorizar' }, 403);
       const { desarmeId } = body;
-      if (!desarmeId) return new Response(JSON.stringify({ error: 'Falta desarmeId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
       const { data: current } = await supabase.from('desarmes').select('status, quoted_by, desarme_number, created_by').eq('id', desarmeId).single();
-      if (!current || current.status !== 'pendiente_autorizacion') return new Response(JSON.stringify({ error: 'El desarme no está pendiente de autorización' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!current || current.status !== 'pendiente_autorizacion') return respond({ error: 'El desarme no está pendiente de autorización' }, 400);
       const { error } = await supabase.from('desarmes').update({ status: 'aprobado', authorized_by: userId, authorized_at: new Date().toISOString() }).eq('id', desarmeId);
-      if (error) return new Response(JSON.stringify({ error: 'Error al autorizar' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) return respond({ error: 'Error al autorizar' }, 500);
       await logStatus(desarmeId, 'pendiente_autorizacion', 'aprobado', userId, 'Aprobado');
 
-      // Notify quoter
       if (current.quoted_by) {
-        await supabase.from('user_notifications').insert({
-          user_id: current.quoted_by,
-          type: 'desarme_approved',
-          title: 'Desarme aprobado',
-          message: `Tu cotización ${current.desarme_number} fue aprobada`,
-          metadata: { desarme_id: desarmeId },
-        });
+        await supabase.from('user_notifications').insert({ user_id: current.quoted_by, type: 'desarme_approved', title: 'Desarme aprobado', message: `Tu cotización ${current.desarme_number} fue aprobada`, metadata: { desarme_id: desarmeId } });
       }
-
-      // Notify creator that they can generate the order
       if (current.created_by) {
-        await supabase.from('user_notifications').insert({
-          user_id: current.created_by,
-          type: 'desarme_ready_for_order',
-          title: 'Generar pedido',
-          message: `El desarme ${current.desarme_number} fue aprobado. Ya puedes generar el pedido.`,
-          metadata: { desarme_id: desarmeId },
-        });
+        await supabase.from('user_notifications').insert({ user_id: current.created_by, type: 'desarme_ready_for_order', title: 'Generar pedido', message: `El desarme ${current.desarme_number} fue aprobado. Ya puedes generar el pedido.`, metadata: { desarme_id: desarmeId } });
       }
 
-      const authorizerName = await getUserName(userId);
-      sendSlackNotification(`:white_check_mark: *${current.desarme_number} aprobado* por ${authorizerName}`);
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Aprobado');
+      return respond({ success: true });
     }
 
     // ===== REJECT DESARME =====
     if (action === 'rejectDesarme') {
-      if (!(await checkPerm('autorizar_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para rechazar' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('autorizar_desarme'))) return respond({ error: 'Sin permiso para rechazar' }, 403);
       const { desarmeId, rejection_reason } = body;
-      if (!desarmeId || !rejection_reason) return new Response(JSON.stringify({ error: 'El motivo de rechazo es obligatorio' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId || !rejection_reason) return respond({ error: 'El motivo de rechazo es obligatorio' }, 400);
       const { data: current } = await supabase.from('desarmes').select('status, quoted_by, desarme_number').eq('id', desarmeId).single();
-      if (!current || !['pendiente_cotizacion', 'pendiente_autorizacion'].includes(current.status)) return new Response(JSON.stringify({ error: 'El desarme no puede ser rechazado en su estado actual' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!current || !['pendiente_cotizacion', 'pendiente_autorizacion'].includes(current.status)) return respond({ error: 'El desarme no puede ser rechazado en su estado actual' }, 400);
       const { error } = await supabase.from('desarmes').update({ status: 'rechazado', rejection_reason, authorized_by: userId, authorized_at: new Date().toISOString() }).eq('id', desarmeId);
-      if (error) return new Response(JSON.stringify({ error: 'Error al rechazar' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) return respond({ error: 'Error al rechazar' }, 500);
       await logStatus(desarmeId, current.status, 'rechazado', userId, `Rechazado: ${rejection_reason}`);
 
-      // Notify quoter
       if (current.quoted_by) {
-        await supabase.from('user_notifications').insert({
-          user_id: current.quoted_by,
-          type: 'desarme_rejected',
-          title: 'Desarme rechazado',
-          message: `Tu cotización ${current.desarme_number} fue rechazada: ${rejection_reason}`,
-          metadata: { desarme_id: desarmeId },
-        });
+        await supabase.from('user_notifications').insert({ user_id: current.quoted_by, type: 'desarme_rejected', title: 'Desarme rechazado', message: `Tu cotización ${current.desarme_number} fue rechazada: ${rejection_reason}`, metadata: { desarme_id: desarmeId } });
       }
 
-      const rejecterName = await getUserName(userId);
-      sendSlackNotification(`:x: *${current.desarme_number} rechazado* por ${rejecterName}\n• Motivo: ${rejection_reason}`);
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Rechazado');
+      return respond({ success: true });
     }
 
     // ===== GENERATE ORDER =====
     if (action === 'generateOrder') {
       const { desarmeId } = body;
-      if (!desarmeId) return new Response(JSON.stringify({ error: 'Falta desarmeId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
       const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
-      if (!desarme || desarme.status !== 'aprobado') return new Response(JSON.stringify({ error: 'El desarme debe estar aprobado para generar pedido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarme || desarme.status !== 'aprobado') return respond({ error: 'El desarme debe estar aprobado para generar pedido' }, 400);
       const observation = `Generado desde Desarme Nº ${desarme.desarme_number} – Serie ${desarme.serial_number} – Cliente ${desarme.client_name}`;
       const { data: order, error: orderError } = await supabase.from('orders').insert({
         user_id: desarme.created_by, brand: desarme.brand, product_code: desarme.product_code,
         quantity: desarme.quantity, branch_destination: desarme.branch,
         shipping_method: desarme.quoted_shipping_method || 'aereo', observation, status: 'pending', order_destination: 'cliente',
       }).select().single();
-      if (orderError) return new Response(JSON.stringify({ error: 'Error al generar pedido' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (orderError) return respond({ error: 'Error al generar pedido' }, 500);
       await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: order.id }).eq('id', desarmeId);
       await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId, `Pedido generado: ${order.id}`);
-      const orderCreatorName = await getUserName(userId);
-      sendSlackNotification(`:package: *Pedido generado* para ${desarme.desarme_number} por ${orderCreatorName}\n• ${desarme.brand} ${desarme.product_code} – Cliente: ${desarme.client_name}`);
-      return new Response(JSON.stringify({ success: true, order }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const updatedDesarme = await getFullDesarme(desarmeId);
+      if (updatedDesarme) sendSlackCSV(updatedDesarme, supabase, 'Pedido Generado');
+      return respond({ success: true, order });
     }
 
     // ===== UPDATE DESARME STATUS =====
     if (action === 'updateDesarmeStatus') {
-      if (!(await checkPerm('seguimiento_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para seguimiento' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('seguimiento_desarme'))) return respond({ error: 'Sin permiso para seguimiento' }, 403);
       const { desarmeId, newStatus, observation, service_order_number } = body;
-      if (!desarmeId || !newStatus) return new Response(JSON.stringify({ error: 'Faltan parámetros' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!desarmeId || !newStatus) return respond({ error: 'Faltan parámetros' }, 400);
       const validStatuses = ['recibido', 'maquina_rearmada', 'cerrado'];
-      if (!validStatuses.includes(newStatus)) return new Response(JSON.stringify({ error: 'Estado inválido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-
-      // Require service_order_number when closing
-      if (newStatus === 'cerrado' && !service_order_number) {
-        return new Response(JSON.stringify({ error: 'El Nro. de Orden de Servicio es obligatorio para cerrar el desarme' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!validStatuses.includes(newStatus)) return respond({ error: 'Estado inválido' }, 400);
+      if (newStatus === 'cerrado' && !service_order_number) return respond({ error: 'El Nro. de Orden de Servicio es obligatorio para cerrar el desarme' }, 400);
 
       const { data: current } = await supabase.from('desarmes').select('status, desarme_number').eq('id', desarmeId).single();
-      if (!current) return new Response(JSON.stringify({ error: 'Desarme no encontrado' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (!current) return respond({ error: 'Desarme no encontrado' }, 404);
       const updateData: Record<string, any> = { status: newStatus };
       if (newStatus === 'maquina_rearmada') updateData.reassembled_at = new Date().toISOString();
-      if (newStatus === 'cerrado') {
-        updateData.closed_at = new Date().toISOString();
-        updateData.service_order_number = service_order_number;
-      }
+      if (newStatus === 'cerrado') { updateData.closed_at = new Date().toISOString(); updateData.service_order_number = service_order_number; }
       const { error } = await supabase.from('desarmes').update(updateData).eq('id', desarmeId);
-      if (error) return new Response(JSON.stringify({ error: 'Error al actualizar estado' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) return respond({ error: 'Error al actualizar estado' }, 500);
       await logStatus(desarmeId, current.status, newStatus, userId, observation || null);
 
-      // Notify creator when desarme reaches 'recibido'
       if (newStatus === 'recibido') {
         const { data: desarmeData } = await supabase.from('desarmes').select('created_by, desarme_number').eq('id', desarmeId).single();
         if (desarmeData) {
-          await supabase.from('user_notifications').insert({
-            user_id: desarmeData.created_by,
-            type: 'desarme_recibido',
-            title: 'Repuesto recibido',
-            message: `El repuesto del desarme ${desarmeData.desarme_number} fue recibido. Procede con el rearmado.`,
-            metadata: { desarme_id: desarmeId },
-          });
+          await supabase.from('user_notifications').insert({ user_id: desarmeData.created_by, type: 'desarme_recibido', title: 'Repuesto recibido', message: `El repuesto del desarme ${desarmeData.desarme_number} fue recibido. Procede con el rearmado.`, metadata: { desarme_id: desarmeId } });
         }
       }
 
-      const statusLabels: Record<string, string> = { recibido: 'Recibido', maquina_rearmada: 'Máquina Rearmada', cerrado: 'Cerrado' };
-      const statusEmojis: Record<string, string> = { recibido: ':inbox_tray:', maquina_rearmada: ':gear:', cerrado: ':lock:' };
-      const trackerName = await getUserName(userId);
-      sendSlackNotification(`${statusEmojis[newStatus] || ':arrows_counterclockwise:'} *${current.desarme_number} → ${statusLabels[newStatus] || newStatus}* por ${trackerName}${observation ? `\n• ${observation}` : ''}`);
-      return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const statusLabels: Record<string, string> = { recibido: 'Recibido', maquina_rearmada: 'Maquina Rearmada', cerrado: 'Cerrado' };
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, statusLabels[newStatus] || newStatus);
+      return respond({ success: true });
     }
 
     // ===== GET TRACKING =====
     if (action === 'getDesarmeTracking') {
-      if (!(await checkPerm('seguimiento_desarme'))) {
-        return new Response(JSON.stringify({ error: 'Sin permiso para seguimiento' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      }
+      if (!(await checkPerm('seguimiento_desarme'))) return respond({ error: 'Sin permiso para seguimiento' }, 403);
       const { data, error } = await supabase.from('desarmes').select('*')
         .not('status', 'in', '("rechazado","cerrado","pendiente_cotizacion","pendiente_autorizacion")')
         .order('is_urgent', { ascending: false }).order('created_at', { ascending: true });
-      if (error) return new Response(JSON.stringify({ error: 'Error al obtener seguimiento' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (error) return respond({ error: 'Error al obtener seguimiento' }, 500);
       const orderIds = data.filter((d: any) => d.linked_order_id).map((d: any) => d.linked_order_id);
       let orderStatusMap: Record<string, any> = {};
       if (orderIds.length > 0) {
@@ -350,12 +368,12 @@ Deno.serve(async (req) => {
         days_disassembled: Math.floor((Date.now() - new Date(d.created_at).getTime()) / (1000 * 60 * 60 * 24)),
         linked_order: d.linked_order_id ? (orderStatusMap[d.linked_order_id] || null) : null,
       }));
-      return new Response(JSON.stringify({ tracking: enriched }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      return respond({ tracking: enriched });
     }
 
-    return new Response(JSON.stringify({ error: 'Acción no válida' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return respond({ error: 'Acción no válida' }, 400);
   } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: 'Error interno del servidor' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return respond({ error: 'Error interno del servidor' }, 500);
   }
 });
