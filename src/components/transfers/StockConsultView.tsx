@@ -37,7 +37,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
-  const [searchCode, setSearchCode] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<{ brand: string; product_code: string; product_name: string } | null>(null);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'total', direction: 'desc' });
@@ -57,7 +57,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
     while (hasMore) {
       if (offset > 0) setLoadingMore(true);
       const { data, error } = await supabase.functions.invoke('transfer-operations', {
-        body: { action: 'getStock', productCode: searchCode || undefined, offset, limit: BATCH_SIZE },
+        body: { action: 'getStock', offset, limit: BATCH_SIZE },
       });
 
       if (error || !data) break;
@@ -99,6 +99,16 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
 
   const products = Object.values(groupedStock);
 
+  // Client-side filtering by code or name
+  const filteredProducts = useMemo(() => {
+    if (!searchTerm.trim()) return products;
+    const term = searchTerm.toLowerCase();
+    return products.filter(p =>
+      p.product_code.toLowerCase().includes(term) ||
+      p.product_name.toLowerCase().includes(term)
+    );
+  }, [products, searchTerm]);
+
   // Dynamic branches: only show branches that have stock > 0 for at least one product
   const activeBranches = Array.from(
     new Set(stock.filter(s => s.quantity > 0).map(s => s.branch))
@@ -106,7 +116,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
 
   // Sorted products
   const sortedProducts = useMemo(() => {
-    return [...products].sort((a, b) => {
+    return [...filteredProducts].sort((a, b) => {
       let aVal: string | number;
       let bVal: string | number;
 
@@ -129,7 +139,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
       if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [products, sortConfig, activeBranches]);
+  }, [filteredProducts, sortConfig, activeBranches]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(sortedProducts.length / ITEMS_PER_PAGE));
@@ -202,15 +212,15 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
       <div className="flex gap-2 items-end">
         <div className="flex-1">
           <Input
-            placeholder="Buscar código..."
-            value={searchCode}
-            onChange={(e) => setSearchCode(e.target.value)}
+            placeholder="Buscar por código o nombre..."
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
             className="h-9 text-sm"
           />
         </div>
         <Button onClick={fetchStock} disabled={loading} size="sm" className="gap-1.5 h-9">
-          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-          <span className="hidden sm:inline">Buscar</span>
+          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          <span className="hidden sm:inline">Recargar</span>
         </Button>
       </div>
 
@@ -218,7 +228,7 @@ const StockConsultView = ({ userBranch, userId, userName }: StockConsultViewProp
       {sortedProducts.length === 0 && !loading ? (
         <div className="text-center py-12 text-muted-foreground">
           <Search className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p>No se encontraron resultados. Intenta buscar por código.</p>
+          <p>No se encontraron resultados para tu búsqueda.</p>
         </div>
       ) : (
         <>
