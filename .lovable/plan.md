@@ -1,26 +1,69 @@
 
 
-## Plan: Notificaciones de Slack para cambios en desarmes
+## Plan: Reemplazar mensajes de texto por archivos CSV en Slack
 
-### Paso 1: Conectar Slack al proyecto
-- Vincular la conexión existente "CDM" (Slack) al proyecto usando el conector, lo que hará disponibles `SLACK_API_KEY` y `LOVABLE_API_KEY` como variables de entorno.
+### Problema actual
+Las notificaciones a Slack envian mensajes de texto plano. El usuario quiere que en su lugar se suba un archivo CSV al canal `#nuevo-canal` con todos los datos del desarme, incluyendo correos electronicos de los involucrados.
 
-### Paso 2: Preguntar canal de Slack
-- Necesitaré saber en qué canal de Slack quieren recibir las notificaciones.
+### Paso 1: Reconectar Slack con permisos de archivos
+La conexion actual de Slack no tiene el permiso `files:write` necesario para subir archivos. Se debe reconectar agregando este scope.
 
-### Paso 3: Modificar `supabase/functions/desarme-operations/index.ts`
-- Agregar una función helper `sendSlackNotification(text)` que envíe mensajes al canal configurado usando el gateway de Lovable (`https://connector-gateway.lovable.dev/slack/api/chat.postMessage`).
-- Llamar esta función en cada acción que modifica un desarme:
-  - **createDesarme**: "Nuevo desarme DES-XXXX creado por [nombre] - [marca] [modelo] - Cliente: [cliente]"
-  - **quoteDesarme**: "Desarme DES-XXXX cotizado por [nombre] - Valor: $XX"
-  - **authorizeDesarme**: "Desarme DES-XXXX aprobado por [nombre]"
-  - **rejectDesarme**: "Desarme DES-XXXX rechazado por [nombre] - Motivo: [motivo]"
-  - **generateOrder**: "Pedido generado para desarme DES-XXXX"
-  - **updateDesarmeStatus**: "Desarme DES-XXXX cambió a [estado] por [nombre]"
-- Los mensajes de Slack serán opcionales (si las variables de entorno no existen, simplemente no se envía y no se bloquea la operación).
+### Paso 2: Actualizar la edge function `desarme-operations`
 
-### Detalles técnicos
-- Se usa el connector gateway con headers `Authorization: Bearer LOVABLE_API_KEY` y `X-Connection-Api-Key: SLACK_API_KEY`.
-- Los errores de Slack se loguean pero no bloquean la operación principal del desarme.
-- Se incluyen emojis/formato de Slack para mejor legibilidad (`:wrench:`, `:white_check_mark:`, etc.).
+**Reemplazar `sendSlackNotification(text)`** por una nueva funcion `sendSlackCSV(desarme, supabase, action)` que:
+
+1. **Obtiene emails de auth.users** usando el service role client:
+   - Email del creador (siempre incluido)
+   - Email del cotizador (si aplica, cuando la accion es cotizar o posterior)
+   - Email del autorizador (si aplica, cuando la accion es autorizar o posterior)
+
+2. **Genera el contenido CSV** con las columnas:
+   - Numero de desarme, Accion realizada, Fecha
+   - Marca, Modelo, Numero de serie, Cliente, Sucursal
+   - Codigo de producto, Nombre de producto, Cantidad, Motivo
+   - Es urgente, Vendedor
+   - Estado actual
+   - Valor cotizado, Plazo, Metodo de envio, Observaciones de cotizacion
+   - Motivo de rechazo
+   - Nro. Orden de Servicio
+   - Email del creador (siempre), Nombre del creador
+   - Email del cotizador, Nombre del cotizador
+   - Email del autorizador, Nombre del autorizador
+
+3. **Sube el CSV a Slack** usando la API de archivos:
+   - `files.getUploadURLExternal` para obtener URL de carga
+   - Upload del archivo CSV a esa URL
+   - `files.completeUploadExternal` para publicar en el canal `#nuevo-canal`
+
+4. **Se ejecuta en cada accion**: crear, cotizar, aprobar, rechazar, generar pedido, actualizar estado de seguimiento.
+
+### Detalle tecnico
+
+```text
+Edge Function Flow:
+  Accion del desarme
+       |
+       v
+  Obtener datos completos del desarme
+       |
+       v
+  Obtener emails de auth.users (via admin API)
+       |
+       v
+  Generar CSV en memoria (string)
+       |
+       v
+  files.getUploadURLExternal (obtener URL)
+       |
+       v
+  PUT del CSV al upload URL
+       |
+       v
+  files.completeUploadExternal (publicar en canal)
+```
+
+El nombre del archivo CSV seguira el formato: `DES-XXXX_accion_YYYY-MM-DD.csv`
+
+### Archivos a modificar
+- `supabase/functions/desarme-operations/index.ts`: Reemplazar `sendSlackNotification` por la nueva logica de CSV + upload a Slack
 
