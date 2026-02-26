@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon, MoreVertical } from 'lucide-react';
+import { LogOut, Plus, Shield, Loader2, Lock, User, Sun, Moon, MoreVertical } from 'lucide-react';
 import UserNotifications from '@/components/UserNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import UserManual from '@/components/UserManual';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -48,7 +47,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
   const navigate = useNavigate();
   const location = useLocation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showManual, setShowManual] = useState(false);
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -149,15 +147,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
 
               {/* Desktop: show all buttons */}
               <div className="hidden sm:flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setShowManual(true)}
-                  className="h-10 w-10 text-muted-foreground hover:text-primary"
-                  title="Manual de usuario"
-                >
-                  <BookOpen className="w-5 h-5" />
-                </Button>
                 {onEditProfile && (
                   <Button
                     variant="ghost"
@@ -191,10 +180,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setShowManual(true)}>
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Manual de usuario
-                  </DropdownMenuItem>
                   {onEditProfile && (
                     <DropdownMenuItem onClick={onEditProfile}>
                       <User className="w-4 h-4 mr-2" />
@@ -268,8 +253,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
         </DialogContent>
       </Dialog>
 
-      {/* User Manual Modal */}
-      <UserManual isOpen={showManual} onClose={() => setShowManual(false)} />
     </>
   );
 };
