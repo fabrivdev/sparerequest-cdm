@@ -5,6 +5,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const GATEWAY_URL = 'https://connector-gateway.lovable.dev/slack/api';
+const SLACK_CHANNEL = '#desarmes';
+
+const sendSlackNotification = async (text: string) => {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const SLACK_API_KEY = Deno.env.get('SLACK_API_KEY');
+    if (!LOVABLE_API_KEY || !SLACK_API_KEY) return;
+
+    const res = await fetch(`${GATEWAY_URL}/chat.postMessage`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'X-Connection-Api-Key': SLACK_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ channel: SLACK_CHANNEL, text, username: 'CDM Desarmes', icon_emoji: ':wrench:' }),
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`Slack notification failed [${res.status}]: ${err}`);
+    }
+  } catch (e) {
+    console.error('Slack notification error:', e);
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -71,6 +98,8 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Error al crear desarme' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       await logStatus(data.id, null, 'pendiente_cotizacion', userId, 'Desarme creado');
+      const creatorName = await getUserName(userId);
+      sendSlackNotification(`:new: *Nuevo desarme ${data.desarme_number}* creado por ${creatorName}\n• ${brand} ${model} – Cliente: ${client_name}\n• Sucursal: ${branch} | Código: ${product_code}`);
       return new Response(JSON.stringify({ desarme: data }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -132,7 +161,7 @@ Deno.serve(async (req) => {
       }
       const { desarmeId, quoted_value, quoted_deadline, quoted_shipping_method, quote_observations } = body;
       if (!desarmeId || quoted_value === undefined) return new Response(JSON.stringify({ error: 'Faltan campos obligatorios' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      const { data: current } = await supabase.from('desarmes').select('status').eq('id', desarmeId).single();
+      const { data: current } = await supabase.from('desarmes').select('status, desarme_number').eq('id', desarmeId).single();
       if (!current || current.status !== 'pendiente_cotizacion') return new Response(JSON.stringify({ error: 'El desarme no está pendiente de cotización' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       const { error } = await supabase.from('desarmes').update({
         status: 'pendiente_autorizacion', quoted_value: parseFloat(quoted_value),
@@ -141,6 +170,8 @@ Deno.serve(async (req) => {
       }).eq('id', desarmeId);
       if (error) return new Response(JSON.stringify({ error: 'Error al cotizar' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       await logStatus(desarmeId, 'pendiente_cotizacion', 'pendiente_autorizacion', userId, `Cotizado: $${quoted_value}`);
+      const quoterName = await getUserName(userId);
+      sendSlackNotification(`:moneybag: *${current.desarme_number} cotizado* por ${quoterName}\n• Valor: $${quoted_value}${quoted_deadline ? ` | Plazo: ${quoted_deadline}` : ''}`);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -179,6 +210,8 @@ Deno.serve(async (req) => {
         });
       }
 
+      const authorizerName = await getUserName(userId);
+      sendSlackNotification(`:white_check_mark: *${current.desarme_number} aprobado* por ${authorizerName}`);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -206,6 +239,8 @@ Deno.serve(async (req) => {
         });
       }
 
+      const rejecterName = await getUserName(userId);
+      sendSlackNotification(`:x: *${current.desarme_number} rechazado* por ${rejecterName}\n• Motivo: ${rejection_reason}`);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -224,6 +259,8 @@ Deno.serve(async (req) => {
       if (orderError) return new Response(JSON.stringify({ error: 'Error al generar pedido' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: order.id }).eq('id', desarmeId);
       await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId, `Pedido generado: ${order.id}`);
+      const orderCreatorName = await getUserName(userId);
+      sendSlackNotification(`:package: *Pedido generado* para ${desarme.desarme_number} por ${orderCreatorName}\n• ${desarme.brand} ${desarme.product_code} – Cliente: ${desarme.client_name}`);
       return new Response(JSON.stringify({ success: true, order }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -242,7 +279,7 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: 'El Nro. de Orden de Servicio es obligatorio para cerrar el desarme' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
-      const { data: current } = await supabase.from('desarmes').select('status').eq('id', desarmeId).single();
+      const { data: current } = await supabase.from('desarmes').select('status, desarme_number').eq('id', desarmeId).single();
       if (!current) return new Response(JSON.stringify({ error: 'Desarme no encontrado' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       const updateData: Record<string, any> = { status: newStatus };
       if (newStatus === 'maquina_rearmada') updateData.reassembled_at = new Date().toISOString();
@@ -268,6 +305,10 @@ Deno.serve(async (req) => {
         }
       }
 
+      const statusLabels: Record<string, string> = { recibido: 'Recibido', maquina_rearmada: 'Máquina Rearmada', cerrado: 'Cerrado' };
+      const statusEmojis: Record<string, string> = { recibido: ':inbox_tray:', maquina_rearmada: ':gear:', cerrado: ':lock:' };
+      const trackerName = await getUserName(userId);
+      sendSlackNotification(`${statusEmojis[newStatus] || ':arrows_counterclockwise:'} *${current.desarme_number} → ${statusLabels[newStatus] || newStatus}* por ${trackerName}${observation ? `\n• ${observation}` : ''}`);
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
