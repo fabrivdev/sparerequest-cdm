@@ -64,7 +64,7 @@ const ModuleCards = () => {
       details: [
         { icon: Plus, title: 'Nuevo Desarme', desc: 'Crea solicitud con datos del equipo, repuesto necesario y motivo.' },
         { icon: FileText, title: 'Cotización', desc: 'El cotizador asigna valor, plazo de entrega y método de envío al desarme.' },
-        { icon: Shield, title: 'Autorización', desc: 'El autorizador aprueba o rechaza la cotización para generar el pedido.' },
+        { icon: Shield, title: 'Autorización', desc: 'El autorizante aprueba o rechaza la cotización para generar el pedido.' },
         { icon: Truck, title: 'Seguimiento', desc: 'El pedido vinculado se actualiza automáticamente al entregar el repuesto.' },
       ],
     }] : []),
