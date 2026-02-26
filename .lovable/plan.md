@@ -1,61 +1,74 @@
 
 
-## Plan: Mejoras en el formulario de transferencias y flujo de recepcion/facturacion
+## Plan: Enriquecer listas de transferencias y agregar modal de detalle con tiempos
 
 ### Resumen
-
-Se implementaran 4 cambios principales:
-1. Ajustar el modal de solicitud de transferencia para que no toque los bordes
-2. Agregar campo "Destino" (Cliente/Stock/Ambos) al formulario de transferencia, con nombre de cliente obligatorio si es Cliente o Ambos
-3. Cambiar el placeholder de observacion para que indique "Numero de remision"
-4. Al marcar como "Recibida", si el destino es Cliente o Ambos, exigir numero de factura o motivo de no facturacion
+Se mejoraran las listas de transferencias en todas las vistas para mostrar mas informacion relevante (destino, cliente, facturacion), y se agregara la funcionalidad de abrir un modal con detalle completo al hacer clic en cualquier fila, incluyendo tiempos transcurridos entre cada etapa.
 
 ---
 
-### Cambios en base de datos
+### 1. ClosedTransfersView - Agregar detalle y modal
 
-**Migracion**: Agregar columnas a la tabla `transfers`:
-- `transfer_destination` (text, default 'stock') - destino: cliente/stock/ambos
-- `client_name` (text, nullable) - nombre del cliente cuando aplica
-- `remission_number` (text, nullable) - numero de remision
-- `invoice_number` (text, nullable) - numero de factura al recibir
-- `is_invoiced` (boolean, nullable) - si fue facturado al cerrar
-- `not_invoiced_reason` (text, nullable) - motivo si no se facturo
+**Problema actual**: No muestra destino, cliente ni facturacion. No se puede hacer clic para ver detalle.
 
----
+**Cambios**:
+- Agregar columnas/campos visibles: Destino (Cliente/Stock/Ambos), Facturado (Si/No), Nro. Factura
+- Hacer las filas clickeables (como en MyTransfersView e InTransitView)
+- Agregar el componente `TransferDetailModal` al hacer clic
+- Recibir `userName` como prop adicional para pasarlo al modal
 
-### Cambios en el frontend
-
-**1. TransferRequestModal.tsx**
-- Agregar `max-h-[85vh] overflow-y-auto` y margenes al DialogContent para evitar que toque bordes
-- Agregar selector de Destino (Cliente/Stock/Ambos) usando los iconos existentes de `destinations.ts`
-- Si destino es "cliente" o "ambos", mostrar campo obligatorio "Nombre del Cliente"
-- Cambiar placeholder de Observacion a "Numero de remision (obligatorio)" y hacerlo requerido
-- Enviar los nuevos campos (`transfer_destination`, `client_name`, `remission_number`) al backend
-
-**2. TransferDetailModal.tsx**
-- Mostrar los nuevos campos (destino, cliente, numero de remision) en la seccion de info
-- Cuando la accion sea "Recibida" y el destino sea "cliente" o "ambos":
-  - Mostrar selector Si/No para "Facturado?"
-  - Si es Si: campo obligatorio "Numero de factura"
-  - Si es No: campo obligatorio "Motivo de no facturacion"
-- Validar que estos campos esten completos antes de permitir enviar la accion
-- Enviar los datos de facturacion al backend
+**En mobile (cards)**: Agregar linea con destino e info de facturacion
+**En desktop (tabla)**: Agregar columnas "Destino" y "Facturado"
 
 ---
 
-### Cambios en el backend
+### 2. MyTransfersView (TransferList) - Enriquecer info
 
-**Edge function `transfer-operations`**:
-- **createTransfer**: Aceptar y guardar los nuevos campos (`transfer_destination`, `client_name`, `remission_number`)
-- **updateTransferStatus** (accion Recibida): Aceptar y guardar `invoice_number`, `is_invoiced`, `not_invoiced_reason`
+**Cambios**:
+- En mobile cards: agregar linea con destino y cliente si aplica
+- En desktop tabla: agregar columna "Destino" mostrando Cliente/Stock/Ambos
 
 ---
 
-### Seccion tecnica - Detalles de implementacion
+### 3. InTransitView - Enriquecer info
 
-- Se reutiliza `ORDER_DESTINATIONS` de `src/constants/destinations.ts` para los iconos y labels del selector de destino
-- La observacion pasa a ser el campo de remision (`remission_number` en la DB), y se mantiene `observation` separado si ya hay datos existentes
-- La validacion de facturacion solo aplica cuando `transfer_destination` es 'cliente' o 'ambos'
-- Los datos existentes en la tabla `transfers` no se veran afectados ya que las nuevas columnas son nullable o tienen default
+**Cambios**:
+- En mobile cards: agregar linea con destino y cliente
+- En desktop tabla: agregar columna "Destino"
 
+---
+
+### 4. TransferDetailModal - Agregar tiempos transcurridos
+
+**Cambios en la seccion de historial**:
+- Calcular y mostrar el tiempo transcurrido entre cada cambio de estado (ej: "2h 15min", "1d 4h")
+- Mostrar el tiempo total desde la creacion hasta el estado actual/final
+- Agregar un resumen visual de tiempos al inicio del historial:
+  - Tiempo total de la operacion
+  - Tiempo en cada etapa (Pendiente a Despachada, Despachada a Recibida, etc.)
+
+---
+
+### Seccion tecnica
+
+**ClosedTransfersView.tsx**:
+- Agregar props `userName` (necesario para TransferDetailModal)
+- Agregar estado `selectedTransfer` y renderizar `TransferDetailModal`
+- Agregar `onClick` a filas/cards
+- Agregar campos `transfer_destination`, `is_invoiced`, `invoice_number` a la vista
+
+**Transfers.tsx (pagina padre)**:
+- Pasar `userName` al componente `ClosedTransfersView`
+
+**MyTransfersView.tsx (TransferList)**:
+- Agregar columna/campo de destino en tabla y cards
+
+**InTransitView.tsx**:
+- Agregar columna/campo de destino en tabla y cards
+
+**TransferDetailModal.tsx**:
+- Funcion `calculateElapsedTime(from: Date, to: Date)` que devuelve string legible (ej: "2h 30min", "1d 5h")
+- En la seccion de historial, mostrar entre cada entrada el tiempo transcurrido
+- Agregar seccion "Resumen de tiempos" con tiempo total y por etapa
+
+No se requieren cambios en la base de datos ni en la edge function, ya que todos los campos necesarios ya estan en la tabla `transfers` y el `statusLog` ya tiene timestamps.
