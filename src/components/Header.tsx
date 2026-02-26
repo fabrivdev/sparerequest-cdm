@@ -124,7 +124,7 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="hidden sm:block">
                 <h1 className="text-lg font-semibold text-foreground">
-                  Solicitud de Repuestos
+                  Gestión de Repuestos
                 </h1>
                 <p className="text-xs text-muted-foreground">
                   {profile?.full_name || user?.email} • {profile?.branch}

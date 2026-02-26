@@ -167,7 +167,7 @@ const Auth = () => {
             />
           </div>
           <h1 className="text-2xl font-semibold text-foreground">
-            Solicitud de Repuestos
+            Gestión de Repuestos
           </h1>
           <p className="text-muted-foreground mt-2">
             Gestiona tus pedidos de manera simple
