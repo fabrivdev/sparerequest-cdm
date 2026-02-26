@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon, MoreVertical } from 'lucide-react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon, MoreVertical, Wrench } from 'lucide-react';
 import UserNotifications from '@/components/UserNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import UserManual from '@/components/UserManual';
 import { cn } from '@/lib/utils';
 import { useTheme } from 'next-themes';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000;
@@ -44,6 +45,7 @@ interface HeaderProps {
 const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProps) => {
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { hasPermission } = useUserPermissions();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -196,6 +198,20 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
                     </Badge>
                   )}
                 </button>
+                {hasPermission('ver_desarmes') && (
+                  <button
+                    onClick={() => navigate('/desarmes')}
+                    className={cn(
+                      'px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-all',
+                      location.pathname === '/desarmes'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <span className="sm:hidden">Desarm.</span>
+                    <span className="hidden sm:inline">Desarmes</span>
+                  </button>
+                )}
               </div>
             </div>
 
