@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeftRight, Wrench, Plus, Filter, Pencil, Clock, Truck, CheckCircle, FileText, Search, Shield, Info, UserPlus, Loader2 } from 'lucide-react';
+import { Package, ArrowLeftRight, Wrench, Plus, Filter, Pencil, Clock, Truck, CheckCircle, FileText, Search, Shield, Info, UserPlus, Loader2, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -23,6 +24,7 @@ interface Module {
   icon: React.ElementType;
   path: string;
   details: ModuleDetail[];
+  isNew?: boolean;
 }
 
 interface ModuleCardsProps {
@@ -64,6 +66,7 @@ const ModuleCards = ({ userName, userBranch }: ModuleCardsProps) => {
         { icon: Truck, title: 'En Tránsito', desc: 'Repuestos despachados hacia tu sucursal. Confirma recepción indicando cantidad recibida.' },
         { icon: CheckCircle, title: 'Cerradas', desc: 'Historial de transferencias completadas o rechazadas.' },
       ],
+      isNew: true,
     }] : []),
     ...(hasPermission('ver_desarmes') ? [{
       id: 'desarmes',
@@ -77,6 +80,7 @@ const ModuleCards = ({ userName, userBranch }: ModuleCardsProps) => {
         { icon: Shield, title: 'Autorización', desc: 'El autorizante aprueba o rechaza la cotización para generar el pedido.' },
         { icon: Truck, title: 'Seguimiento', desc: 'El pedido vinculado se actualiza automáticamente al entregar el repuesto.' },
       ],
+      isNew: true,
     }] : []),
   ];
 
@@ -134,10 +138,16 @@ const ModuleCards = ({ userName, userBranch }: ModuleCardsProps) => {
           <Card
             key={mod.id}
             className={cn(
-              'h-full flex flex-col transition-all duration-300 border cursor-default',
+              'h-full flex flex-col transition-all duration-300 border cursor-default relative',
               'hover:shadow-lg hover:-translate-y-1 hover:border-primary/30'
             )}
           >
+            {mod.isNew && (
+              <Badge className="absolute -top-2 -right-2 bg-primary text-primary-foreground text-[10px] px-2 py-0.5 gap-1 z-10">
+                <Sparkles className="w-3 h-3" />
+                Nuevo!
+              </Badge>
+            )}
             <CardContent className="p-6 flex flex-col flex-1 items-center text-center gap-4 group">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
                 <mod.icon className="w-7 h-7 text-primary transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6" />
