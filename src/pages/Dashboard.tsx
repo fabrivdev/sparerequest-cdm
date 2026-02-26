@@ -190,10 +190,12 @@ const Dashboard = () => {
             </h2>
             <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
           </div>
-          <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Nuevo Pedido</span>
-          </Button>
+          {currentOrders.length > 0 && (
+            <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Nuevo Pedido</span>
+            </Button>
+          )}
         </div>
         {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
