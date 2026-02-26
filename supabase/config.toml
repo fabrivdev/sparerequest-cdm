@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.transfer-operations]
 verify_jwt = false
+
+[functions.desarme-operations]
+verify_jwt = false
