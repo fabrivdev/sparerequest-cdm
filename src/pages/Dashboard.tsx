@@ -15,7 +15,6 @@ import ViewToggle from '@/components/ViewToggle';
 import LoadingScreen from '@/components/LoadingScreen';
 import SupportButton from '@/components/support/SupportButton';
 import DeliveredOrdersView from '@/components/DeliveredOrdersView';
-import TransferAnnouncementModal, { ANNOUNCEMENT_KEY } from '@/components/TransferAnnouncementModal';
 import { toast } from 'sonner';
 
 interface Profile {
@@ -45,7 +44,7 @@ const Dashboard = () => {
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
-  const [showAnnouncement, setShowAnnouncement] = useState(false);
+  
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
   const [filters, setFilters] = useState<OrderFiltersState>({
@@ -95,7 +94,7 @@ const Dashboard = () => {
   };
 
   useEffect(() => { fetchProfile(); fetchBranches(); }, [user]);
-  useEffect(() => { if (profile && !localStorage.getItem(ANNOUNCEMENT_KEY)) setShowAnnouncement(true); }, [profile]);
+  
   useEffect(() => { if (profile) fetchOrders(); }, [profile]);
   useEffect(() => { if (profile && view === 'branch-orders') fetchBranchOrders(); }, [profile, view, selectedBranch]);
 
@@ -209,7 +208,7 @@ const Dashboard = () => {
       <OrderForm isOpen={isFormOpen} onClose={() => setIsFormOpen(false)} onSubmit={handleCreateOrder} defaultBranch={profile?.branch} />
       {profile && <ProfileEditModal isOpen={showProfileEdit} onClose={() => setShowProfileEdit(false)} profile={profile} onUpdate={(p) => { setProfile(p); if (view === 'branch-orders') fetchBranchOrders(); }} />}
       {profile && user && <SupportButton userId={user.id} userName={profile.full_name || 'Usuario'} branch={profile.branch} />}
-      <TransferAnnouncementModal isOpen={showAnnouncement} onClose={() => setShowAnnouncement(false)} />
+      
     </AppLayout>
   );
 };
