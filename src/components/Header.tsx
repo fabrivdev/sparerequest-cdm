@@ -124,9 +124,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Package className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-              </div>
               <div className="hidden sm:block">
                 <h1 className="text-lg font-semibold text-foreground">
                   Solicitud de Repuestos
@@ -134,14 +131,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
                 <p className="text-xs text-muted-foreground">
                   {profile?.full_name || user?.email} • {profile?.branch}
                 </p>
-              </div>
-              {/* Section name */}
-              <div className="ml-1 sm:ml-2">
-                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                  {location.pathname === '/' && 'Compras'}
-                  {location.pathname === '/transfers' && 'Transferencias'}
-                  {location.pathname === '/desarmes' && 'Desarmes'}
-                </span>
               </div>
             </div>
 
@@ -219,15 +208,6 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {!hideNewOrder && (
-                <Button
-                  onClick={onNewOrder}
-                  className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nuevo Pedido</span>
-                </Button>
-              )}
               <Button
                 variant="ghost"
                 size="icon"

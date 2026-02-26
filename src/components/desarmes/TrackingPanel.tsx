@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Loader2, Search, AlertTriangle, Eye, ChevronDown, ChevronRight, Clock } from 'lucide-react';
-import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS } from '@/constants/desarmeStatuses';
+import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS, DESARME_ALL_STATUSES } from '@/constants/desarmeStatuses';
 import { differenceInDays } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TrackingPanelProps {
   onSelect: (desarme: any) => void;
@@ -26,6 +27,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
   const [desarmes, setDesarmes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('todos');
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
 
   const fetchTracking = useCallback(async () => {
@@ -61,8 +63,9 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
     return getDays(d.created_at) > deadlineDays;
   };
 
-  // Filter
+  // Filter by search + status
   const filtered = desarmes.filter(d => {
+    if (statusFilter !== 'todos' && d.status !== statusFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
     return d.serial_number.toLowerCase().includes(s) ||
@@ -105,11 +108,22 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Buscar por serie, cliente, Nº desarme..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px] h-9 text-sm">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            {DESARME_ALL_STATUSES.map(s => (
+              <SelectItem key={s} value={s}>{DESARME_STATUS_LABELS[s]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <div className="hidden sm:flex items-center gap-3 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-green-500" /> ≤7d</div>
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full bg-yellow-500" /> 8-14d</div>
