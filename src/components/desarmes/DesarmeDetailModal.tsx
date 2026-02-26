@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info } from 'lucide-react';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS } from '@/constants/desarmeStatuses';
 import { format } from 'date-fns';
@@ -20,10 +22,12 @@ interface DesarmeDetailModalProps {
 }
 
 const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canUpdateStatus, onRefresh }: DesarmeDetailModalProps) => {
+  const { user } = useAuth();
   const [desarme, setDesarme] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [serviceOrderNumber, setServiceOrderNumber] = useState('');
 
   useEffect(() => {
@@ -84,6 +88,28 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     }
     setActionLoading(false);
   };
+
+  const handleDelete = async () => {
+    if (!desarmeId) return;
+    setDeleteLoading(true);
+    try {
+      // Delete status logs first, then the desarme
+      await supabase.from('desarme_status_log').delete().eq('desarme_id', desarmeId);
+      const { error } = await supabase.from('desarmes').delete().eq('id', desarmeId);
+      if (error) {
+        toast.error('Error al eliminar el desarme');
+      } else {
+        toast.success('Desarme eliminado correctamente');
+        onRefresh();
+        onClose();
+      }
+    } catch {
+      toast.error('Error al eliminar');
+    }
+    setDeleteLoading(false);
+  };
+
+  const isCreator = user?.id === desarme?.created_by;
 
   const nextStatusMap: Record<string, string> = {
     recibido: 'maquina_rearmada',
@@ -216,6 +242,30 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                   ))}
                 </div>
               </div>
+              {/* Delete */}
+              {isCreator && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 gap-2 text-xs mt-2">
+                      <Trash2 className="w-4 h-4" /> Eliminar desarme y su historial
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Eliminar desarme?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción es irreversible. Se eliminará el desarme <span className="font-mono font-medium">{desarme.desarme_number}</span> y todo su historial de estados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteLoading}>
+                        {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Eliminar'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </>
         ) : (
