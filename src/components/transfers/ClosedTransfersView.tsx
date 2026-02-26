@@ -8,15 +8,20 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TRANSFER_STATUS_COLORS, TransferStatus } from '@/constants/transferStatuses';
 import { useIsMobile } from '@/hooks/use-mobile';
+import TransferDetailModal from './TransferDetailModal';
 
 interface ClosedTransfersViewProps {
   userBranch: string;
   userId: string;
+  userName: string;
 }
 
-const ClosedTransfersView = ({ userBranch, userId }: ClosedTransfersViewProps) => {
+const DEST_LABELS: Record<string, string> = { stock: 'Stock', cliente: 'Cliente', ambos: 'Ambos' };
+
+const ClosedTransfersView = ({ userBranch, userId, userName }: ClosedTransfersViewProps) => {
   const [transfers, setTransfers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
   const isMobile = useIsMobile();
 
   const fetchTransfers = async () => {
@@ -46,7 +51,7 @@ const ClosedTransfersView = ({ userBranch, userId }: ClosedTransfersViewProps) =
       ) : isMobile ? (
         <div className="space-y-2">
           {transfers.map(t => (
-            <div key={t.id} className="p-3 rounded-xl border border-border bg-card">
+         <div key={t.id} className="p-3 rounded-xl border border-border bg-card active:bg-muted/50 transition-colors" onClick={() => setSelectedTransfer(t)}>
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm truncate">{t.brand} - {t.product_code}</p>
@@ -55,6 +60,9 @@ const ClosedTransfersView = ({ userBranch, userId }: ClosedTransfersViewProps) =
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Solicitadas: {t.requested_quantity} · Recibidas: {t.received_quantity ?? '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {DEST_LABELS[t.transfer_destination] || 'Stock'}{t.client_name ? ` · ${t.client_name}` : ''}{t.is_invoiced !== null ? ` · ${t.is_invoiced ? '✓ Fact.' : '✗ No fact.'}` : ''}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -76,20 +84,22 @@ const ClosedTransfersView = ({ userBranch, userId }: ClosedTransfersViewProps) =
               <TableRow className="bg-muted/50">
                 <TableHead className="text-xs">Fecha</TableHead>
                 <TableHead className="text-xs">Código</TableHead>
-                <TableHead className="text-xs">Solicitada</TableHead>
-                <TableHead className="text-xs">Recibida</TableHead>
+                <TableHead className="text-xs">Cant.</TableHead>
                 <TableHead className="text-xs">Origen → Destino</TableHead>
+                <TableHead className="text-xs">Destino</TableHead>
+                <TableHead className="text-xs">Facturado</TableHead>
                 <TableHead className="text-xs">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {transfers.map(t => (
-                <TableRow key={t.id}>
+                <TableRow key={t.id} className="cursor-pointer hover:bg-muted/30" onClick={() => setSelectedTransfer(t)}>
                   <TableCell className="text-xs py-2">{format(new Date(t.created_at), 'dd/MM/yy', { locale: es })}</TableCell>
                   <TableCell className="font-medium text-xs py-2">{t.product_code}</TableCell>
-                  <TableCell className="text-xs py-2">{t.requested_quantity}</TableCell>
-                  <TableCell className="text-xs py-2">{t.received_quantity ?? '-'}</TableCell>
+                  <TableCell className="text-xs py-2">{t.received_quantity ?? t.requested_quantity}</TableCell>
                   <TableCell className="text-xs py-2">{t.source_branch} → {t.requester_branch}</TableCell>
+                  <TableCell className="text-xs py-2">{DEST_LABELS[t.transfer_destination] || 'Stock'}{t.client_name ? ` (${t.client_name})` : ''}</TableCell>
+                  <TableCell className="text-xs py-2">{t.is_invoiced === true ? `Sí ${t.invoice_number ? `#${t.invoice_number}` : ''}` : t.is_invoiced === false ? 'No' : '-'}</TableCell>
                   <TableCell className="py-2">
                     <Badge className={`text-[10px] ${TRANSFER_STATUS_COLORS[t.status as TransferStatus] || ''}`}>{t.status}</Badge>
                   </TableCell>
@@ -98,6 +108,17 @@ const ClosedTransfersView = ({ userBranch, userId }: ClosedTransfersViewProps) =
             </TableBody>
           </Table>
         </div>
+      )}
+      {selectedTransfer && (
+        <TransferDetailModal
+          isOpen={!!selectedTransfer}
+          onClose={() => setSelectedTransfer(null)}
+          transferId={selectedTransfer.id}
+          userBranch={userBranch}
+          userId={userId}
+          userName={userName}
+          onStatusChange={fetchTransfers}
+        />
       )}
     </div>
   );

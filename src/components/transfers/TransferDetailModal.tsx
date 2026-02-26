@@ -39,6 +39,19 @@ const DESTINATION_LABELS: Record<string, string> = {
   ambos: 'Ambos',
 };
 
+const formatElapsed = (from: Date, to: Date): string => {
+  const diffMs = to.getTime() - from.getTime();
+  if (diffMs < 0) return '-';
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return `${mins}min`;
+  const hours = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  if (hours < 24) return `${hours}h ${remMins}min`;
+  const days = Math.floor(hours / 24);
+  const remHours = hours % 24;
+  return `${days}d ${remHours}h`;
+};
+
 const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, userName, onStatusChange }: TransferDetailModalProps) => {
   const [transfer, setTransfer] = useState<any>(null);
   const [statusLog, setStatusLog] = useState<any[]>([]);
@@ -287,6 +300,25 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
           )}
         </div>
 
+        {/* Time summary */}
+        {statusLog.length > 1 && (
+          <div className="mt-4 p-3 rounded-lg border border-border bg-muted/30">
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Resumen de tiempos</h4>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+              <Clock className="w-3 h-3" />
+              <span>Tiempo total: <span className="font-medium text-foreground">{formatElapsed(new Date(statusLog[0].created_at), new Date(statusLog[statusLog.length - 1].created_at))}</span></span>
+            </div>
+            <div className="space-y-0.5">
+              {statusLog.slice(1).map((log, i) => (
+                <div key={log.id} className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span>{statusLog[i].to_status} → {log.to_status}:</span>
+                  <span className="font-medium text-foreground">{formatElapsed(new Date(statusLog[i].created_at), new Date(log.created_at))}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Timeline */}
         <div className="mt-4">
           <h4 className="text-sm font-semibold mb-3">Historial</h4>
@@ -315,6 +347,9 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
                     <Clock className="w-3 h-3 ml-1" />
                     {format(new Date(log.created_at), "dd/MM/yy HH:mm", { locale: es })}
                   </div>
+                  {i > 0 && (
+                    <span className="text-[10px] text-muted-foreground mt-0.5 inline-block">⏱ {formatElapsed(new Date(statusLog[i - 1].created_at), new Date(log.created_at))}</span>
+                  )}
                   {log.observation && <p className="text-xs mt-0.5">{log.observation}</p>}
                 </div>
               </div>

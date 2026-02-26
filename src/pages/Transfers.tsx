@@ -153,7 +153,7 @@ const Transfers = () => {
             <InTransitView userBranch={profile?.branch || ''} userId={user?.id || ''} userName={profile?.full_name || ''} />
           </TabsContent>
           <TabsContent value="closed">
-            <ClosedTransfersView userBranch={profile?.branch || ''} userId={user?.id || ''} />
+            <ClosedTransfersView userBranch={profile?.branch || ''} userId={user?.id || ''} userName={profile?.full_name || ''} />
           </TabsContent>
         </Tabs>
       </main>
