@@ -1,51 +1,26 @@
 
 
-## Rediseño visual del Home con cards uniformes y popup de detalles
+## Plan: Notificaciones de Slack para cambios en desarmes
 
-### Cambios principales
+### Paso 1: Conectar Slack al proyecto
+- Vincular la conexión existente "CDM" (Slack) al proyecto usando el conector, lo que hará disponibles `SLACK_API_KEY` y `LOVABLE_API_KEY` como variables de entorno.
 
-**1. ModuleCards: Cards de tamaño fijo + Dialog para detalles**
+### Paso 2: Preguntar canal de Slack
+- Necesitaré saber en qué canal de Slack quieren recibir las notificaciones.
 
-Reemplazar el Collapsible (que deforma el layout) por cards de altura uniforme. Al hacer click en una card, se abre un Dialog (popup centrado) con los detalles del modulo.
+### Paso 3: Modificar `supabase/functions/desarme-operations/index.ts`
+- Agregar una función helper `sendSlackNotification(text)` que envíe mensajes al canal configurado usando el gateway de Lovable (`https://connector-gateway.lovable.dev/slack/api/chat.postMessage`).
+- Llamar esta función en cada acción que modifica un desarme:
+  - **createDesarme**: "Nuevo desarme DES-XXXX creado por [nombre] - [marca] [modelo] - Cliente: [cliente]"
+  - **quoteDesarme**: "Desarme DES-XXXX cotizado por [nombre] - Valor: $XX"
+  - **authorizeDesarme**: "Desarme DES-XXXX aprobado por [nombre]"
+  - **rejectDesarme**: "Desarme DES-XXXX rechazado por [nombre] - Motivo: [motivo]"
+  - **generateOrder**: "Pedido generado para desarme DES-XXXX"
+  - **updateDesarmeStatus**: "Desarme DES-XXXX cambió a [estado] por [nombre]"
+- Los mensajes de Slack serán opcionales (si las variables de entorno no existen, simplemente no se envía y no se bloquea la operación).
 
-Cada card tendra:
-- Icono grande centrado con fondo degradado sutil
-- Titulo del modulo con tipografia mas prominente
-- Descripcion breve
-- Boton "Ver mas" que abre el popup
-- Boton "Ir al modulo" para navegar directo
-- Hover con elevacion (shadow) y borde primary
-
-El Dialog mostrara:
-- Header con icono y titulo del modulo
-- Lista de funcionalidades con iconos (el contenido actual de details)
-- Boton "Ir a [Modulo]" al pie
-
-**2. Home.tsx: Mejor estructura visual**
-
-- Header mas prominente con saludo al usuario ("Hola, [nombre]") y subtitulo
-- Seccion de avisos se mantiene arriba
-- Cards de modulos en grid de 3 columnas (iguales)
-- Separador visual antes de actividad/notificaciones
-- Actividad y notificaciones con estilo mas refinado
-
-### Archivos a modificar
-
-- `src/components/home/ModuleCards.tsx` — Eliminar Collapsible, usar Dialog, cards de altura fija con mejor diseño visual
-- `src/pages/Home.tsx` — Mejorar layout general, agregar saludo personalizado, espaciado y jerarquia visual
-
-### Detalles tecnicos
-
-**ModuleCards.tsx:**
-- Reemplazar imports de Collapsible por Dialog/DialogContent/DialogHeader/DialogTitle
-- Agregar estado `selectedModule` para controlar cual dialog esta abierto
-- Cards con `h-full` y `flex flex-col` para altura uniforme
-- Icono mas grande (w-14 h-14) con fondo degradado
-- Hover: `hover:shadow-lg hover:-translate-y-1 transition-all`
-- Dialog con max-w-md, lista de funciones con mejor spacing
-
-**Home.tsx:**
-- Obtener nombre del usuario desde profiles para mostrar saludo
-- Tipografia mas grande para el titulo (text-2xl)
-- Agregar divisor sutil entre secciones
+### Detalles técnicos
+- Se usa el connector gateway con headers `Authorization: Bearer LOVABLE_API_KEY` y `X-Connection-Api-Key: SLACK_API_KEY`.
+- Los errores de Slack se loguean pero no bloquean la operación principal del desarme.
+- Se incluyen emojis/formato de Slack para mejor legibilidad (`:wrench:`, `:white_check_mark:`, etc.).
 
