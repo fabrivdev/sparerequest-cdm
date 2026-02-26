@@ -472,6 +472,68 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ---- adminDeleteTransfer ----
+    if (action === 'adminDeleteTransfer') {
+      const { transferId, password, reason } = body;
+      if (!transferId || !password) {
+        return new Response(JSON.stringify({ error: 'Faltan parámetros' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const adminPassword = Deno.env.get('ADMIN_PASSWORD');
+      if (password !== adminPassword) {
+        return new Response(JSON.stringify({ error: 'Contraseña de administrador incorrecta' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get transfer info before deleting
+      const { data: current, error: fetchErr } = await supabase
+        .from('transfers')
+        .select('*')
+        .eq('id', transferId)
+        .single();
+
+      if (fetchErr || !current) {
+        return new Response(JSON.stringify({ error: 'Transferencia no encontrada' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Delete related records
+      await supabase.from('transfer_status_log').delete().eq('transfer_id', transferId);
+      await supabase.from('transfer_alerts').delete().eq('transfer_id', transferId);
+
+      // Delete the transfer
+      const { error: delErr } = await supabase.from('transfers').delete().eq('id', transferId);
+
+      if (delErr) {
+        console.error('Error admin deleting transfer:', delErr);
+        return new Response(JSON.stringify({ error: 'Error al eliminar transferencia' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Notify the requester
+      try {
+        const reasonText = reason ? ` Motivo: ${reason}` : '';
+        await supabase.from('user_notifications').insert({
+          user_id: current.requester_user_id,
+          type: 'transfer_deleted',
+          title: 'Transferencia eliminada por administrador',
+          message: `Tu transferencia ${current.brand} ${current.product_code} (${current.source_branch} → ${current.requester_branch}) fue eliminada por el administrador.${reasonText}`,
+          metadata: {},
+        });
+      } catch (notifErr) {
+        console.error('Error creating admin delete notification:', notifErr);
+      }
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'Acción no válida' }), {
       status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

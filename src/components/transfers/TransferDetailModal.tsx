@@ -31,6 +31,8 @@ interface TransferDetailModalProps {
   userId: string;
   userName: string;
   onStatusChange: () => void;
+  isAdmin?: boolean;
+  adminPassword?: string;
 }
 
 const DESTINATION_LABELS: Record<string, string> = {
@@ -52,7 +54,7 @@ const formatElapsed = (from: Date, to: Date): string => {
   return `${days}d ${remHours}h`;
 };
 
-const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, userName, onStatusChange }: TransferDetailModalProps) => {
+const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, userName, onStatusChange, isAdmin, adminPassword }: TransferDetailModalProps) => {
   const [transfer, setTransfer] = useState<any>(null);
   const [statusLog, setStatusLog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,9 +143,11 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
 
   const handleDelete = async () => {
     setDeleting(true);
-    const { data, error } = await supabase.functions.invoke('transfer-operations', {
-      body: { action: 'deleteTransfer', transferId, userId },
-    });
+    const body = isAdmin
+      ? { action: 'adminDeleteTransfer', transferId, password: adminPassword }
+      : { action: 'deleteTransfer', transferId, userId };
+
+    const { data, error } = await supabase.functions.invoke('transfer-operations', { body });
 
     if (error || data?.error) {
       toast.error(data?.error || 'Error al eliminar');
@@ -155,7 +159,7 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
     setDeleting(false);
   };
 
-  const canDelete = transfer?.status === 'Pendiente' && transfer?.requester_user_id === userId;
+  const canDelete = isAdmin || (transfer?.status === 'Pendiente' && transfer?.requester_user_id === userId);
 
   const getAvailableActions = () => {
     if (!transfer) return [];
