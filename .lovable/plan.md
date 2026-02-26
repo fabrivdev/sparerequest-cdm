@@ -1,71 +1,51 @@
 
 
-## Menu Principal con Dashboard de Inicio
+## Rediseño visual del Home con cards uniformes y popup de detalles
 
-Reemplazar el manual de usuario con una nueva pagina de inicio ("/home") que funcione como hub central, mostrando informacion contextual segun los permisos del usuario.
+### Cambios principales
 
-### Estructura del nuevo menu
+**1. ModuleCards: Cards de tamaño fijo + Dialog para detalles**
 
-**1. Seccion superior: 3 Cards de modulos principales**
+Reemplazar el Collapsible (que deforma el layout) por cards de altura uniforme. Al hacer click en una card, se abre un Dialog (popup centrado) con los detalles del modulo.
 
-Tres tarjetas grandes con icono, titulo y descripcion breve:
-- **Compras** (Package): "Gestiona solicitudes de repuestos, seguimiento de pedidos y facturacion"
-- **Transferencias** (ArrowLeftRight): "Consulta stock entre sucursales y solicita transferencias"
-- **Desarmes** (Wrench): "Solicita desarmes, cotiza y autoriza repuestos" (solo visible si tiene permiso `ver_desarmes`)
+Cada card tendra:
+- Icono grande centrado con fondo degradado sutil
+- Titulo del modulo con tipografia mas prominente
+- Descripcion breve
+- Boton "Ver mas" que abre el popup
+- Boton "Ir al modulo" para navegar directo
+- Hover con elevacion (shadow) y borde primary
 
-Al presionar una card, se expande (accordion/collapsible) mostrando las funciones detalladas del modulo (similar al contenido actual del manual). Un boton "Ir al modulo" navega a la ruta correspondiente.
+El Dialog mostrara:
+- Header con icono y titulo del modulo
+- Lista de funcionalidades con iconos (el contenido actual de details)
+- Boton "Ir a [Modulo]" al pie
 
-**2. Seccion de Actividad Reciente**
+**2. Home.tsx: Mejor estructura visual**
 
-Card que muestra las ultimas acciones del usuario:
-- Ultimos pedidos creados/actualizados
-- Ultimas transferencias
-- Ultimos cambios en desarmes
-Datos consultados desde las tablas `orders`, `transfers` y `desarmes` filtrados por `user_id`, limitados a los 10 mas recientes.
+- Header mas prominente con saludo al usuario ("Hola, [nombre]") y subtitulo
+- Seccion de avisos se mantiene arriba
+- Cards de modulos en grid de 3 columnas (iguales)
+- Separador visual antes de actividad/notificaciones
+- Actividad y notificaciones con estilo mas refinado
 
-**3. Seccion de Notificaciones**
+### Archivos a modificar
 
-Card que lista las ultimas notificaciones no leidas del usuario, tomadas de `user_notifications`. Funciona como vista rapida con enlace a la campana del header.
+- `src/components/home/ModuleCards.tsx` — Eliminar Collapsible, usar Dialog, cards de altura fija con mejor diseño visual
+- `src/pages/Home.tsx` — Mejorar layout general, agregar saludo personalizado, espaciado y jerarquia visual
 
-**4. Seccion de Avisos del Admin**
+### Detalles tecnicos
 
-Card que muestra avisos publicados por el administrador. Requiere:
-- Nueva tabla `announcements` con campos: `id`, `title`, `content`, `created_by`, `created_at`, `is_active`
-- RLS: SELECT para todos los autenticados, INSERT/UPDATE/DELETE solo para admin (via edge function)
-- En el panel admin, seccion para crear/editar avisos
-- En el home, mostrar avisos activos ordenados por fecha
+**ModuleCards.tsx:**
+- Reemplazar imports de Collapsible por Dialog/DialogContent/DialogHeader/DialogTitle
+- Agregar estado `selectedModule` para controlar cual dialog esta abierto
+- Cards con `h-full` y `flex flex-col` para altura uniforme
+- Icono mas grande (w-14 h-14) con fondo degradado
+- Hover: `hover:shadow-lg hover:-translate-y-1 transition-all`
+- Dialog con max-w-md, lista de funciones con mejor spacing
 
-### Cambios en la navegacion
-
-- **Sidebar**: Agregar item "Inicio" (Home icon) como primera opcion, ruta `/home`
-- **Header**: Eliminar el icono de BookOpen (manual de usuario) tanto en desktop como en mobile dropdown
-- **Eliminar** el componente `UserManual.tsx` y sus referencias
-- **Ruta**: Agregar `/home` en App.tsx, redirigir `/` a `/home` o convertir Index en el nuevo home
-
-### Cambios tecnicos detallados
-
-**Archivos nuevos:**
-- `src/pages/Home.tsx` - Pagina principal con las 4 secciones
-- `src/components/home/ModuleCards.tsx` - Cards de modulos con expansion
-- `src/components/home/RecentActivity.tsx` - Actividad reciente
-- `src/components/home/AnnouncementsSection.tsx` - Avisos del admin
-
-**Archivos a modificar:**
-- `src/App.tsx` - Agregar ruta `/home`
-- `src/pages/Index.tsx` - Redirigir a `/home`
-- `src/components/AppSidebar.tsx` - Agregar item "Inicio" con icono Home
-- `src/components/Header.tsx` - Eliminar boton BookOpen y referencia a UserManual
-
-**Archivos a eliminar:**
-- `src/components/UserManual.tsx`
-
-**Base de datos (migracion):**
-```text
-- Tabla "announcements": id (uuid), title (text), content (text), created_by (uuid), created_at (timestamptz), is_active (boolean default true)
-- RLS: SELECT para autenticados, ALL para service role
-- Publicacion en supabase_realtime para actualizaciones en tiempo real
-```
-
-**Panel Admin:**
-- Agregar tab o seccion en Admin para gestionar avisos (CRUD basico)
+**Home.tsx:**
+- Obtener nombre del usuario desde profiles para mostrar saludo
+- Tipografia mas grande para el titulo (text-2xl)
+- Agregar divisor sutil entre secciones
 
