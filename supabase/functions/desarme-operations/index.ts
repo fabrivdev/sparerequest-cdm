@@ -12,7 +12,16 @@ const sendSlackNotification = async (text: string) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     const SLACK_API_KEY = Deno.env.get('SLACK_API_KEY');
-    if (!LOVABLE_API_KEY || !SLACK_API_KEY) return;
+
+    if (!LOVABLE_API_KEY) {
+      console.error('Slack notification skipped: LOVABLE_API_KEY is not configured');
+      return;
+    }
+
+    if (!SLACK_API_KEY) {
+      console.error('Slack notification skipped: SLACK_API_KEY is not configured');
+      return;
+    }
 
     const res = await fetch(`${GATEWAY_URL}/chat.postMessage`, {
       method: 'POST',
@@ -23,9 +32,18 @@ const sendSlackNotification = async (text: string) => {
       },
       body: JSON.stringify({ channel: SLACK_CHANNEL, text, username: 'CDM Desarmes', icon_emoji: ':wrench:' }),
     });
-    if (!res.ok) {
-      const err = await res.text();
-      console.error(`Slack notification failed [${res.status}]: ${err}`);
+
+    const rawBody = await res.text();
+    let parsedBody: any = null;
+    try {
+      parsedBody = rawBody ? JSON.parse(rawBody) : null;
+    } catch {
+      parsedBody = { raw: rawBody };
+    }
+
+    if (!res.ok || parsedBody?.ok === false) {
+      console.error(`Slack notification failed [${res.status}]: ${JSON.stringify(parsedBody)}`);
+      return;
     }
   } catch (e) {
     console.error('Slack notification error:', e);
