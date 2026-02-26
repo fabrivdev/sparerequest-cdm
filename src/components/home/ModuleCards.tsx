@@ -81,9 +81,9 @@ const ModuleCards = () => {
               'hover:shadow-lg hover:-translate-y-1 hover:border-primary/30'
             )}
           >
-            <CardContent className="p-6 flex flex-col flex-1 items-center text-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
-                <mod.icon className="w-7 h-7 text-primary" />
+            <CardContent className="p-6 flex flex-col flex-1 items-center text-center gap-4 group">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
+                <mod.icon className="w-7 h-7 text-primary transition-all duration-500 group-hover:scale-110 group-hover:-rotate-6 animate-[pulse_3s_ease-in-out_infinite]" />
               </div>
               <div className="space-y-1.5">
                 <h3 className="text-lg font-semibold text-foreground">{mod.title}</h3>
