@@ -1,65 +1,44 @@
 
-## Plan: Ajustes de UI, Sidebar y Seguimiento
 
-### 1. Eliminar scrollbar horizontal del contenedor
+## Simplificar flujo de estados del Desarme
 
-El layout actual no restringe el overflow. Ajustar `AppLayout.tsx` para que el contenedor principal tenga `overflow-x-hidden` y el sidebar + contenido no excedan el viewport.
+### Problema actual
+Despues de generar el pedido, el flujo tiene pasos manuales innecesarios:
+`pedido_generado` -> `confirmado` -> `en_transito` -> `recibido` -> `maquina_rearmada` -> `cerrado`
 
-**Archivo:** `src/components/AppLayout.tsx`
-- Agregar `overflow-x-hidden` al wrapper principal
-- Asegurar que el contenido use `min-w-0` (ya lo tiene)
+Los pasos "confirmado" y "en_transito" duplican lo que ya maneja el modulo de pedidos (Compras). El estado del repuesto ya se sigue desde ahi.
 
----
+### Nuevo flujo propuesto
+```text
+pendiente_cotizacion -> pendiente_autorizacion -> aprobado -> pedido_generado
+                                                                   |
+                                            (automatico cuando el pedido = entregado)
+                                                                   v
+                                                              recibido -> maquina_rearmada -> cerrado
+```
 
-### 2. Ajustar sidebar: iconos mas chicos, logo + titulo "CDM"
+- Se eliminan `confirmado` y `en_transito` como estados del desarme.
+- Cuando el pedido vinculado se marca como "entregado", el trigger existente ya cambia el desarme a "recibido" automaticamente.
+- Se agrega notificacion al creador del desarme cuando pasa a "recibido" para que sepa que llego el repuesto.
+- Los pasos manuales restantes son: `maquina_rearmada` y `cerrado`.
 
-**Archivo:** `src/components/AppSidebar.tsx`
-- Reducir iconos de navegacion de `w-4.5 h-4.5` a `w-4 h-4`
-- Agregar en la parte superior del sidebar (antes de la nav) el favicon como logo (`/favicon.png`) con el titulo "CDM" al lado
-- Cuando el sidebar esta colapsado, mostrar solo el icono del favicon
+### Cambios tecnicos
 
----
+**1. Constantes de estados** (`src/constants/desarmeStatuses.ts`)
+- Eliminar `confirmado` y `en_transito` del listado de labels y colores.
 
-### 3. Header: eliminar nombre de seccion, icono caja, y reubicar boton "Nuevo Pedido"
+**2. Modal de detalle** (`src/components/desarmes/DesarmeDetailModal.tsx`)
+- Actualizar `nextStatusMap`: quitar `pedido_generado`, `confirmado` y `en_transito` como claves. Solo dejar `recibido -> maquina_rearmada` y `maquina_rearmada -> cerrado`.
+- Agregar mensaje informativo cuando el estado es `pedido_generado`: "Esperando recepcion del repuesto (se actualizara automaticamente al entregar el pedido)".
 
-**Archivo:** `src/components/Header.tsx`
-- Eliminar el bloque que muestra "Compras" / "Transferencias" / "Desarmes" (lineas 138-145)
-- Eliminar el icono de Package (caja) del logo area (lineas 127-129)
-- Eliminar el boton "Nuevo Pedido" del header (lineas 222-229)
-- Mantener solo: titulo "Solicitud de Repuestos", nombre usuario + sucursal, notificaciones, theme toggle, admin, logout
+**3. Edge function** (`supabase/functions/desarme-operations/index.ts`)
+- En `updateDesarmeStatus`: quitar `confirmado` y `en_transito` de `validStatuses`.
+- Agregar logica de notificacion: cuando el estado cambia a `recibido`, notificar al `created_by` del desarme.
 
-**Archivo:** `src/pages/Dashboard.tsx`
-- Mover el boton "Nuevo Pedido" para que aparezca al lado del titulo "Mis Pedidos" en la seccion principal, no en el header
+**4. Trigger de base de datos** (`auto_update_desarme_on_order_delivered`)
+- Actualizar para solo buscar desarmes en estado `pedido_generado` (ya no existen confirmado/en_transito).
+- Agregar insercion de notificacion al creador del desarme y log de estado automatico cuando se activa el trigger.
 
----
+**5. Panel de seguimiento** (`src/components/desarmes/TrackingPanel.tsx`)
+- Sin cambios estructurales, ya que los estados eliminados simplemente dejaran de aparecer.
 
-### 4. Desarmes: renombrar "Mis Desarmes" a "Desarmes"
-
-**Archivo:** `src/pages/Desarmes.tsx`
-- Cambiar el tab label de "Mis Desarmes" (shortLabel "Mis") a "Desarmes"
-
----
-
-### 5. Seguimiento: mostrar todos los desarmes (incluidos cerrados) con filtro de estado
-
-**Archivo:** `src/components/desarmes/TrackingPanel.tsx`
-- Agregar un selector de filtro de estado (dropdown) que permita ver todos, o filtrar por estado especifico
-- Por defecto mostrar "Todos" (incluyendo cerrados y rechazados)
-
-**Archivo:** `supabase/functions/desarme-operations/index.ts`
-- En la vista `tracking`, eliminar los filtros `.not('status', ...)` para que devuelva todos los desarmes
-- Opcionalmente aceptar un parametro `trackingStatusFilter` para filtrar desde backend
-
----
-
-### Seccion Tecnica - Archivos a modificar
-
-| Archivo | Cambio |
-|---|---|
-| `src/components/AppLayout.tsx` | overflow-x-hidden |
-| `src/components/AppSidebar.tsx` | Iconos mas chicos, logo favicon + "CDM" arriba |
-| `src/components/Header.tsx` | Quitar seccion, icono caja, boton nuevo pedido |
-| `src/pages/Dashboard.tsx` | Boton "Nuevo Pedido" junto a "Mis Pedidos" |
-| `src/pages/Desarmes.tsx` | Renombrar tab "Mis Desarmes" -> "Desarmes" |
-| `src/components/desarmes/TrackingPanel.tsx` | Filtro de estado, mostrar cerrados |
-| `supabase/functions/desarme-operations/index.ts` | Tracking sin excluir cerrados/rechazados |
