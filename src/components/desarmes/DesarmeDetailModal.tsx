@@ -1,0 +1,191 @@
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, AlertTriangle, Package, ExternalLink, DollarSign, Clock, Truck } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS } from '@/constants/desarmeStatuses';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+interface DesarmeDetailModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  desarmeId: string | null;
+  canGenerateOrder?: boolean;
+  canUpdateStatus?: boolean;
+  onRefresh: () => void;
+}
+
+const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canUpdateStatus, onRefresh }: DesarmeDetailModalProps) => {
+  const [desarme, setDesarme] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !desarmeId) return;
+    const fetch = async () => {
+      setLoading(true);
+      const { data } = await supabase.functions.invoke('desarme-operations', {
+        body: { action: 'getDesarmeDetail', desarmeId },
+      });
+      if (data?.desarme) setDesarme(data.desarme);
+      if (data?.logs) setLogs(data.logs);
+      setLoading(false);
+    };
+    fetch();
+  }, [isOpen, desarmeId]);
+
+  const handleGenerateOrder = async () => {
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'generateOrder', desarmeId },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al generar pedido');
+    } else {
+      toast.success('Pedido generado exitosamente');
+      onRefresh();
+      // Re-fetch detail
+      const { data: d2 } = await supabase.functions.invoke('desarme-operations', {
+        body: { action: 'getDesarmeDetail', desarmeId },
+      });
+      if (d2?.desarme) setDesarme(d2.desarme);
+      if (d2?.logs) setLogs(d2.logs);
+    }
+    setActionLoading(false);
+  };
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'updateDesarmeStatus', desarmeId, newStatus },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al cambiar estado');
+    } else {
+      toast.success('Estado actualizado');
+      onRefresh();
+      const { data: d2 } = await supabase.functions.invoke('desarme-operations', {
+        body: { action: 'getDesarmeDetail', desarmeId },
+      });
+      if (d2?.desarme) setDesarme(d2.desarme);
+      if (d2?.logs) setLogs(d2.logs);
+    }
+    setActionLoading(false);
+  };
+
+  const nextStatusMap: Record<string, string> = {
+    pedido_generado: 'confirmado',
+    confirmado: 'en_transito',
+    en_transito: 'recibido',
+    recibido: 'maquina_rearmada',
+    maquina_rearmada: 'cerrado',
+  };
+
+  const shippingLabels: Record<string, string> = { aereo: 'Aéreo', maritimo: 'Marítimo', terrestre: 'Terrestre' };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+        ) : desarme ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2">
+                  {desarme.desarme_number}
+                  {desarme.is_urgent && <AlertTriangle className="w-4 h-4 text-destructive" />}
+                </DialogTitle>
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${DESARME_STATUS_COLORS[desarme.status] || ''}`}>
+                  {DESARME_STATUS_LABELS[desarme.status] || desarme.status}
+                </span>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs bg-muted/50 rounded-lg p-3">
+                <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{desarme.client_name}</span></div>
+                <div><span className="text-muted-foreground">Sucursal:</span> {desarme.branch}</div>
+                <div><span className="text-muted-foreground">Marca:</span> {desarme.brand}</div>
+                <div><span className="text-muted-foreground">Modelo:</span> {desarme.model}</div>
+                <div><span className="text-muted-foreground">Serie:</span> <span className="font-mono">{desarme.serial_number}</span></div>
+                <div><span className="text-muted-foreground">Repuesto:</span> <span className="font-mono">{desarme.product_code}</span> × {desarme.quantity}</div>
+                <div className="col-span-2"><span className="text-muted-foreground">Motivo:</span> {desarme.reason}</div>
+              </div>
+
+              {/* Quote */}
+              {desarme.quoted_value !== null && (
+                <div className="bg-primary/5 rounded-lg p-3 text-xs space-y-1">
+                  <p className="font-medium text-sm">Cotización</p>
+                  <div className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-primary" /><span className="font-bold text-base">${Number(desarme.quoted_value).toLocaleString()}</span></div>
+                  {desarme.quoted_deadline && <div className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" /> {desarme.quoted_deadline}</div>}
+                  {desarme.quoted_shipping_method && <div className="flex items-center gap-1 text-muted-foreground"><Truck className="w-3 h-3" /> {shippingLabels[desarme.quoted_shipping_method] || desarme.quoted_shipping_method}</div>}
+                  {desarme.quote_observations && <p className="text-muted-foreground">{desarme.quote_observations}</p>}
+                </div>
+              )}
+
+              {/* Rejection */}
+              {desarme.status === 'rechazado' && desarme.rejection_reason && (
+                <div className="bg-destructive/10 rounded-lg p-3 text-xs">
+                  <p className="font-medium text-destructive">Rechazado</p>
+                  <p className="text-destructive/80">{desarme.rejection_reason}</p>
+                </div>
+              )}
+
+              {/* Linked order */}
+              {desarme.linked_order_id && (
+                <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs">
+                  <Package className="w-4 h-4 text-blue-600" />
+                  <span>Pedido vinculado: <span className="font-mono">{desarme.linked_order_id.slice(0, 8)}...</span></span>
+                </div>
+              )}
+
+              {/* Actions */}
+              {canGenerateOrder && desarme.status === 'aprobado' && (
+                <Button onClick={handleGenerateOrder} className="w-full gap-2" disabled={actionLoading}>
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                  Generar Pedido
+                </Button>
+              )}
+
+              {canUpdateStatus && nextStatusMap[desarme.status] && (
+                <Button onClick={() => handleStatusUpdate(nextStatusMap[desarme.status])} variant="outline" className="w-full" disabled={actionLoading}>
+                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Avanzar a: ${DESARME_STATUS_LABELS[nextStatusMap[desarme.status]]}`}
+                </Button>
+              )}
+
+              {/* Timeline */}
+              <div>
+                <p className="text-xs font-medium mb-2">Historial</p>
+                <div className="space-y-0">
+                  {logs.map((log, i) => (
+                    <div key={log.id} className="flex gap-3 text-xs">
+                      <div className="flex flex-col items-center">
+                        <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+                        {i < logs.length - 1 && <div className="w-px flex-1 bg-border" />}
+                      </div>
+                      <div className="pb-3">
+                        <p className="font-medium">{DESARME_STATUS_LABELS[log.to_status] || log.to_status}</p>
+                        <p className="text-muted-foreground">{log.changed_by_name} · {format(new Date(log.created_at), "dd/MM/yy HH:mm", { locale: es })}</p>
+                        {log.observation && <p className="text-muted-foreground italic">{log.observation}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-8 text-muted-foreground text-sm">Desarme no encontrado</div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+export default DesarmeDetailModal;
