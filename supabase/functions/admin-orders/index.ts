@@ -1383,6 +1383,95 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get all users with profiles
+    if (action === 'getUsers') {
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name', { ascending: true });
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener usuarios' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ users: profiles }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get permissions for a specific user
+    if (action === 'getUserPermissions') {
+      const { targetUserId } = body;
+      if (!targetUserId) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data, error } = await supabase
+        .from('user_permissions')
+        .select('permission')
+        .eq('user_id', targetUserId);
+
+      if (error) {
+        return new Response(
+          JSON.stringify({ error: 'Error al obtener permisos' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ permissions: data?.map(p => p.permission) || [] }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Set permissions for a user (replace all)
+    if (action === 'setUserPermissions') {
+      const { targetUserId, permissions } = body;
+      if (!targetUserId || !Array.isArray(permissions)) {
+        return new Response(
+          JSON.stringify({ error: 'Faltan parámetros' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Delete existing permissions
+      await supabase
+        .from('user_permissions')
+        .delete()
+        .eq('user_id', targetUserId);
+
+      // Insert new permissions
+      if (permissions.length > 0) {
+        const rows = permissions.map((p: string) => ({
+          user_id: targetUserId,
+          permission: p,
+        }));
+        const { error } = await supabase
+          .from('user_permissions')
+          .insert(rows);
+
+        if (error) {
+          console.error('Error setting permissions:', error);
+          return new Response(
+            JSON.stringify({ error: 'Error al guardar permisos' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ error: 'Acción no válida' }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

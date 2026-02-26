@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle, XCircle, PackageSearch, Settings, PackageCheck, ArrowLeftRight } from 'lucide-react';
+import { Shield, ArrowLeft, Clock, Truck, CheckCircle, LayoutDashboard, List, MessageCircle, XCircle, PackageSearch, Settings, PackageCheck, ArrowLeftRight, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import OrderFilters, { OrderFiltersState } from '@/components/OrderFilters';
@@ -18,6 +18,7 @@ import AdminSupportCenter from '@/components/admin/AdminSupportCenter';
 import AdminSettings from '@/components/AdminSettings';
 import AdminDeliveredView from '@/components/AdminDeliveredView';
 import AdminTransfersView from '@/components/admin/AdminTransfersView';
+import AdminUsersPermissions from '@/components/admin/AdminUsersPermissions';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 
@@ -510,7 +511,7 @@ const Admin = () => {
 
         {/* Tabs for Dashboard, Orders, Delivered, Support, and Settings */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full max-w-4xl grid-cols-6">
+          <TabsList className="grid w-full max-w-5xl grid-cols-7">
             <TabsTrigger value="orders" className="flex items-center gap-2">
               <List className="w-4 h-4" />
               <span className="hidden sm:inline">Pedidos</span>
@@ -522,6 +523,10 @@ const Admin = () => {
             <TabsTrigger value="transfers" className="flex items-center gap-2">
               <ArrowLeftRight className="w-4 h-4" />
               <span className="hidden sm:inline">Transfer.</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Usuarios</span>
             </TabsTrigger>
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
               <LayoutDashboard className="w-4 h-4" />
@@ -599,6 +604,10 @@ const Admin = () => {
 
           <TabsContent value="transfers" className="space-y-4">
             <AdminTransfersView password={password} />
+          </TabsContent>
+
+          <TabsContent value="users" className="space-y-4">
+            <AdminUsersPermissions password={password} />
           </TabsContent>
 
           <TabsContent value="dashboard" className="space-y-4">
