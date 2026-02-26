@@ -1,24 +1,39 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Package, ArrowLeftRight, Wrench, ChevronDown, Plus, Filter, Pencil, Trash2, Clock, Truck, CheckCircle, XCircle, FileText, Search, Bell, MessageCircle, User, Shield, BarChart3, Building2 } from 'lucide-react';
+import { Package, ArrowLeftRight, Wrench, Plus, Filter, Pencil, Clock, Truck, CheckCircle, FileText, Search, Shield, Info } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
+
+interface ModuleDetail {
+  icon: React.ElementType;
+  title: string;
+  desc: string;
+}
+
+interface Module {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  path: string;
+  details: ModuleDetail[];
+}
 
 const ModuleCards = () => {
   const navigate = useNavigate();
   const { hasPermission } = useUserPermissions();
-  const [openModule, setOpenModule] = useState<string | null>(null);
+  const [selectedModule, setSelectedModule] = useState<Module | null>(null);
 
-  const modules = [
+  const modules: Module[] = [
     {
       id: 'compras',
       title: 'Compras',
       description: 'Gestiona solicitudes de repuestos, seguimiento de pedidos y facturación',
       icon: Package,
-      path: '/',
+      path: '/dashboard',
       details: [
         { icon: Plus, title: 'Crear Nuevo Pedido', desc: 'Selecciona proveedor/marca, ingresa código, cantidad, sucursal de destino y observación.' },
         { icon: Clock, title: 'Estados de Pedidos', desc: 'Pendiente → Solicitado → Pte. Envío → Entregado. También puede ser Cancelado.' },
@@ -56,66 +71,83 @@ const ModuleCards = () => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {modules.map((mod) => {
-        const isOpen = openModule === mod.id;
-        return (
-          <Collapsible
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {modules.map((mod) => (
+          <Card
             key={mod.id}
-            open={isOpen}
-            onOpenChange={(open) => setOpenModule(open ? mod.id : null)}
-            className="col-span-1 md:col-span-1"
+            className={cn(
+              'h-full flex flex-col transition-all duration-300 border cursor-default',
+              'hover:shadow-lg hover:-translate-y-1 hover:border-primary/30'
+            )}
           >
-            <Card className={cn(
-              'transition-all duration-200 border',
-              isOpen ? 'ring-1 ring-primary/30 border-primary/20' : 'hover:border-primary/20'
-            )}>
-              <CollapsibleTrigger asChild>
-                <CardContent className="p-5 cursor-pointer">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <mod.icon className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground">{mod.title}</h3>
-                      <p className="text-xs text-muted-foreground mt-1">{mod.description}</p>
-                    </div>
-                    <ChevronDown className={cn(
-                      'w-4 h-4 text-muted-foreground transition-transform shrink-0 mt-1',
-                      isOpen && 'rotate-180'
-                    )} />
-                  </div>
-                </CardContent>
-              </CollapsibleTrigger>
+            <CardContent className="p-6 flex flex-col flex-1 items-center text-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
+                <mod.icon className="w-7 h-7 text-primary" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-semibold text-foreground">{mod.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{mod.description}</p>
+              </div>
+              <div className="flex gap-2 mt-auto pt-3 w-full">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setSelectedModule(mod)}
+                >
+                  <Info className="w-3.5 h-3.5 mr-1.5" />
+                  Ver más
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => navigate(mod.path)}
+                >
+                  Ir al módulo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-              <CollapsibleContent>
-                <div className="px-5 pb-5 space-y-2.5 border-t border-border pt-3">
-                  {mod.details.map((detail, i) => (
-                    <div key={i} className="flex items-start gap-3 p-2.5 bg-secondary/30 rounded-lg">
-                      <div className="w-7 h-7 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
-                        <detail.icon className="w-3.5 h-3.5 text-primary" />
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-foreground">{detail.title}</p>
-                        <p className="text-xs text-muted-foreground">{detail.desc}</p>
-                      </div>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={(e) => { e.stopPropagation(); navigate(mod.path); }}
-                  >
-                    Ir a {mod.title}
-                  </Button>
+      <Dialog open={!!selectedModule} onOpenChange={(open) => !open && setSelectedModule(null)}>
+        <DialogContent className="max-w-md">
+          {selectedModule && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center">
+                    <selectedModule.icon className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <DialogTitle>{selectedModule.title}</DialogTitle>
+                    <DialogDescription className="text-xs">{selectedModule.description}</DialogDescription>
+                  </div>
                 </div>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        );
-      })}
-    </div>
+              </DialogHeader>
+              <div className="space-y-3 mt-2">
+                {selectedModule.details.map((detail, i) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-secondary/40 rounded-lg">
+                    <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center shrink-0">
+                      <detail.icon className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{detail.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{detail.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button className="w-full mt-2" onClick={() => { setSelectedModule(null); navigate(selectedModule.path); }}>
+                Ir a {selectedModule.title}
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
