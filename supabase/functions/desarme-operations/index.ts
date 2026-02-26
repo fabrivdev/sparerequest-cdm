@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const GATEWAY_URL = 'https://connector-gateway.lovable.dev/slack/api';
-const SLACK_CHANNEL = '#desarmes';
+const SLACK_CHANNEL = '#nuevo-canal';
 
 const sendSlackNotification = async (text: string) => {
   try {
