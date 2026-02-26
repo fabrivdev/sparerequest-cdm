@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale';
 import NewConversationModal from './NewConversationModal';
 import { useNotificationSound } from '@/hooks/useNotificationSound';
 import EmojiPicker from '@/components/ui/emoji-picker';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Conversation {
   id: string;
@@ -39,6 +40,7 @@ interface SupportChatProps {
 }
 
 const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange }: SupportChatProps) => {
+  const isMobile = useIsMobile();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -296,7 +298,11 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-50" onClick={onClose} />
-      <div className="fixed bottom-24 right-6 w-96 h-[500px] bg-background border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden">
+      <div className={
+        isMobile
+          ? "fixed inset-0 bg-background z-50 flex flex-col pt-safe"
+          : "fixed bottom-24 right-6 w-96 h-[500px] bg-background border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden"
+      }>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b bg-muted/30">
           {selectedConversation ? (
@@ -364,7 +370,7 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
 
             {/* Message input */}
             {selectedConversation.status !== 'resolved' && (
-              <div className="p-4 border-t">
+              <div className="p-4 border-t pb-safe">
                 <div className="flex gap-2">
                   <input
                     ref={fileInputRef}
@@ -434,7 +440,7 @@ const SupportChat = ({ isOpen, onClose, userId, userName, branch, onUnreadChange
             </ScrollArea>
 
             {/* New conversation button */}
-            <div className="p-4 border-t">
+            <div className="p-4 border-t pb-safe">
               <Button className="w-full" onClick={() => setIsNewConversationOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nueva conversación
