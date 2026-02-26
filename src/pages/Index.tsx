@@ -11,6 +11,8 @@ const Index = () => {
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
+    } else if (!loading && user) {
+      navigate('/home', { replace: true });
     }
   }, [user, loading, navigate]);
 
@@ -22,11 +24,7 @@ const Index = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  return <Dashboard />;
+  return null;
 };
 
 export default Index;

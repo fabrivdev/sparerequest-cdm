@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Package, ArrowLeftRight, Wrench, ChevronLeft } from 'lucide-react';
+import { Home, Package, ArrowLeftRight, Wrench, ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -58,7 +58,8 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
   const desarmesBadge = pendingCotizar + pendingAutorizar;
 
   const items = [
-    { path: '/', label: 'Compras', icon: Package, badge: 0 },
+    { path: '/home', label: 'Inicio', icon: Home, badge: 0 },
+    { path: '/dashboard', label: 'Compras', icon: Package, badge: 0 },
     { path: '/transfers', label: 'Transferencias', icon: ArrowLeftRight, badge: pendingTransfers },
     ...(canDesarmes ? [{ path: '/desarmes', label: 'Desarmes', icon: Wrench, badge: desarmesBadge }] : []),
   ];
