@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, ArrowLeftRight } from 'lucide-react';
+import { Loader2, ArrowLeftRight, User, Warehouse, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -30,6 +30,12 @@ interface TransferRequestModalProps {
   onSuccess: () => void;
 }
 
+const DESTINATION_OPTIONS = [
+  { value: 'stock', label: 'Stock', icon: Warehouse },
+  { value: 'cliente', label: 'Cliente', icon: User },
+  { value: 'ambos', label: 'Ambos', icon: Users },
+];
+
 const TransferRequestModal = ({
   isOpen, onClose, brand, productCode, productName,
   stockByBranch, userBranch, userId, userName, onSuccess,
@@ -37,12 +43,16 @@ const TransferRequestModal = ({
   const [sourceBranch, setSourceBranch] = useState('');
   const [quantity, setQuantity] = useState('');
   const [priority, setPriority] = useState('normal');
+  const [destination, setDestination] = useState('stock');
+  const [clientName, setClientName] = useState('');
+  const [remissionNumber, setRemissionNumber] = useState('');
   const [observation, setObservation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const availableBranches = stockByBranch.filter(s => s.branch !== userBranch && s.quantity > 0);
   const selectedStock = stockByBranch.find(s => s.branch === sourceBranch);
   const maxQuantity = selectedStock?.quantity || 0;
+  const needsClientName = destination === 'cliente' || destination === 'ambos';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,6 +65,16 @@ const TransferRequestModal = ({
 
     if (qty > maxQuantity) {
       toast.error(`Stock disponible: ${maxQuantity}`);
+      return;
+    }
+
+    if (!remissionNumber.trim()) {
+      toast.error('Ingrese el número de remisión');
+      return;
+    }
+
+    if (needsClientName && !clientName.trim()) {
+      toast.error('Ingrese el nombre del cliente');
       return;
     }
 
@@ -72,6 +92,9 @@ const TransferRequestModal = ({
             product_name: productName,
             requested_quantity: qty,
             priority,
+            transfer_destination: destination,
+            client_name: needsClientName ? clientName : null,
+            remission_number: remissionNumber,
             observation: observation || null,
           },
           userName,
@@ -84,10 +107,12 @@ const TransferRequestModal = ({
         toast.success('Transferencia solicitada correctamente');
         onSuccess();
         onClose();
-        // Reset form
         setSourceBranch('');
         setQuantity('');
         setPriority('normal');
+        setDestination('stock');
+        setClientName('');
+        setRemissionNumber('');
         setObservation('');
       }
     } catch {
@@ -98,7 +123,7 @@ const TransferRequestModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto my-4">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-1">
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
@@ -159,6 +184,45 @@ const TransferRequestModal = ({
           </div>
 
           <div>
+            <label className="text-sm font-medium mb-1.5 block">Destino</label>
+            <div className="grid grid-cols-3 gap-2">
+              {DESTINATION_OPTIONS.map(opt => {
+                const Icon = opt.icon;
+                const isSelected = destination === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setDestination(opt.value)}
+                    className={`flex flex-col items-center gap-1 p-2.5 rounded-lg border-2 transition-all text-xs font-medium ${
+                      isSelected
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border hover:border-primary/40 text-muted-foreground'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {needsClientName && (
+            <div>
+              <label className="text-sm font-medium mb-1.5 block">
+                Nombre del Cliente <span className="text-destructive">*</span>
+              </label>
+              <Input
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                placeholder="Nombre del cliente"
+                required
+              />
+            </div>
+          )}
+
+          <div>
             <label className="text-sm font-medium mb-1.5 block">Prioridad</label>
             <Select value={priority} onValueChange={setPriority}>
               <SelectTrigger>
@@ -172,6 +236,18 @@ const TransferRequestModal = ({
           </div>
 
           <div>
+            <label className="text-sm font-medium mb-1.5 block">
+              Nro. de Remisión <span className="text-destructive">*</span>
+            </label>
+            <Input
+              value={remissionNumber}
+              onChange={(e) => setRemissionNumber(e.target.value)}
+              placeholder="Número de remisión"
+              required
+            />
+          </div>
+
+          <div>
             <label className="text-sm font-medium mb-1.5 block">Observación</label>
             <Textarea
               value={observation}
@@ -181,7 +257,7 @@ const TransferRequestModal = ({
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting || !sourceBranch || !quantity}>
+          <Button type="submit" className="w-full" disabled={isSubmitting || !sourceBranch || !quantity || !remissionNumber.trim() || (needsClientName && !clientName.trim())}>
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

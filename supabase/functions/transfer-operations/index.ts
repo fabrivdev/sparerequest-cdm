@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
 
     // ---- updateTransferStatus ----
     if (action === 'updateTransferStatus') {
-      const { transferId, newStatus, userId, userName, observation, quantity } = body;
+      const { transferId, newStatus, userId, userName, observation, quantity, invoiceNumber, isInvoiced, notInvoicedReason } = body;
 
       if (!transferId || !newStatus || !userId) {
         return new Response(JSON.stringify({ error: 'Faltan parámetros' }), {
@@ -185,6 +185,10 @@ Deno.serve(async (req) => {
         } else {
           updateData.status = 'Incidencia';
         }
+        // Save invoice data if provided
+        if (isInvoiced !== undefined) updateData.is_invoiced = isInvoiced;
+        if (invoiceNumber) updateData.invoice_number = invoiceNumber;
+        if (notInvoicedReason) updateData.not_invoiced_reason = notInvoicedReason;
       }
 
       const { error: updateErr } = await supabase

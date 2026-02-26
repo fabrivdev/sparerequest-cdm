@@ -21,6 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface TransferDetailModalProps {
   isOpen: boolean;
@@ -32,6 +33,12 @@ interface TransferDetailModalProps {
   onStatusChange: () => void;
 }
 
+const DESTINATION_LABELS: Record<string, string> = {
+  stock: 'Stock',
+  cliente: 'Cliente',
+  ambos: 'Ambos',
+};
+
 const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, userName, onStatusChange }: TransferDetailModalProps) => {
   const [transfer, setTransfer] = useState<any>(null);
   const [statusLog, setStatusLog] = useState<any[]>([]);
@@ -40,6 +47,10 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
   const [deleting, setDeleting] = useState(false);
   const [actionObservation, setActionObservation] = useState('');
   const [actionQuantity, setActionQuantity] = useState('');
+  // Invoice fields for receiving
+  const [isInvoiced, setIsInvoiced] = useState<string>('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [notInvoicedReason, setNotInvoicedReason] = useState('');
 
   useEffect(() => {
     if (isOpen && transferId) fetchDetail();
@@ -57,18 +68,47 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
     setLoading(false);
   };
 
+  const needsInvoiceData = (status: string) => {
+    if (status !== 'Recibida' || !transfer) return false;
+    return transfer.transfer_destination === 'cliente' || transfer.transfer_destination === 'ambos';
+  };
+
   const handleStatusChange = async (newStatus: string) => {
+    // Validate invoice data if needed
+    if (needsInvoiceData(newStatus)) {
+      if (!isInvoiced) {
+        toast.error('Indique si fue facturado');
+        return;
+      }
+      if (isInvoiced === 'si' && !invoiceNumber.trim()) {
+        toast.error('Ingrese el número de factura');
+        return;
+      }
+      if (isInvoiced === 'no' && !notInvoicedReason.trim()) {
+        toast.error('Ingrese el motivo de no facturación');
+        return;
+      }
+    }
+
     setUpdating(true);
+    const bodyData: any = {
+      action: 'updateTransferStatus',
+      transferId,
+      newStatus,
+      userId,
+      userName,
+      observation: actionObservation || null,
+      quantity: actionQuantity ? parseInt(actionQuantity) : undefined,
+    };
+
+    if (needsInvoiceData(newStatus)) {
+      bodyData.isInvoiced = isInvoiced === 'si';
+      bodyData.invoiceNumber = isInvoiced === 'si' ? invoiceNumber : null;
+      bodyData.notInvoicedReason = isInvoiced === 'no' ? notInvoicedReason : null;
+    }
+
     const { data, error } = await supabase.functions.invoke('transfer-operations', {
-      body: {
-        action: 'updateTransferStatus',
-        transferId,
-        newStatus,
-        userId,
-        userName,
-        observation: actionObservation || null,
-        quantity: actionQuantity ? parseInt(actionQuantity) : undefined,
-      },
+      body: bodyData,
     });
 
     if (error || data?.error) {
@@ -77,6 +117,9 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
       toast.success(`Estado actualizado a ${data.newStatus}`);
       setActionObservation('');
       setActionQuantity('');
+      setIsInvoiced('');
+      setInvoiceNumber('');
+      setNotInvoicedReason('');
       fetchDetail();
       onStatusChange();
     }
@@ -101,15 +144,11 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
 
   const canDelete = transfer?.status === 'Pendiente' && transfer?.requester_user_id === userId;
 
-
-  // Determine available actions based on role
   const getAvailableActions = () => {
     if (!transfer) return [];
     const currentStatus = transfer.status as string;
     const transitions = VALID_TRANSITIONS[currentStatus] || [];
 
-    // Source branch can: Accept, Reject, Dispatch
-    // Requester branch can: Receive, Cancel (before accepted)
     return transitions.filter(nextStatus => {
       if (['Aceptada', 'Rechazada', 'Despachada'].includes(nextStatus)) {
         return userBranch === transfer.source_branch;
@@ -121,7 +160,7 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
         return userBranch === transfer.requester_branch;
       }
       if (nextStatus === 'Cerrada') {
-        return true; // Both can close incidents
+        return true;
       }
       return false;
     });
@@ -144,10 +183,11 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
   if (!transfer) return null;
 
   const actions = getAvailableActions();
+  const showInvoiceFields = actions.includes('Recibida') && needsInvoiceData('Recibida');
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto my-4">
         <DialogHeader>
           <DialogTitle className="text-lg">Detalle de Transferencia</DialogTitle>
         </DialogHeader>
@@ -184,6 +224,23 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
                 {transfer.priority}
               </Badge>
             </div>
+            {/* New fields */}
+            <div>
+              <span className="text-muted-foreground">Destino pedido:</span>
+              <p className="font-medium">{DESTINATION_LABELS[transfer.transfer_destination] || transfer.transfer_destination || 'Stock'}</p>
+            </div>
+            {transfer.client_name && (
+              <div>
+                <span className="text-muted-foreground">Cliente:</span>
+                <p className="font-medium">{transfer.client_name}</p>
+              </div>
+            )}
+            {transfer.remission_number && (
+              <div>
+                <span className="text-muted-foreground">Nro. Remisión:</span>
+                <p className="font-medium">{transfer.remission_number}</p>
+              </div>
+            )}
             {transfer.approved_quantity && (
               <div>
                 <span className="text-muted-foreground">Cant. aprobada:</span>
@@ -200,6 +257,24 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
               <div>
                 <span className="text-muted-foreground">Cant. recibida:</span>
                 <p className="font-medium">{transfer.received_quantity}</p>
+              </div>
+            )}
+            {transfer.is_invoiced !== null && transfer.is_invoiced !== undefined && (
+              <div>
+                <span className="text-muted-foreground">Facturado:</span>
+                <p className="font-medium">{transfer.is_invoiced ? 'Sí' : 'No'}</p>
+              </div>
+            )}
+            {transfer.invoice_number && (
+              <div>
+                <span className="text-muted-foreground">Nro. Factura:</span>
+                <p className="font-medium">{transfer.invoice_number}</p>
+              </div>
+            )}
+            {transfer.not_invoiced_reason && (
+              <div className="col-span-2">
+                <span className="text-muted-foreground">Motivo no facturado:</span>
+                <p className="font-medium">{transfer.not_invoiced_reason}</p>
               </div>
             )}
           </div>
@@ -260,6 +335,51 @@ const TransferDetailModal = ({ isOpen, onClose, transferId, userBranch, userId, 
                 onChange={(e) => setActionQuantity(e.target.value)}
                 className="h-9"
               />
+            )}
+
+            {/* Invoice fields when receiving client/ambos transfers */}
+            {showInvoiceFields && (
+              <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                <h5 className="text-xs font-semibold text-muted-foreground uppercase">Facturación</h5>
+                <div>
+                  <label className="text-sm font-medium mb-1.5 block">¿Se facturó?</label>
+                  <Select value={isInvoiced} onValueChange={setIsInvoiced}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="si">Sí</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {isInvoiced === 'si' && (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">
+                      Nro. de Factura <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      placeholder="Número de factura"
+                      className="h-9"
+                    />
+                  </div>
+                )}
+                {isInvoiced === 'no' && (
+                  <div>
+                    <label className="text-sm font-medium mb-1.5 block">
+                      Motivo <span className="text-destructive">*</span>
+                    </label>
+                    <Input
+                      value={notInvoicedReason}
+                      onChange={(e) => setNotInvoicedReason(e.target.value)}
+                      placeholder="¿Por qué no se facturó?"
+                      className="h-9"
+                    />
+                  </div>
+                )}
+              </div>
             )}
 
             <Textarea
