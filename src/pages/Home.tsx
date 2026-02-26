@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Sun, Moon, User, Shield, Lock } from 'lucide-react';
+import { Loader2, Sun, Moon, User, Shield, Lock, LogOut } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +21,7 @@ const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000;
 
 const Home = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
   const [userName, setUserName] = useState<string | null>(null);
@@ -140,6 +140,24 @@ const Home = () => {
               title="Panel Admin"
             >
               <Shield className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={async () => {
+                try {
+                  await signOut();
+                  localStorage.removeItem(ADMIN_SESSION_KEY);
+                  toast.success('Sesión cerrada');
+                } catch (err) {
+                  console.error('Logout error:', err);
+                  toast.error('Error al cerrar sesión');
+                }
+              }}
+              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
             </Button>
           </div>
         </div>
