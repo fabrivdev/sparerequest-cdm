@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertTriangle, Package, ExternalLink, DollarSign, Clock, Truck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS } from '@/constants/desarmeStatuses';
@@ -23,6 +24,7 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [serviceOrderNumber, setServiceOrderNumber] = useState('');
 
   useEffect(() => {
     if (!isOpen || !desarmeId) return;
@@ -38,6 +40,14 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     fetch();
   }, [isOpen, desarmeId]);
 
+  const refetchDetail = async () => {
+    const { data } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'getDesarmeDetail', desarmeId },
+    });
+    if (data?.desarme) setDesarme(data.desarme);
+    if (data?.logs) setLogs(data.logs);
+  };
+
   const handleGenerateOrder = async () => {
     setActionLoading(true);
     const { data, error } = await supabase.functions.invoke('desarme-operations', {
@@ -48,31 +58,29 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     } else {
       toast.success('Pedido generado exitosamente');
       onRefresh();
-      // Re-fetch detail
-      const { data: d2 } = await supabase.functions.invoke('desarme-operations', {
-        body: { action: 'getDesarmeDetail', desarmeId },
-      });
-      if (d2?.desarme) setDesarme(d2.desarme);
-      if (d2?.logs) setLogs(d2.logs);
+      await refetchDetail();
     }
     setActionLoading(false);
   };
 
   const handleStatusUpdate = async (newStatus: string) => {
+    if (newStatus === 'cerrado' && !serviceOrderNumber.trim()) {
+      toast.error('Ingresa el Nro. de Orden de Servicio para cerrar');
+      return;
+    }
     setActionLoading(true);
     const { data, error } = await supabase.functions.invoke('desarme-operations', {
-      body: { action: 'updateDesarmeStatus', desarmeId, newStatus },
+      body: {
+        action: 'updateDesarmeStatus', desarmeId, newStatus,
+        ...(newStatus === 'cerrado' ? { service_order_number: serviceOrderNumber.trim() } : {}),
+      },
     });
     if (error || data?.error) {
       toast.error(data?.error || 'Error al cambiar estado');
     } else {
       toast.success('Estado actualizado');
       onRefresh();
-      const { data: d2 } = await supabase.functions.invoke('desarme-operations', {
-        body: { action: 'getDesarmeDetail', desarmeId },
-      });
-      if (d2?.desarme) setDesarme(d2.desarme);
-      if (d2?.logs) setLogs(d2.logs);
+      await refetchDetail();
     }
     setActionLoading(false);
   };
@@ -83,6 +91,14 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     en_transito: 'recibido',
     recibido: 'maquina_rearmada',
     maquina_rearmada: 'cerrado',
+  };
+
+  const nextStatusLabels: Record<string, string> = {
+    confirmado: 'Confirmar recepción del pedido por parte del proveedor',
+    en_transito: 'Marcar como en tránsito',
+    recibido: 'Confirmar recepción del repuesto',
+    maquina_rearmada: 'Confirmar máquina rearmada',
+    cerrado: 'Cerrar desarme',
   };
 
   const shippingLabels: Record<string, string> = { aereo: 'Aéreo', maritimo: 'Marítimo', terrestre: 'Terrestre' };
@@ -111,11 +127,15 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs bg-muted/50 rounded-lg p-3">
                 <div><span className="text-muted-foreground">Cliente:</span> <span className="font-medium">{desarme.client_name}</span></div>
                 <div><span className="text-muted-foreground">Sucursal:</span> {desarme.branch}</div>
+                {desarme.salesperson && <div><span className="text-muted-foreground">Vendedor:</span> {desarme.salesperson}</div>}
                 <div><span className="text-muted-foreground">Marca:</span> {desarme.brand}</div>
                 <div><span className="text-muted-foreground">Modelo:</span> {desarme.model}</div>
                 <div><span className="text-muted-foreground">Serie:</span> <span className="font-mono">{desarme.serial_number}</span></div>
                 <div><span className="text-muted-foreground">Repuesto:</span> <span className="font-mono">{desarme.product_code}</span> × {desarme.quantity}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">Motivo:</span> {desarme.reason}</div>
+                {desarme.service_order_number && (
+                  <div className="col-span-2"><span className="text-muted-foreground">Orden de Servicio:</span> <span className="font-mono font-medium">{desarme.service_order_number}</span></div>
+                )}
               </div>
 
               {/* Quote */}
@@ -154,9 +174,25 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
               )}
 
               {canUpdateStatus && nextStatusMap[desarme.status] && (
-                <Button onClick={() => handleStatusUpdate(nextStatusMap[desarme.status])} variant="outline" className="w-full" disabled={actionLoading}>
-                  {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Avanzar a: ${DESARME_STATUS_LABELS[nextStatusMap[desarme.status]]}`}
-                </Button>
+                <div className="space-y-2">
+                  {nextStatusMap[desarme.status] === 'cerrado' && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs flex items-center gap-1">
+                        <FileText className="w-3.5 h-3.5" />
+                        Nro. Orden de Servicio <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        value={serviceOrderNumber}
+                        onChange={e => setServiceOrderNumber(e.target.value)}
+                        placeholder="Ingrese el Nro. de O.S."
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  )}
+                  <Button onClick={() => handleStatusUpdate(nextStatusMap[desarme.status])} variant="outline" className="w-full text-xs" disabled={actionLoading}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : (nextStatusLabels[nextStatusMap[desarme.status]] || `Avanzar a: ${DESARME_STATUS_LABELS[nextStatusMap[desarme.status]]}`)}
+                  </Button>
+                </div>
               )}
 
               {/* Timeline */}

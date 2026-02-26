@@ -22,6 +22,7 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
   const [model, setModel] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
   const [clientName, setClientName] = useState('');
+  const [salesperson, setSalesperson] = useState('');
   const [branch, setBranch] = useState(defaultBranch);
   const [productCode, setProductCode] = useState('');
   const [productName, setProductName] = useState('');
@@ -63,7 +64,7 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
   }, [productCode, brand, searchProduct]);
 
   const resetForm = () => {
-    setBrand(''); setModel(''); setSerialNumber(''); setClientName('');
+    setBrand(''); setModel(''); setSerialNumber(''); setClientName(''); setSalesperson('');
     setBranch(defaultBranch); setProductCode(''); setProductName('');
     setQuantity('1'); setReason(''); setIsUrgent(false);
     setError(null); setIsLoading(false);
@@ -86,6 +87,7 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
           brand, model, serial_number: serialNumber, client_name: clientName,
           branch, product_code: productCode, product_name: productName || null,
           quantity: parseInt(quantity) || 1, reason, is_urgent: isUrgent,
+          salesperson: salesperson || null,
         },
       });
 
@@ -153,21 +155,27 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
             </div>
           </div>
 
-          {/* Client + Branch */}
+          {/* Client + Salesperson */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Cliente <span className="text-destructive">*</span></Label>
               <Input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="Nombre del cliente" className="h-9 text-sm" />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Sucursal <span className="text-destructive">*</span></Label>
-              <Select value={branch} onValueChange={setBranch}>
-                <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sucursal" /></SelectTrigger>
-                <SelectContent>
-                  {branches.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Vendedor</Label>
+              <Input value={salesperson} onChange={e => setSalesperson(e.target.value)} placeholder="Nombre del vendedor" className="h-9 text-sm" />
             </div>
+          </div>
+
+          {/* Branch */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Sucursal <span className="text-destructive">*</span></Label>
+            <Select value={branch} onValueChange={setBranch}>
+              <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Sucursal" /></SelectTrigger>
+              <SelectContent>
+                {branches.map(b => <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Product Code + Qty */}

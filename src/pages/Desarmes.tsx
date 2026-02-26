@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
+import AppLayout from '@/components/AppLayout';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ShieldX } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -57,16 +58,11 @@ const Desarmes = () => {
 
   const handleSelect = (desarme: any, mode?: 'quote' | 'authorize') => {
     setSelectedDesarme(desarme);
-    if (mode === 'quote') {
-      setShowQuote(true);
-    } else if (mode === 'authorize') {
-      setShowAuthorize(true);
-    } else {
-      setDetailId(desarme.id);
-    }
+    if (mode === 'quote') setShowQuote(true);
+    else if (mode === 'authorize') setShowAuthorize(true);
+    else setDetailId(desarme.id);
   };
 
-  // Build tabs
   const tabs: { value: string; label: string; shortLabel?: string }[] = [
     { value: 'mis', label: 'Mis Desarmes', shortLabel: 'Mis' },
   ];
@@ -75,7 +71,7 @@ const Desarmes = () => {
   if (canTrack) tabs.push({ value: 'tracking', label: 'Seguimiento', shortLabel: 'Seguim.' });
 
   return (
-    <div className="min-h-screen bg-background">
+    <AppLayout userBranch={profile?.branch}>
       <Header onNewOrder={() => {}} hideNewOrder />
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
         <Tabs defaultValue="mis" className="space-y-4">
@@ -87,44 +83,19 @@ const Desarmes = () => {
               </TabsTrigger>
             ))}
           </TabsList>
-
-          {/* Mis Desarmes */}
           <TabsContent value="mis">
-            <DesarmesList
-              onSelect={d => handleSelect(d)}
-              onNew={() => setShowNew(true)}
-              canCreate={canCreate}
-              refreshKey={refreshKey}
-            />
+            <DesarmesList onSelect={d => handleSelect(d)} onNew={() => setShowNew(true)} canCreate={canCreate} refreshKey={refreshKey} />
           </TabsContent>
-
-          {/* Cotizar */}
           {canQuote && (
             <TabsContent value="cotizar">
-              <DesarmesList
-                view="cotizar"
-                onSelect={d => handleSelect(d, 'quote')}
-                onNew={() => setShowNew(true)}
-                canCreate={canCreate}
-                refreshKey={refreshKey}
-              />
+              <DesarmesList view="cotizar" onSelect={d => handleSelect(d, 'quote')} onNew={() => setShowNew(true)} canCreate={canCreate} refreshKey={refreshKey} />
             </TabsContent>
           )}
-
-          {/* Autorizar */}
           {canAuthorize && (
             <TabsContent value="autorizar">
-              <DesarmesList
-                view="autorizar"
-                onSelect={d => handleSelect(d, 'authorize')}
-                onNew={() => setShowNew(true)}
-                canCreate={canCreate}
-                refreshKey={refreshKey}
-              />
+              <DesarmesList view="autorizar" onSelect={d => handleSelect(d, 'authorize')} onNew={() => setShowNew(true)} canCreate={canCreate} refreshKey={refreshKey} />
             </TabsContent>
           )}
-
-          {/* Seguimiento */}
           {canTrack && (
             <TabsContent value="tracking">
               <TrackingPanel onSelect={d => handleSelect(d)} refreshKey={refreshKey} />
@@ -133,34 +104,11 @@ const Desarmes = () => {
         </Tabs>
       </main>
 
-      {/* Modals */}
-      <NewDesarmeModal
-        isOpen={showNew}
-        onClose={() => setShowNew(false)}
-        defaultBranch={profile?.branch || ''}
-        onCreated={refresh}
-      />
-      <QuoteDesarmeModal
-        isOpen={showQuote}
-        onClose={() => { setShowQuote(false); setSelectedDesarme(null); }}
-        desarme={selectedDesarme}
-        onQuoted={refresh}
-      />
-      <AuthorizeDesarmeModal
-        isOpen={showAuthorize}
-        onClose={() => { setShowAuthorize(false); setSelectedDesarme(null); }}
-        desarme={selectedDesarme}
-        onActioned={refresh}
-      />
-      <DesarmeDetailModal
-        isOpen={!!detailId}
-        onClose={() => { setDetailId(null); setSelectedDesarme(null); }}
-        desarmeId={detailId}
-        canGenerateOrder={canAuthorize || canCreate}
-        canUpdateStatus={canTrack}
-        onRefresh={refresh}
-      />
-    </div>
+      <NewDesarmeModal isOpen={showNew} onClose={() => setShowNew(false)} defaultBranch={profile?.branch || ''} onCreated={refresh} />
+      <QuoteDesarmeModal isOpen={showQuote} onClose={() => { setShowQuote(false); setSelectedDesarme(null); }} desarme={selectedDesarme} onQuoted={refresh} />
+      <AuthorizeDesarmeModal isOpen={showAuthorize} onClose={() => { setShowAuthorize(false); setSelectedDesarme(null); }} desarme={selectedDesarme} onActioned={refresh} />
+      <DesarmeDetailModal isOpen={!!detailId} onClose={() => { setDetailId(null); setSelectedDesarme(null); }} desarmeId={detailId} canGenerateOrder={canAuthorize || canCreate} canUpdateStatus={canTrack} onRefresh={refresh} />
+    </AppLayout>
   );
 };
 
