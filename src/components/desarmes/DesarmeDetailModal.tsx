@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText } from 'lucide-react';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { DESARME_STATUS_LABELS, DESARME_STATUS_COLORS } from '@/constants/desarmeStatuses';
@@ -86,17 +86,11 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   };
 
   const nextStatusMap: Record<string, string> = {
-    pedido_generado: 'confirmado',
-    confirmado: 'en_transito',
-    en_transito: 'recibido',
     recibido: 'maquina_rearmada',
     maquina_rearmada: 'cerrado',
   };
 
   const nextStatusLabels: Record<string, string> = {
-    confirmado: 'Confirmar recepción del pedido por parte del proveedor',
-    en_transito: 'Marcar como en tránsito',
-    recibido: 'Confirmar recepción del repuesto',
     maquina_rearmada: 'Confirmar máquina rearmada',
     cerrado: 'Cerrar desarme',
   };
@@ -162,6 +156,14 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                 <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs">
                   <Package className="w-4 h-4 text-blue-600" />
                   <span>Pedido vinculado: <span className="font-mono">{desarme.linked_order_id.slice(0, 8)}...</span></span>
+                </div>
+              )}
+
+              {/* Info message for pedido_generado */}
+              {desarme.status === 'pedido_generado' && (
+                <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs text-blue-700 dark:text-blue-300">
+                  <Info className="w-4 h-4 flex-shrink-0" />
+                  <span>Esperando recepción del repuesto. Se actualizará automáticamente al entregar el pedido vinculado.</span>
                 </div>
               )}
 

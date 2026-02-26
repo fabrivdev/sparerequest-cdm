@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
       }
       const { desarmeId, newStatus, observation, service_order_number } = body;
       if (!desarmeId || !newStatus) return new Response(JSON.stringify({ error: 'Faltan parámetros' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      const validStatuses = ['confirmado', 'en_transito', 'recibido', 'maquina_rearmada', 'cerrado'];
+      const validStatuses = ['recibido', 'maquina_rearmada', 'cerrado'];
       if (!validStatuses.includes(newStatus)) return new Response(JSON.stringify({ error: 'Estado inválido' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
       // Require service_order_number when closing
@@ -242,6 +242,21 @@ Deno.serve(async (req) => {
       const { error } = await supabase.from('desarmes').update(updateData).eq('id', desarmeId);
       if (error) return new Response(JSON.stringify({ error: 'Error al actualizar estado' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       await logStatus(desarmeId, current.status, newStatus, userId, observation || null);
+
+      // Notify creator when desarme reaches 'recibido'
+      if (newStatus === 'recibido') {
+        const { data: desarmeData } = await supabase.from('desarmes').select('created_by, desarme_number').eq('id', desarmeId).single();
+        if (desarmeData) {
+          await supabase.from('user_notifications').insert({
+            user_id: desarmeData.created_by,
+            type: 'desarme_recibido',
+            title: 'Repuesto recibido',
+            message: `El repuesto del desarme ${desarmeData.desarme_number} fue recibido. Procede con el rearmado.`,
+            metadata: { desarme_id: desarmeId },
+          });
+        }
+      }
+
       return new Response(JSON.stringify({ success: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
