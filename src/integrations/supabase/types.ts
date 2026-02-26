@@ -510,55 +510,73 @@ export type Database = {
         Row: {
           approved_quantity: number | null
           brand: string
+          client_name: string | null
           created_at: string
           dispatched_quantity: number | null
           id: string
+          invoice_number: string | null
+          is_invoiced: boolean | null
+          not_invoiced_reason: string | null
           observation: string | null
           priority: string
           product_code: string
           product_name: string
           received_quantity: number | null
+          remission_number: string | null
           requested_quantity: number
           requester_branch: string
           requester_user_id: string
           source_branch: string
           status: string
+          transfer_destination: string
           updated_at: string
         }
         Insert: {
           approved_quantity?: number | null
           brand: string
+          client_name?: string | null
           created_at?: string
           dispatched_quantity?: number | null
           id?: string
+          invoice_number?: string | null
+          is_invoiced?: boolean | null
+          not_invoiced_reason?: string | null
           observation?: string | null
           priority?: string
           product_code: string
           product_name: string
           received_quantity?: number | null
+          remission_number?: string | null
           requested_quantity: number
           requester_branch: string
           requester_user_id: string
           source_branch: string
           status?: string
+          transfer_destination?: string
           updated_at?: string
         }
         Update: {
           approved_quantity?: number | null
           brand?: string
+          client_name?: string | null
           created_at?: string
           dispatched_quantity?: number | null
           id?: string
+          invoice_number?: string | null
+          is_invoiced?: boolean | null
+          not_invoiced_reason?: string | null
           observation?: string | null
           priority?: string
           product_code?: string
           product_name?: string
           received_quantity?: number | null
+          remission_number?: string | null
           requested_quantity?: number
           requester_branch?: string
           requester_user_id?: string
           source_branch?: string
           status?: string
+          transfer_destination?: string
           updated_at?: string
         }
         Relationships: []
