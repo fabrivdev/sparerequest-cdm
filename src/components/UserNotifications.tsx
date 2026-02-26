@@ -131,6 +131,10 @@ const UserNotifications = ({ userId }: UserNotificationsProps) => {
         return <CheckCheck className="w-4 h-4 text-green-500" />;
       case 'desarme_rejected':
         return <Bell className="w-4 h-4 text-destructive" />;
+      case 'desarme_ready_for_order':
+        return <Package className="w-4 h-4 text-primary" />;
+      case 'desarme_recibido':
+        return <Package className="w-4 h-4 text-teal-500" />;
       default:
         return <Bell className="w-4 h-4 text-muted-foreground" />;
     }

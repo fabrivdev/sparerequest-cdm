@@ -151,7 +151,7 @@ Deno.serve(async (req) => {
       }
       const { desarmeId } = body;
       if (!desarmeId) return new Response(JSON.stringify({ error: 'Falta desarmeId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-      const { data: current } = await supabase.from('desarmes').select('status, quoted_by, desarme_number').eq('id', desarmeId).single();
+      const { data: current } = await supabase.from('desarmes').select('status, quoted_by, desarme_number, created_by').eq('id', desarmeId).single();
       if (!current || current.status !== 'pendiente_autorizacion') return new Response(JSON.stringify({ error: 'El desarme no está pendiente de autorización' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       const { error } = await supabase.from('desarmes').update({ status: 'aprobado', authorized_by: userId, authorized_at: new Date().toISOString() }).eq('id', desarmeId);
       if (error) return new Response(JSON.stringify({ error: 'Error al autorizar' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -164,6 +164,17 @@ Deno.serve(async (req) => {
           type: 'desarme_approved',
           title: 'Desarme aprobado',
           message: `Tu cotización ${current.desarme_number} fue aprobada`,
+          metadata: { desarme_id: desarmeId },
+        });
+      }
+
+      // Notify creator that they can generate the order
+      if (current.created_by) {
+        await supabase.from('user_notifications').insert({
+          user_id: current.created_by,
+          type: 'desarme_ready_for_order',
+          title: 'Generar pedido',
+          message: `El desarme ${current.desarme_number} fue aprobado. Ya puedes generar el pedido.`,
           metadata: { desarme_id: desarmeId },
         });
       }
