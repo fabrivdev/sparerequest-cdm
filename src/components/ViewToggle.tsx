@@ -42,7 +42,7 @@ const ViewToggle = ({
   };
 
   return (
-    <div className="inline-flex bg-secondary/50 rounded-lg p-0.5 sm:p-1 max-w-full flex-wrap">
+    <div className="inline-flex bg-secondary/50 rounded-lg p-0.5 sm:p-1 max-w-full flex-wrap mt-1 mr-1">
       <button
         onClick={() => onViewChange('my-orders')}
         className={cn(
