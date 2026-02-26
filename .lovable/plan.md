@@ -190,8 +190,8 @@ Acciones (todas requieren auth token, no password admin):
 
 - [x] FASE 1: Sistema de Permisos (tabla `user_permissions`, funcion `has_permission`, edge function actions, Admin UI tab "Usuarios")
 - [x] FASE 2: Navegacion Dinamica (Header switcher condicional, ruta `/desarmes`, pagina shell Desarmes.tsx)
-- [ ] FASE 3: Tabla de Desarmes + RLS
-- [ ] FASE 4: Edge Function para Desarmes
+- [x] FASE 3: Tabla de Desarmes + RLS + desarme_status_log + trigger auto-update
+- [x] FASE 4: Edge Function desarme-operations (create, get, detail, quote, authorize, reject, generateOrder, updateStatus, getTracking)
 - [ ] FASE 5: UI del Modulo Desarmes
 - [ ] FASE 6: Integracion con Pedidos
 

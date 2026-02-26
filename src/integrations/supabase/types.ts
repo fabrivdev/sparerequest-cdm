@@ -134,6 +134,140 @@ export type Database = {
         }
         Relationships: []
       }
+      desarme_status_log: {
+        Row: {
+          changed_by: string
+          changed_by_name: string
+          created_at: string
+          desarme_id: string
+          from_status: string | null
+          id: string
+          observation: string | null
+          to_status: string
+        }
+        Insert: {
+          changed_by: string
+          changed_by_name: string
+          created_at?: string
+          desarme_id: string
+          from_status?: string | null
+          id?: string
+          observation?: string | null
+          to_status: string
+        }
+        Update: {
+          changed_by?: string
+          changed_by_name?: string
+          created_at?: string
+          desarme_id?: string
+          from_status?: string | null
+          id?: string
+          observation?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desarme_status_log_desarme_id_fkey"
+            columns: ["desarme_id"]
+            isOneToOne: false
+            referencedRelation: "desarmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      desarmes: {
+        Row: {
+          authorized_at: string | null
+          authorized_by: string | null
+          branch: string
+          brand: string
+          client_name: string
+          closed_at: string | null
+          created_at: string
+          created_by: string
+          desarme_number: string
+          id: string
+          is_urgent: boolean
+          linked_order_id: string | null
+          model: string
+          product_code: string
+          product_name: string | null
+          quantity: number
+          quote_observations: string | null
+          quoted_at: string | null
+          quoted_by: string | null
+          quoted_deadline: string | null
+          quoted_shipping_method: string | null
+          quoted_value: number | null
+          reason: string
+          reassembled_at: string | null
+          rejection_reason: string | null
+          serial_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          authorized_at?: string | null
+          authorized_by?: string | null
+          branch: string
+          brand: string
+          client_name: string
+          closed_at?: string | null
+          created_at?: string
+          created_by: string
+          desarme_number?: string
+          id?: string
+          is_urgent?: boolean
+          linked_order_id?: string | null
+          model: string
+          product_code: string
+          product_name?: string | null
+          quantity?: number
+          quote_observations?: string | null
+          quoted_at?: string | null
+          quoted_by?: string | null
+          quoted_deadline?: string | null
+          quoted_shipping_method?: string | null
+          quoted_value?: number | null
+          reason: string
+          reassembled_at?: string | null
+          rejection_reason?: string | null
+          serial_number: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          authorized_at?: string | null
+          authorized_by?: string | null
+          branch?: string
+          brand?: string
+          client_name?: string
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string
+          desarme_number?: string
+          id?: string
+          is_urgent?: boolean
+          linked_order_id?: string | null
+          model?: string
+          product_code?: string
+          product_name?: string | null
+          quantity?: number
+          quote_observations?: string | null
+          quoted_at?: string | null
+          quoted_by?: string | null
+          quoted_deadline?: string | null
+          quoted_shipping_method?: string | null
+          quoted_value?: number | null
+          reason?: string
+          reassembled_at?: string | null
+          rejection_reason?: string | null
+          serial_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       invoice_delegates: {
         Row: {
           created_at: string | null
