@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
@@ -181,11 +183,17 @@ const Dashboard = () => {
         <div className="mb-6">
           <ViewToggle view={view} onViewChange={setView} selectedBranch={selectedBranch} onBranchChange={setSelectedBranch} userBranch={profile?.branch || ''} branches={branches} pendingInvoiceCount={pendingInvoiceCount} />
         </div>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-foreground mb-1">
-            {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : 'Pedidos Entregados'}
-          </h2>
-          <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground mb-1">
+              {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : 'Pedidos Entregados'}
+            </h2>
+            <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
+          </div>
+          <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nuevo Pedido</span>
+          </Button>
         </div>
         {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />

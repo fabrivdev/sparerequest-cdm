@@ -88,9 +88,6 @@ Deno.serve(async (req) => {
         query = supabase.from('desarmes').select('*').eq('status', 'pendiente_autorizacion').order('is_urgent', { ascending: false }).order('created_at', { ascending: true });
       } else if (view === 'tracking') {
         query = supabase.from('desarmes').select('*')
-          .not('status', 'in', '("rechazado","cerrado")')
-          .not('status', 'eq', 'pendiente_cotizacion')
-          .not('status', 'eq', 'pendiente_autorizacion')
           .order('is_urgent', { ascending: false })
           .order('created_at', { ascending: true });
       }

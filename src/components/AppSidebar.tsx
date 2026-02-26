@@ -21,7 +21,6 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
   const [pendingCotizar, setPendingCotizar] = useState(0);
   const [pendingAutorizar, setPendingAutorizar] = useState(0);
 
-  // Fetch transfer badge
   useEffect(() => {
     if (!userBranch) return;
     const fetch = async () => {
@@ -36,12 +35,10 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
     return () => { supabase.removeChannel(ch); };
   }, [userBranch]);
 
-  // Fetch desarme badges
   useEffect(() => {
     const canCotizar = hasPermission('cotizar_desarme');
     const canAutorizar = hasPermission('autorizar_desarme');
     if (!canCotizar && !canAutorizar) return;
-
     const fetch = async () => {
       if (canCotizar) {
         const { count } = await supabase.from('desarmes').select('*', { count: 'exact', head: true }).eq('status', 'pendiente_cotizacion');
@@ -71,9 +68,12 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
       'sticky top-0 h-screen border-r border-border bg-card/50 backdrop-blur-sm flex flex-col transition-all duration-200 z-40',
       collapsed ? 'w-14' : 'w-48'
     )}>
-      <div className="flex items-center justify-end p-2 border-b border-border">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCollapsed(!collapsed)}>
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+      {/* Logo + CDM + collapse toggle */}
+      <div className="flex items-center gap-2 p-2 border-b border-border">
+        <img src="/favicon.png" alt="CDM" className="w-7 h-7 flex-shrink-0 rounded" />
+        {!collapsed && <span className="text-sm font-semibold text-foreground truncate">CDM</span>}
+        <Button variant="ghost" size="icon" className={cn("h-7 w-7 flex-shrink-0", collapsed ? '' : 'ml-auto')} onClick={() => setCollapsed(!collapsed)}>
+          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
         </Button>
       </div>
 
@@ -85,17 +85,17 @@ const AppSidebar = ({ userBranch }: AppSidebarProps) => {
               key={item.path}
               onClick={() => navigate(item.path)}
               className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all relative',
+                'w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all relative',
                 isActive
                   ? 'bg-primary/10 text-primary'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
-              <item.icon className="w-4.5 h-4.5 flex-shrink-0" />
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              {!collapsed && <span className="truncate text-xs">{item.label}</span>}
               {item.badge > 0 && (
                 <Badge variant="destructive" className={cn(
-                  'h-5 min-w-5 flex items-center justify-center p-0 text-[10px]',
+                  'h-4.5 min-w-4.5 flex items-center justify-center p-0 text-[10px]',
                   collapsed ? 'absolute -top-1 -right-1' : 'ml-auto'
                 )}>
                   {item.badge > 99 ? '99+' : item.badge}

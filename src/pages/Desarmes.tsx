@@ -64,7 +64,7 @@ const Desarmes = () => {
   };
 
   const tabs: { value: string; label: string; shortLabel?: string }[] = [
-    { value: 'mis', label: 'Mis Desarmes', shortLabel: 'Mis' },
+    { value: 'mis', label: 'Desarmes', shortLabel: 'Desarmes' },
   ];
   if (canQuote) tabs.push({ value: 'cotizar', label: 'Cotizar', shortLabel: 'Cotizar' });
   if (canAuthorize) tabs.push({ value: 'autorizar', label: 'Autorizar', shortLabel: 'Autoriz.' });
