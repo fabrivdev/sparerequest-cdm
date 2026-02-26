@@ -42,17 +42,18 @@ const ViewToggle = ({
   };
 
   return (
-    <div className="inline-flex bg-secondary/50 rounded-lg p-1">
+    <div className="inline-flex bg-secondary/50 rounded-lg p-0.5 sm:p-1 overflow-x-auto max-w-full">
       <button
         onClick={() => onViewChange('my-orders')}
         className={cn(
-          'px-3 py-2 text-sm font-medium rounded-md transition-all',
+          'px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap',
           view === 'my-orders'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'
         )}
       >
-        Mis Pedidos
+        <span className="sm:hidden">Mis</span>
+        <span className="hidden sm:inline">Mis Pedidos</span>
       </button>
 
       {/* Branch orders with dropdown */}
@@ -60,13 +61,14 @@ const ViewToggle = ({
         <DropdownMenuTrigger asChild>
           <button
             className={cn(
-              'px-3 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-1',
+              'px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all flex items-center gap-1 whitespace-nowrap',
               view === 'branch-orders'
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            {getBranchLabel()}
+            <span className="sm:hidden">{selectedBranch === 'all' ? 'Todas' : 'Sucursal'}</span>
+            <span className="hidden sm:inline">{getBranchLabel()}</span>
             <ChevronDown className="w-3 h-3" />
           </button>
         </DropdownMenuTrigger>
@@ -136,7 +138,7 @@ const ViewToggle = ({
       <button
         onClick={() => onViewChange('delivered')}
         className={cn(
-          'px-3 py-2 text-sm font-medium rounded-md transition-all relative',
+          'px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all relative whitespace-nowrap',
           view === 'delivered'
             ? 'bg-background text-foreground shadow-sm'
             : 'text-muted-foreground hover:text-foreground'

@@ -76,7 +76,8 @@ const SupportButton = ({ userId, userName, branch }: SupportButtonProps) => {
     <>
       <Button
         onClick={handleOpen}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        className="fixed right-6 h-14 w-14 rounded-full shadow-lg z-50"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
         size="icon"
       >
         <MessageCircle className="h-6 w-6" />
