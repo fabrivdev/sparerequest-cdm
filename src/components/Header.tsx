@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen } from 'lucide-react';
+import { Package, LogOut, Plus, Shield, Loader2, Lock, User, BookOpen, Sun, Moon } from 'lucide-react';
 import UserNotifications from '@/components/UserNotifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import UserManual from '@/components/UserManual';
 import { cn } from '@/lib/utils';
+import { useTheme } from 'next-themes';
 
 const ADMIN_SESSION_KEY = 'admin_session';
 const ADMIN_SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
@@ -36,6 +37,7 @@ interface HeaderProps {
 
 const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProps) => {
   const { user, signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -195,6 +197,15 @@ const Header = ({ onNewOrder, onEditProfile, profile, hideNewOrder }: HeaderProp
             {/* Actions */}
             <div className="flex items-center gap-2">
               {user && <UserNotifications userId={user.id} />}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className="h-10 w-10 text-muted-foreground hover:text-primary"
+                title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              >
+                {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
