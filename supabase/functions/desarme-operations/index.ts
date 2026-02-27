@@ -174,6 +174,22 @@ const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
   }
 };
 
+// ── n8n webhook helper ──────────────────────────────────────────────────
+const N8N_WEBHOOK_URL = 'https://favegacdm.app.n8n.cloud/webhook/desarmes';
+
+const sendN8nWebhook = async (accion: string, solicitud: string, creadorEmail: string) => {
+  try {
+    const res = await fetch(N8N_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accion, solicitud, creador_email: creadorEmail }),
+    });
+    if (!res.ok) console.error(`n8n webhook failed [${res.status}]:`, await res.text());
+  } catch (e) {
+    console.error('n8n webhook error:', e);
+  }
+};
+
 // ── Helpers ─────────────────────────────────────────────────────────────
 const respond = (body: any, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -239,6 +255,9 @@ Deno.serve(async (req) => {
       if (error) { console.error('Error creating desarme:', error); return respond({ error: 'Error al crear desarme' }, 500); }
       await logStatus(data.id, null, 'pendiente_cotizacion', userId, 'Desarme creado');
       sendSlackCSV(data, supabase, 'Creado');
+      // n8n webhook - CREADO
+      const { data: creatorAuth } = await supabase.auth.admin.getUserById(userId);
+      sendN8nWebhook('CREADO', data.desarme_number, creatorAuth?.user?.email || '');
       return respond({ desarme: data });
     }
 
@@ -301,6 +320,12 @@ Deno.serve(async (req) => {
       await logStatus(desarmeId, 'pendiente_cotizacion', 'pendiente_autorizacion', userId, `Cotizado: $${quoted_value}`);
       const fullDesarme = await getFullDesarme(desarmeId);
       if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Cotizado');
+      // n8n webhook - COTIZADO (email del creador original)
+      const { data: desarmeForQuote } = await supabase.from('desarmes').select('created_by, desarme_number').eq('id', desarmeId).single();
+      if (desarmeForQuote) {
+        const { data: creatorAuthQ } = await supabase.auth.admin.getUserById(desarmeForQuote.created_by);
+        sendN8nWebhook('COTIZADO', desarmeForQuote.desarme_number, creatorAuthQ?.user?.email || '');
+      }
       return respond({ success: true });
     }
 
@@ -324,6 +349,9 @@ Deno.serve(async (req) => {
 
       const fullDesarme = await getFullDesarme(desarmeId);
       if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Aprobado');
+      // n8n webhook - APROBADO
+      const { data: creatorAuthA } = await supabase.auth.admin.getUserById(current.created_by);
+      sendN8nWebhook('APROBADO', current.desarme_number, creatorAuthA?.user?.email || '');
       return respond({ success: true });
     }
 
@@ -344,6 +372,12 @@ Deno.serve(async (req) => {
 
       const fullDesarme = await getFullDesarme(desarmeId);
       if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Rechazado');
+      // n8n webhook - RECHAZADO
+      const { data: desarmeForReject } = await supabase.from('desarmes').select('created_by, desarme_number').eq('id', desarmeId).single();
+      if (desarmeForReject) {
+        const { data: creatorAuthR } = await supabase.auth.admin.getUserById(desarmeForReject.created_by);
+        sendN8nWebhook('RECHAZADO', desarmeForReject.desarme_number, creatorAuthR?.user?.email || '');
+      }
       return respond({ success: true });
     }
 
