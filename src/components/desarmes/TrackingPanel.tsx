@@ -158,9 +158,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
                     {isOpen ? <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
                     <div className="flex-1 text-left min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-xs font-medium">{group.serial_number}</span>
-                        <span className="text-xs text-muted-foreground">·</span>
-                        <span className="text-sm font-medium truncate">{group.client_names.join(', ')}</span>
+                        <span className="font-mono text-sm font-bold">{group.serial_number}</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground">
                         {group.brand} {group.model} · {group.branch}
