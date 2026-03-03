@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
+import { useThemeTransition } from '@/components/ThemeTransitionEffect';
 import UserNotifications from '@/components/UserNotifications';
 import AppLayout from '@/components/AppLayout';
 import ModuleCards from '@/components/home/ModuleCards';
@@ -26,6 +27,7 @@ const Home = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { theme, setTheme } = useTheme();
+  const triggerThemeTransition = useThemeTransition(() => setTheme(theme === 'dark' ? 'light' : 'dark'));
   const [userName, setUserName] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -127,7 +129,7 @@ const Home = () => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={triggerThemeTransition}
               className="h-9 w-9 text-muted-foreground hover:text-primary"
               title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
             >
