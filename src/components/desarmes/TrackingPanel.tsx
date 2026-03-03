@@ -15,7 +15,7 @@ interface TrackingPanelProps {
 
 interface MachineGroup {
   serial_number: string;
-  client_name: string;
+  client_names: string[];
   brand: string;
   model: string;
   branch: string;
@@ -88,7 +88,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
     if (!groupMap.has(key)) {
       const group: MachineGroup = {
         serial_number: d.serial_number,
-        client_name: d.client_name,
+        client_names: [],
         brand: d.brand,
         model: d.model,
         branch: d.branch,
@@ -101,6 +101,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
     const g = groupMap.get(key)!;
     g.parts.push(d);
     if (d.is_urgent) g.is_urgent = true;
+    if (d.client_name && !g.client_names.includes(d.client_name)) g.client_names.push(d.client_name);
   });
 
   const toggleGroup = (serial: string) => {
@@ -159,7 +160,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-mono text-xs font-medium">{group.serial_number}</span>
                         <span className="text-xs text-muted-foreground">·</span>
-                        <span className="text-sm font-medium truncate">{group.client_name}</span>
+                        <span className="text-sm font-medium truncate">{group.client_names.join(', ')}</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground">
                         {group.brand} {group.model} · {group.branch}
@@ -189,10 +190,13 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
                         >
                           <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${getTrafficLight(days)}`} />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-xs">{part.desarme_number}</span>
                               <span className="font-mono text-xs text-muted-foreground">{part.product_code}</span>
                               <span className="text-xs text-muted-foreground">× {part.quantity}</span>
+                              {group.client_names.length > 1 && (
+                                <span className="text-xs font-medium text-primary">{part.client_name}</span>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                               <span>{days}d</span>
