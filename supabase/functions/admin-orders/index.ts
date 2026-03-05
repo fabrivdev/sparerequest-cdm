@@ -1397,8 +1397,22 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Fetch emails from auth.users via admin API
+      const { data: { users: authUsers }, error: authError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      const emailMap: Record<string, string> = {};
+      if (!authError && authUsers) {
+        for (const u of authUsers) {
+          emailMap[u.id] = u.email || '';
+        }
+      }
+
+      const enrichedProfiles = (profiles || []).map((p: any) => ({
+        ...p,
+        email: emailMap[p.user_id] || '',
+      }));
+
       return new Response(
-        JSON.stringify({ users: profiles }),
+        JSON.stringify({ users: enrichedProfiles }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
