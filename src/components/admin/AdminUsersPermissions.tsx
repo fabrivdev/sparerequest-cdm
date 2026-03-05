@@ -58,7 +58,12 @@ const AdminUsersPermissions = ({ password }: AdminUsersPermissionsProps) => {
       body: { action: 'getUsers', password },
     });
     if (!error && data?.users) {
-      setUsers(data.users);
+      const sorted = [...data.users].sort((a: Profile, b: Profile) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+      setUsers(sorted);
     }
     setLoading(false);
   };
