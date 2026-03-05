@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { exportOrdersToExcel } from '@/utils/exportOrdersExcel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
@@ -189,12 +190,28 @@ const Dashboard = () => {
             </h2>
             <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
           </div>
-          {currentOrders.length > 0 && (
-            <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Nuevo Pedido</span>
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {filteredOrders.length > 0 && view !== 'delivered' && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4"
+                onClick={() => {
+                  const label = view === 'my-orders' ? 'Mis_Pedidos' : selectedBranch === 'all' ? 'Todas_Sucursales' : selectedBranch.replace(/\s+/g, '_');
+                  exportOrdersToExcel(filteredOrders, `Pedidos_${label}_${new Date().toISOString().slice(0,10)}`, view === 'branch-orders');
+                }}
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Excel</span>
+              </Button>
+            )}
+            {currentOrders.length > 0 && (
+              <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Nuevo Pedido</span>
+              </Button>
+            )}
+          </div>
         </div>
         {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
