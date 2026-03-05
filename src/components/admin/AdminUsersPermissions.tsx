@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
@@ -18,6 +19,8 @@ interface Profile {
   user_id: string;
   full_name: string | null;
   branch: string;
+  email?: string;
+  created_at?: string;
 }
 
 const ALL_PERMISSIONS = [
@@ -98,7 +101,8 @@ const AdminUsersPermissions = ({ password }: AdminUsersPermissionsProps) => {
     const term = search.toLowerCase();
     return (
       (u.full_name || '').toLowerCase().includes(term) ||
-      u.branch.toLowerCase().includes(term)
+      u.branch.toLowerCase().includes(term) ||
+      (u.email || '').toLowerCase().includes(term)
     );
   });
 
@@ -130,16 +134,19 @@ const AdminUsersPermissions = ({ password }: AdminUsersPermissionsProps) => {
               onClick={() => openPermissions(user)}
               className="flex items-center justify-between bg-card border border-border rounded-xl p-3 hover:bg-accent/50 transition-colors text-left w-full"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
                   <Users className="w-4 h-4 text-primary" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground">{user.full_name || 'Sin nombre'}</p>
-                  <p className="text-xs text-muted-foreground">{user.branch}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user.email || 'Sin correo'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {user.branch} • Registro: {user.created_at ? format(new Date(user.created_at), 'dd/MM/yyyy') : '—'}
+                  </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-xs">Configurar</Badge>
+              <Badge variant="secondary" className="text-xs shrink-0 ml-2">Configurar</Badge>
             </button>
           ))}
           {filteredUsers.length === 0 && (
