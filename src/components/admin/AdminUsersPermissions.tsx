@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Users, X, Loader2 } from 'lucide-react';
+import { Search, Users, X, Loader2, Package, ArrowLeftRight, Wrench } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,14 @@ interface Profile {
   branch: string;
   email?: string;
   created_at?: string;
+  permissions?: string[];
 }
+
+const MODULE_ICONS = [
+  { key: 'ver_compras', label: 'Compras', icon: Package },
+  { key: 'ver_transferencias', label: 'Transferencias', icon: ArrowLeftRight },
+  { key: 'ver_desarmes', label: 'Desarmes', icon: Wrench },
+];
 
 const ALL_PERMISSIONS = [
   { key: 'ver_compras', label: 'Ver Compras', group: 'Compras' },
@@ -98,6 +106,7 @@ const AdminUsersPermissions = ({ password }: AdminUsersPermissionsProps) => {
       toast.error('Error al guardar permisos');
     } else {
       toast.success('Permisos actualizados');
+      setUsers(prev => prev.map(u => u.user_id === selectedUser.user_id ? { ...u, permissions: [...userPermissions] } : u));
     }
     setSaving(false);
   };
@@ -151,7 +160,25 @@ const AdminUsersPermissions = ({ password }: AdminUsersPermissionsProps) => {
                   </p>
                 </div>
               </div>
-              <Badge variant="secondary" className="text-xs shrink-0 ml-2">Configurar</Badge>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <TooltipProvider delayDuration={200}>
+                  {MODULE_ICONS.map(mod => {
+                    const active = user.permissions?.includes(mod.key);
+                    return (
+                      <Tooltip key={mod.key}>
+                        <TooltipTrigger asChild>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors ${active ? 'bg-primary/15 text-primary' : 'bg-muted/50 text-muted-foreground/30'}`}>
+                            <mod.icon className="w-3.5 h-3.5" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          {mod.label}: {active ? 'Habilitado' : 'Deshabilitado'}
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  })}
+                </TooltipProvider>
+              </div>
             </button>
           ))}
           {filteredUsers.length === 0 && (

@@ -1406,9 +1406,20 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Fetch all permissions
+      const { data: allPerms } = await supabase.from('user_permissions').select('user_id, permission');
+      const permsMap: Record<string, string[]> = {};
+      if (allPerms) {
+        for (const p of allPerms) {
+          if (!permsMap[p.user_id]) permsMap[p.user_id] = [];
+          permsMap[p.user_id].push(p.permission);
+        }
+      }
+
       const enrichedProfiles = (profiles || []).map((p: any) => ({
         ...p,
         email: emailMap[p.user_id] || '',
+        permissions: permsMap[p.user_id] || [],
       }));
 
       return new Response(
