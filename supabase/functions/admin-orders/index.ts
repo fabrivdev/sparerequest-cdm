@@ -160,7 +160,8 @@ Deno.serve(async (req) => {
       const { data: orders, error } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 10000);
 
       if (error) {
         console.error('Error fetching orders:', error);
