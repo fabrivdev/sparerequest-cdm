@@ -75,7 +75,7 @@ const Dashboard = () => {
 
   const fetchOrders = async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).range(0, 10000);
     if (error) { toast.error('Error al cargar los pedidos'); console.error(error); }
     else setOrders(data || []);
     setIsLoading(false);
@@ -83,7 +83,7 @@ const Dashboard = () => {
 
   const fetchBranchOrders = async () => {
     if (!user || !profile) return;
-    let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
+    let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).range(0, 10000);
     if (selectedBranch && selectedBranch !== 'all') query = query.eq('branch_destination', selectedBranch);
     const { data: ordersData, error: ordersError } = await query;
     if (ordersError) { toast.error('Error al cargar los pedidos de la sucursal'); return; }

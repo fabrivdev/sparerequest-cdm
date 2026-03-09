@@ -86,7 +86,8 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
       .select('*')
       .eq('user_id', selectedOwner)
       .eq('status', 'entregado')
-      .order('delivered_at', { ascending: false });
+      .order('delivered_at', { ascending: false })
+      .range(0, 10000);
 
     if (error) {
       console.error('Error fetching delegated orders:', error);
