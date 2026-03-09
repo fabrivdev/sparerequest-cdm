@@ -1,21 +1,14 @@
 
 
-## Problem
+## Problema
 
-The tracking panel groups desarmes by `serial_number` and displays a single `client_name` from the first record in the group header. However, the same chassis (serial number) can have desarmes for different clients. The current code takes `client_name` from the first desarme found and ignores the rest.
+El código fuente ya tiene `.range(0, 10000)` tanto en el Dashboard como en la edge function `admin-orders`. Sin embargo, el usuario reporta que sigue viendo 1000 pedidos, lo que indica que **la edge function desplegada no coincide con el código fuente actual**. Es necesario forzar un redespliegue.
 
-## Solution
+## Plan
 
-1. **Group header**: Instead of showing one client name, show all unique client names for that serial number (e.g., "FULANO, MENGANO") or remove client name from the header entirely.
+1. **Redesplegar la edge function `admin-orders`** — Forzar el despliegue para que el código con `.range(0, 10000)` esté activo en producción.
 
-2. **Part rows**: Add the client name to each individual part row so it's always clear which client each desarme belongs to.
+2. **Verificar que no haya otros puntos de consulta sin el rango expandido** — Revisar `DeliveredOrdersView.tsx` y cualquier otro componente que consulte orders para asegurar que todos usen `.range(0, 10000)`.
 
-### Changes in `src/components/desarmes/TrackingPanel.tsx`
-
-- Modify `MachineGroup` interface: replace `client_name: string` with `client_names: string[]` (unique list).
-- In the grouping logic, collect unique client names per group.
-- In the group header, display all unique client names joined by comma.
-- In each part row, display `part.client_name` so the client is visible per desarme.
-
-This is a single-file change affecting only the presentation logic in `TrackingPanel.tsx`.
+No se requieren cambios de código ya que las modificaciones están en su lugar. El problema es puramente de despliegue de la función backend.
 
