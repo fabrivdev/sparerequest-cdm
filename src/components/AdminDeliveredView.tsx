@@ -192,7 +192,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="rounded-xl border-0 shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
