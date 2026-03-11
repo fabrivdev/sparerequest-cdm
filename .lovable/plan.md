@@ -1,21 +1,38 @@
 
 
-## Problem
+## Problema
 
-The tracking panel groups desarmes by `serial_number` and displays a single `client_name` from the first record in the group header. However, the same chassis (serial number) can have desarmes for different clients. The current code takes `client_name` from the first desarme found and ignores the rest.
+Cuando un usuario marca un pedido entregado como "No facturado" e indica el motivo (`not_invoiced_reason`), ese pedido sigue contando como "pendiente" en el badge y el banner. Actualmente, solo los pedidos marcados como `is_invoiced = true` o con destino `stock` dejan de ser "pendientes". Falta considerar el caso donde el usuario ya respondió que NO se facturó.
 
-## Solution
+## Solución
 
-1. **Group header**: Instead of showing one client name, show all unique client names for that serial number (e.g., "FULANO, MENGANO") or remove client name from the header entirely.
+Introducir el concepto de **"respondido"**: un pedido está respondido si `is_invoiced = true` **O** si `not_invoiced_reason` tiene un valor (el usuario ya explicó por qué no se facturó). Solo los pedidos **sin responder** deben aparecer como pendientes.
 
-2. **Part rows**: Add the client name to each individual part row so it's always clear which client each desarme belongs to.
+## Cambios
 
-### Changes in `src/components/desarmes/TrackingPanel.tsx`
+### 1. `src/pages/Dashboard.tsx` — Actualizar `pendingInvoiceCount`
 
-- Modify `MachineGroup` interface: replace `client_name: string` with `client_names: string[]` (unique list).
-- In the grouping logic, collect unique client names per group.
-- In the group header, display all unique client names joined by comma.
-- In each part row, display `part.client_name` so the client is visible per desarme.
+Cambiar la condición de:
+```
+!o.is_invoiced
+```
+a:
+```
+!o.is_invoiced && !o.not_invoiced_reason
+```
 
-This is a single-file change affecting only the presentation logic in `TrackingPanel.tsx`.
+### 2. `src/components/DeliveredOrdersView.tsx` — Filtro y lógica visual
+
+- Actualizar `isInvoiced` o agregar un concepto `isResponded` que sea `is_invoiced || !!not_invoiced_reason`.
+- El filtro `invoiceStatus === 'pending'` debe excluir pedidos que tengan `not_invoiced_reason`.
+- Agregar un tercer estado visual en la tabla: además de "Facturado" (verde) y "Pendiente" (amarillo), mostrar **"No facturado"** (naranja/rojo) para los que tienen motivo pero no están facturados.
+
+### 3. `src/components/AdminDeliveredView.tsx` — Misma lógica en stats del admin
+
+- Actualizar `needsInvoicing` para excluir pedidos con `not_invoiced_reason`.
+- Agregar un stat o badge para "No facturado (respondido)".
+
+### 4. `src/components/DeliveredFilters.tsx` — Agregar opción de filtro
+
+Agregar una cuarta opción al filtro `invoiceStatus`: `'not_invoiced'` con label "No facturado" para filtrar específicamente los que fueron respondidos como no facturados.
 
