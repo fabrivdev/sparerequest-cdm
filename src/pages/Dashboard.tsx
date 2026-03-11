@@ -73,25 +73,42 @@ const Dashboard = () => {
     else setBranches(data || []);
   };
 
+  const fetchAllPaginated = async (query: any) => {
+    const PAGE_SIZE = 1000;
+    let all: any[] = [];
+    let page = 0;
+    while (true) {
+      const { data, error } = await query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < PAGE_SIZE) break;
+      page++;
+    }
+    return all;
+  };
+
   const fetchOrders = async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).range(0, 10000);
-    if (error) { toast.error('Error al cargar los pedidos'); console.error(error); }
-    else setOrders(data || []);
+    try {
+      const data = await fetchAllPaginated(supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false }));
+      setOrders(data);
+    } catch (error) { toast.error('Error al cargar los pedidos'); console.error(error); }
     setIsLoading(false);
   };
 
   const fetchBranchOrders = async () => {
     if (!user || !profile) return;
-    let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).range(0, 10000);
+    let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
     if (selectedBranch && selectedBranch !== 'all') query = query.eq('branch_destination', selectedBranch);
-    const { data: ordersData, error: ordersError } = await query;
-    if (ordersError) { toast.error('Error al cargar los pedidos de la sucursal'); return; }
-    if (!ordersData || ordersData.length === 0) { setBranchOrders([]); return; }
+    try {
+      const ordersData = await fetchAllPaginated(query);
+      if (ordersData.length === 0) { setBranchOrders([]); return; }
     const userIds = [...new Set(ordersData.map(o => o.user_id))];
     const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
     setBranchOrders(ordersData.map(order => ({ ...order, user_name: profileMap.get(order.user_id) || 'Usuario desconocido' })));
+    } catch (error) { toast.error('Error al cargar los pedidos de la sucursal'); console.error(error); }
   };
 
   useEffect(() => { fetchProfile(); fetchBranches(); }, [user]);

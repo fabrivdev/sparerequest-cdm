@@ -156,20 +156,29 @@ Deno.serve(async (req) => {
 
     const supabaseUrl2 = Deno.env.get('SUPABASE_URL')!;
     if (action === 'getOrders') {
-      // Get orders
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .range(0, 10000);
-
-      if (error) {
-        console.error('Error fetching orders:', error);
-        return new Response(
-          JSON.stringify({ error: 'Error al obtener pedidos' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Paginated fetch to bypass PostgREST max-rows limit
+      const PAGE_SIZE = 1000;
+      let allOrders: any[] = [];
+      let page = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (error) {
+          console.error('Error fetching orders page:', page, error);
+          return new Response(
+            JSON.stringify({ error: 'Error al obtener pedidos' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        if (!data || data.length === 0) break;
+        allOrders = allOrders.concat(data);
+        if (data.length < PAGE_SIZE) break;
+        page++;
       }
+      const orders = allOrders;
 
       // Get unique product combinations from orders
       const uniqueProducts = [...new Set(orders?.map(o => JSON.stringify({ brand: o.brand, code: o.product_code })) || [])]
