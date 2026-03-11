@@ -71,7 +71,10 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
   const stats = useMemo(() => {
     const total = deliveredOrders.length;
     const needsInvoicing = deliveredOrders.filter(o => 
-      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced
+      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced && !o.not_invoiced_reason
+    ).length;
+    const notInvoiced = deliveredOrders.filter(o =>
+      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced && !!o.not_invoiced_reason
     ).length;
     const invoiced = deliveredOrders.filter(o => 
       o.order_destination === 'stock' || o.is_invoiced
