@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search, Download } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search, Download, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
