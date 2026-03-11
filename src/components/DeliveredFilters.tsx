@@ -28,7 +28,7 @@ export interface DeliveredFiltersState {
   brand: string;
   productCode: string;
   orderNumber: string;
-  invoiceStatus: '' | 'pending' | 'invoiced' | 'na';
+  invoiceStatus: '' | 'pending' | 'invoiced' | 'not_invoiced' | 'na';
   observation: string;
 }
 
@@ -246,6 +246,7 @@ const DeliveredFilters = ({ filters, onFiltersChange }: DeliveredFiltersProps) =
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="pending">Pendiente</SelectItem>
                 <SelectItem value="invoiced">Facturado</SelectItem>
+                <SelectItem value="not_invoiced">No facturado</SelectItem>
                 <SelectItem value="na">N/A (Stock)</SelectItem>
               </SelectContent>
             </Select>

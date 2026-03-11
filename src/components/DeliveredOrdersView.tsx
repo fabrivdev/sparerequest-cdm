@@ -150,9 +150,11 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
       if (filters.orderNumber && (!order.order_number || !order.order_number.toLowerCase().includes(filters.orderNumber.toLowerCase()))) return false;
 
       // Invoice status filter
+      const hasNotInvoicedReason = !isStockOnly && !order.is_invoiced && !!order.not_invoiced_reason;
       if (filters.invoiceStatus) {
-        if (filters.invoiceStatus === 'pending' && (isStockOnly || isInvoiced)) return false;
+        if (filters.invoiceStatus === 'pending' && (isStockOnly || isInvoiced || hasNotInvoicedReason)) return false;
         if (filters.invoiceStatus === 'invoiced' && (!isInvoiced || isStockOnly)) return false;
+        if (filters.invoiceStatus === 'not_invoiced' && !hasNotInvoicedReason) return false;
         if (filters.invoiceStatus === 'na' && !isStockOnly) return false;
       }
 
@@ -479,8 +481,9 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
                   const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
                   const isStockOnly = orderDestination === 'stock';
                   const isInvoiced = isStockOnly ? true : (order.is_invoiced || false);
+                  const hasNotInvoicedReason = !isStockOnly && !order.is_invoiced && !!order.not_invoiced_reason;
                   const invoiceNumber = order.invoice_number || '';
-                  const needsInvoiceAction = !isStockOnly && !order.is_invoiced;
+                  const needsInvoiceAction = !isStockOnly && !order.is_invoiced && !order.not_invoiced_reason;
                   const isSelectable = !isStockOnly;
                   const isSelected = selectedOrders.includes(order.id);
                   
@@ -570,10 +573,15 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
                             <Check className="w-3 h-3 mr-1" />
                             Sí
                           </Badge>
+                        ) : hasNotInvoicedReason ? (
+                          <Badge variant="outline" className="text-orange-600 border-orange-500/20 bg-orange-500/10 gap-1">
+                            <X className="w-3 h-3" />
+                            No fact.
+                          </Badge>
                         ) : (
                           <Badge variant="outline" className="text-yellow-600 border-yellow-500/20 bg-yellow-500/10 gap-1">
                             <AlertTriangle className="w-3 h-3" />
-                            No
+                            Pendiente
                           </Badge>
                         )}
                       </TableCell>

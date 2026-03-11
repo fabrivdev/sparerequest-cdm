@@ -187,7 +187,7 @@ const Dashboard = () => {
     });
   }, [orders, branchOrders, view, filters]);
 
-  const pendingInvoiceCount = useMemo(() => orders.filter(o => o.status === 'entregado' && (o.order_destination || 'cliente') !== 'stock' && !o.is_invoiced).length, [orders]);
+  const pendingInvoiceCount = useMemo(() => orders.filter(o => o.status === 'entregado' && (o.order_destination || 'cliente') !== 'stock' && !o.is_invoiced && !o.not_invoiced_reason).length, [orders]);
   const currentOrders = view === 'my-orders' ? orders : view === 'branch-orders' ? branchOrders : orders.filter(o => o.status === 'entregado');
 
   if (profileLoading) return <LoadingScreen />;

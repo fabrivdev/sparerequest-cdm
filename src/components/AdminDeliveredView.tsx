@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search, Download } from 'lucide-react';
+import { Package, AlertTriangle, CheckCircle, User, Warehouse, Users, Search, Download, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableTableHead } from '@/components/ui/sortable-table-head';
@@ -71,14 +71,17 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
   const stats = useMemo(() => {
     const total = deliveredOrders.length;
     const needsInvoicing = deliveredOrders.filter(o => 
-      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced
+      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced && !o.not_invoiced_reason
+    ).length;
+    const notInvoiced = deliveredOrders.filter(o =>
+      (o.order_destination === 'cliente' || o.order_destination === 'ambos') && !o.is_invoiced && !!o.not_invoiced_reason
     ).length;
     const invoiced = deliveredOrders.filter(o => 
       o.order_destination === 'stock' || o.is_invoiced
     ).length;
     const stockOnly = deliveredOrders.filter(o => o.order_destination === 'stock').length;
     
-    return { total, needsInvoicing, invoiced, stockOnly };
+    return { total, needsInvoicing, notInvoiced, invoiced, stockOnly };
   }, [deliveredOrders]);
 
   const handleExportExcel = () => {
@@ -92,7 +95,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
       'Sucursal': order.branch_destination,
       'Observación': order.observation || '-',
       'Destino': order.order_destination === 'cliente' ? 'Cliente' : order.order_destination === 'stock' ? 'Stock' : order.order_destination === 'ambos' ? 'Ambos' : order.order_destination,
-      'Facturado': order.order_destination === 'stock' ? 'N/A' : order.is_invoiced ? 'Sí' : 'Pendiente',
+      'Facturado': order.order_destination === 'stock' ? 'N/A' : order.is_invoiced ? 'Sí' : order.not_invoiced_reason ? 'No facturado' : 'Pendiente',
       'Nro. Factura': order.invoice_number || '-',
       'Cant. Facturada': order.invoiced_quantity ?? '-',
       'Obs. Factura': order.invoice_observation || '-',
@@ -167,7 +170,17 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
       );
     }
     
-    // Not invoiced - show warning
+    // Not invoiced with reason - show as responded
+    if (order.not_invoiced_reason) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <X className="w-4 h-4 text-orange-500" />
+          <span className="text-sm font-medium text-orange-600">No fact.</span>
+        </div>
+      );
+    }
+    
+    // Pending - no response yet
     return (
       <div className="flex items-center gap-1.5">
         <AlertTriangle className="w-4 h-4 text-yellow-500" />
@@ -179,7 +192,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
   return (
     <div className="space-y-4">
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card className="rounded-xl border-0 shadow-sm">
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
@@ -217,6 +230,20 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
               <div>
                 <p className="text-xl font-bold text-foreground">{stats.invoiced}</p>
                 <p className="text-xs text-muted-foreground">Facturados / N/A</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-xl border-0 shadow-sm">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                <X className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{stats.notInvoiced}</p>
+                <p className="text-xs text-muted-foreground">No Facturados</p>
               </div>
             </div>
           </CardContent>
@@ -300,7 +327,9 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
                   deliveredOrders.map((order) => (
                     <TableRow key={order.id} className={
                       (order.order_destination === 'cliente' || order.order_destination === 'ambos') && !order.is_invoiced
-                        ? 'bg-yellow-50/50 dark:bg-yellow-500/5'
+                        ? order.not_invoiced_reason 
+                          ? 'bg-orange-50/50 dark:bg-orange-500/5'
+                          : 'bg-yellow-50/50 dark:bg-yellow-500/5'
                         : ''
                     }>
                       <TableCell className="text-xs">
