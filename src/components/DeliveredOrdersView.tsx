@@ -571,10 +571,15 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
                             <Check className="w-3 h-3 mr-1" />
                             Sí
                           </Badge>
+                        ) : hasNotInvoicedReason ? (
+                          <Badge variant="outline" className="text-orange-600 border-orange-500/20 bg-orange-500/10 gap-1">
+                            <X className="w-3 h-3" />
+                            No fact.
+                          </Badge>
                         ) : (
                           <Badge variant="outline" className="text-yellow-600 border-yellow-500/20 bg-yellow-500/10 gap-1">
                             <AlertTriangle className="w-3 h-3" />
-                            No
+                            Pendiente
                           </Badge>
                         )}
                       </TableCell>
