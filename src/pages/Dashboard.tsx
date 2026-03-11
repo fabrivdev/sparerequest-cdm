@@ -108,6 +108,7 @@ const Dashboard = () => {
     const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
     setBranchOrders(ordersData.map(order => ({ ...order, user_name: profileMap.get(order.user_id) || 'Usuario desconocido' })));
+    } catch (error) { toast.error('Error al cargar los pedidos de la sucursal'); console.error(error); }
   };
 
   useEffect(() => { fetchProfile(); fetchBranches(); }, [user]);

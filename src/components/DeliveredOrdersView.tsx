@@ -81,19 +81,28 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
       return;
     }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('user_id', selectedOwner)
-      .eq('status', 'entregado')
-      .order('delivered_at', { ascending: false })
-      .range(0, 10000);
-
-    if (error) {
+    try {
+      const PAGE_SIZE = 1000;
+      let all: Order[] = [];
+      let page = 0;
+      while (true) {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('user_id', selectedOwner)
+          .eq('status', 'entregado')
+          .order('delivered_at', { ascending: false })
+          .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < PAGE_SIZE) break;
+        page++;
+      }
+      setDelegatedOrders(all);
+    } catch (error) {
       console.error('Error fetching delegated orders:', error);
       toast.error('Error al cargar pedidos delegados');
-    } else {
-      setDelegatedOrders(data || []);
     }
   };
 
