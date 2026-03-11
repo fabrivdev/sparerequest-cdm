@@ -313,7 +313,9 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
                   deliveredOrders.map((order) => (
                     <TableRow key={order.id} className={
                       (order.order_destination === 'cliente' || order.order_destination === 'ambos') && !order.is_invoiced
-                        ? 'bg-yellow-50/50 dark:bg-yellow-500/5'
+                        ? order.not_invoiced_reason 
+                          ? 'bg-orange-50/50 dark:bg-orange-500/5'
+                          : 'bg-yellow-50/50 dark:bg-yellow-500/5'
                         : ''
                     }>
                       <TableCell className="text-xs">

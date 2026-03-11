@@ -150,9 +150,11 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
       if (filters.orderNumber && (!order.order_number || !order.order_number.toLowerCase().includes(filters.orderNumber.toLowerCase()))) return false;
 
       // Invoice status filter
+      const hasNotInvoicedReason = !isStockOnly && !order.is_invoiced && !!order.not_invoiced_reason;
       if (filters.invoiceStatus) {
-        if (filters.invoiceStatus === 'pending' && (isStockOnly || isInvoiced)) return false;
+        if (filters.invoiceStatus === 'pending' && (isStockOnly || isInvoiced || hasNotInvoicedReason)) return false;
         if (filters.invoiceStatus === 'invoiced' && (!isInvoiced || isStockOnly)) return false;
+        if (filters.invoiceStatus === 'not_invoiced' && !hasNotInvoicedReason) return false;
         if (filters.invoiceStatus === 'na' && !isStockOnly) return false;
       }
 
