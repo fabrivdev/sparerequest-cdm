@@ -170,7 +170,17 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
       );
     }
     
-    // Not invoiced - show warning
+    // Not invoiced with reason - show as responded
+    if (order.not_invoiced_reason) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <X className="w-4 h-4 text-orange-500" />
+          <span className="text-sm font-medium text-orange-600">No fact.</span>
+        </div>
+      );
+    }
+    
+    // Pending - no response yet
     return (
       <div className="flex items-center gap-1.5">
         <AlertTriangle className="w-4 h-4 text-yellow-500" />
