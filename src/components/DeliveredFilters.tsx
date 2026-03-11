@@ -28,7 +28,7 @@ export interface DeliveredFiltersState {
   brand: string;
   productCode: string;
   orderNumber: string;
-  invoiceStatus: '' | 'pending' | 'invoiced' | 'na';
+  invoiceStatus: '' | 'pending' | 'invoiced' | 'not_invoiced' | 'na';
   observation: string;
 }
 
