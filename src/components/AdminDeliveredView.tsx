@@ -95,7 +95,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
       'Sucursal': order.branch_destination,
       'Observación': order.observation || '-',
       'Destino': order.order_destination === 'cliente' ? 'Cliente' : order.order_destination === 'stock' ? 'Stock' : order.order_destination === 'ambos' ? 'Ambos' : order.order_destination,
-      'Facturado': order.order_destination === 'stock' ? 'N/A' : order.is_invoiced ? 'Sí' : 'Pendiente',
+      'Facturado': order.order_destination === 'stock' ? 'N/A' : order.is_invoiced ? 'Sí' : order.not_invoiced_reason ? 'No facturado' : 'Pendiente',
       'Nro. Factura': order.invoice_number || '-',
       'Cant. Facturada': order.invoiced_quantity ?? '-',
       'Obs. Factura': order.invoice_observation || '-',
