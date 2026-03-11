@@ -479,8 +479,9 @@ const DeliveredOrdersView = ({ orders, onUpdate, userId, pendingInvoiceCount = 0
                   const orderDestination = (order.order_destination || 'cliente') as 'cliente' | 'stock' | 'ambos';
                   const isStockOnly = orderDestination === 'stock';
                   const isInvoiced = isStockOnly ? true : (order.is_invoiced || false);
+                  const hasNotInvoicedReason = !isStockOnly && !order.is_invoiced && !!order.not_invoiced_reason;
                   const invoiceNumber = order.invoice_number || '';
-                  const needsInvoiceAction = !isStockOnly && !order.is_invoiced;
+                  const needsInvoiceAction = !isStockOnly && !order.is_invoiced && !order.not_invoiced_reason;
                   const isSelectable = !isStockOnly;
                   const isSelected = selectedOrders.includes(order.id);
                   
