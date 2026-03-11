@@ -99,11 +99,11 @@ const Dashboard = () => {
 
   const fetchBranchOrders = async () => {
     if (!user || !profile) return;
-    let query = supabase.from('orders').select('*').order('created_at', { ascending: false }).range(0, 10000);
+    let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
     if (selectedBranch && selectedBranch !== 'all') query = query.eq('branch_destination', selectedBranch);
-    const { data: ordersData, error: ordersError } = await query;
-    if (ordersError) { toast.error('Error al cargar los pedidos de la sucursal'); return; }
-    if (!ordersData || ordersData.length === 0) { setBranchOrders([]); return; }
+    try {
+      const ordersData = await fetchAllPaginated(query);
+      if (ordersData.length === 0) { setBranchOrders([]); return; }
     const userIds = [...new Set(ordersData.map(o => o.user_id))];
     const { data: profilesData } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
     const profileMap = new Map(profilesData?.map(p => [p.user_id, p.full_name]) || []);
