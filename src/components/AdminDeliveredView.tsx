@@ -81,7 +81,7 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
     ).length;
     const stockOnly = deliveredOrders.filter(o => o.order_destination === 'stock').length;
     
-    return { total, needsInvoicing, invoiced, stockOnly };
+    return { total, needsInvoicing, notInvoiced, invoiced, stockOnly };
   }, [deliveredOrders]);
 
   const handleExportExcel = () => {
