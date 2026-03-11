@@ -234,6 +234,20 @@ const AdminDeliveredView = ({ orders, password, onOrderUpdate }: AdminDeliveredV
             </div>
           </CardContent>
         </Card>
+
+        <Card className="rounded-xl border-0 shadow-sm">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-orange-500/10 rounded-xl flex items-center justify-center">
+                <X className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-foreground">{stats.notInvoiced}</p>
+                <p className="text-xs text-muted-foreground">No Facturados</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         
         <Card className="rounded-xl border-0 shadow-sm">
           <CardContent className="pt-4">
