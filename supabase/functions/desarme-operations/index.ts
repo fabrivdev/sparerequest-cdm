@@ -432,11 +432,37 @@ Deno.serve(async (req) => {
       return respond({ success: true });
     }
 
+    // ===== CANCEL DESARME =====
+    if (action === 'cancelDesarme') {
+      const { desarmeId, observation } = body;
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
+      if (!observation || !observation.trim()) return respond({ error: 'La observación es obligatoria para cancelar' }, 400);
+      const { data: current } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
+      if (!current) return respond({ error: 'Desarme no encontrado' }, 404);
+      if (current.created_by !== userId) return respond({ error: 'Solo el creador puede cancelar el desarme' }, 403);
+      const cancellableStatuses = ['pendiente_cotizacion', 'pendiente_autorizacion', 'aprobado'];
+      if (!cancellableStatuses.includes(current.status)) return respond({ error: 'El desarme no puede ser cancelado en su estado actual' }, 400);
+      const { error } = await supabase.from('desarmes').update({ status: 'cancelado' }).eq('id', desarmeId);
+      if (error) return respond({ error: 'Error al cancelar' }, 500);
+      await logStatus(desarmeId, current.status, 'cancelado', userId, observation.trim());
+
+      // Notify quoter if exists
+      if (current.quoted_by && current.quoted_by !== userId) {
+        await supabase.from('user_notifications').insert({ user_id: current.quoted_by, type: 'desarme_cancelado', title: 'Desarme cancelado', message: `El desarme ${current.desarme_number} fue cancelado por el creador: ${observation.trim()}`, metadata: { desarme_id: desarmeId } });
+      }
+
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Cancelado');
+      const { data: creatorAuthC } = await supabase.auth.admin.getUserById(current.created_by);
+      sendN8nWebhook('CANCELADO', current.desarme_number, creatorAuthC?.user?.email || '');
+      return respond({ success: true });
+    }
+
     // ===== GET TRACKING =====
     if (action === 'getDesarmeTracking') {
       if (!(await checkPerm('seguimiento_desarme'))) return respond({ error: 'Sin permiso para seguimiento' }, 403);
       const { data, error } = await supabase.from('desarmes').select('*')
-        .not('status', 'in', '("rechazado","cerrado","pendiente_cotizacion","pendiente_autorizacion")')
+        .not('status', 'in', '("rechazado","cerrado","pendiente_cotizacion","pendiente_autorizacion","cancelado")')
         .order('is_urgent', { ascending: false }).order('created_at', { ascending: true });
       if (error) return respond({ error: 'Error al obtener seguimiento' }, 500);
       const orderIds = data.filter((d: any) => d.linked_order_id).map((d: any) => d.linked_order_id);

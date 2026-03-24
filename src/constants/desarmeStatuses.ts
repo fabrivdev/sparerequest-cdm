@@ -7,6 +7,7 @@ export const DESARME_STATUS_LABELS: Record<string, string> = {
   recibido: 'Recibido',
   maquina_rearmada: 'Máquina Rearmada',
   cerrado: 'Cerrado',
+  cancelado: 'Cancelado',
 };
 
 export const DESARME_STATUS_COLORS: Record<string, string> = {
@@ -18,6 +19,7 @@ export const DESARME_STATUS_COLORS: Record<string, string> = {
   recibido: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
   maquina_rearmada: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
   cerrado: 'bg-muted text-muted-foreground',
+  cancelado: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400',
 };
 
 export const DESARME_ALL_STATUSES = Object.keys(DESARME_STATUS_LABELS);

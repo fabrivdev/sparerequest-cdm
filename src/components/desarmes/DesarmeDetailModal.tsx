@@ -29,6 +29,8 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [serviceOrderNumber, setServiceOrderNumber] = useState('');
+  const [cancelObservation, setCancelObservation] = useState('');
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !desarmeId) return;
@@ -110,6 +112,28 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   };
 
   const isCreator = user?.id === desarme?.created_by;
+  const canCancel = isCreator && desarme && ['pendiente_cotizacion', 'pendiente_autorizacion', 'aprobado'].includes(desarme.status);
+
+  const handleCancel = async () => {
+    if (!cancelObservation.trim()) {
+      toast.error('La observación es obligatoria para cancelar');
+      return;
+    }
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'cancelDesarme', desarmeId, observation: cancelObservation.trim() },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al cancelar');
+    } else {
+      toast.success('Desarme cancelado');
+      setShowCancelConfirm(false);
+      setCancelObservation('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
 
   const nextStatusMap: Record<string, string> = {
     recibido: 'maquina_rearmada',
@@ -242,6 +266,40 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                   ))}
                 </div>
               </div>
+              {/* Cancel operation */}
+              {canCancel && (
+                <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="w-full text-orange-600 border-orange-300 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20 gap-2 text-xs">
+                      <AlertTriangle className="w-4 h-4" /> Cancelar operación
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Cancelar desarme?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Se cancelará el desarme <span className="font-mono font-medium">{desarme.desarme_number}</span>. Esta acción no se puede deshacer.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Observación <span className="text-destructive">*</span></Label>
+                      <Input
+                        value={cancelObservation}
+                        onChange={e => setCancelObservation(e.target.value)}
+                        placeholder="Motivo de la cancelación..."
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setCancelObservation('')}>Volver</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCancel} className="bg-orange-600 text-white hover:bg-orange-700" disabled={actionLoading || !cancelObservation.trim()}>
+                        {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar cancelación'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
               {/* Delete */}
               {isCreator && (
                 <AlertDialog>
