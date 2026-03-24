@@ -1,21 +1,35 @@
 
 
-## Problem
+## Cancelar desarme por el creador
 
-The tracking panel groups desarmes by `serial_number` and displays a single `client_name` from the first record in the group header. However, the same chassis (serial number) can have desarmes for different clients. The current code takes `client_name` from the first desarme found and ignores the rest.
+### Problema
+El creador de un desarme no puede cancelar la operación una vez aprobada si aún no se generó el pedido. Necesita poder cancelar con una observación obligatoria, y el desarme debe quedar en un estado distinguible.
 
-## Solution
+### Solución
 
-1. **Group header**: Instead of showing one client name, show all unique client names for that serial number (e.g., "FULANO, MENGANO") or remove client name from the header entirely.
+Agregar un nuevo estado `cancelado` y permitir que el creador cancele desde el modal de detalle cuando el estado sea `pendiente_cotizacion`, `pendiente_autorizacion` o `aprobado` (antes de generar pedido).
 
-2. **Part rows**: Add the client name to each individual part row so it's always clear which client each desarme belongs to.
+### Cambios
 
-### Changes in `src/components/desarmes/TrackingPanel.tsx`
+**1. `src/constants/desarmeStatuses.ts`** — Agregar estado `cancelado`
+- Label: "Cancelado"
+- Color: gris/slate (`bg-slate-100 text-slate-800`)
 
-- Modify `MachineGroup` interface: replace `client_name: string` with `client_names: string[]` (unique list).
-- In the grouping logic, collect unique client names per group.
-- In the group header, display all unique client names joined by comma.
-- In each part row, display `part.client_name` so the client is visible per desarme.
+**2. `supabase/functions/desarme-operations/index.ts`** — Nueva acción `cancelDesarme`
+- Validar que el usuario sea el creador (`created_by === userId`)
+- Validar que el estado sea `pendiente_cotizacion`, `pendiente_autorizacion` o `aprobado`
+- Requiere observación obligatoria
+- Actualiza estado a `cancelado`, registra en `desarme_status_log`
+- Notifica al cotizador (si existe) que el desarme fue cancelado
+- Envía CSV a Slack y webhook n8n
 
-This is a single-file change affecting only the presentation logic in `TrackingPanel.tsx`.
+**3. `src/components/desarmes/DesarmeDetailModal.tsx`** — Botón "Cancelar operación"
+- Visible solo para el creador (`isCreator`)
+- Solo en estados: `pendiente_cotizacion`, `pendiente_autorizacion`, `aprobado`
+- Al hacer clic, muestra un campo de observación obligatorio y un diálogo de confirmación
+- Llama a `cancelDesarme` en la edge function
+
+**4. Tracking/filtros** — El estado `cancelado` ya se comportará correctamente:
+- El `getDesarmeTracking` ya excluye `rechazado` y `cerrado`; agregar `cancelado` a esa exclusión
+- Los filtros del TrackingPanel ya leen de `DESARME_ALL_STATUSES` así que se incluirá automáticamente
 
