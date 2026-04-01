@@ -14,9 +14,11 @@ interface Branch {
   is_active: boolean;
 }
 
+type ViewType = 'my-orders' | 'branch-orders' | 'delivered' | 'prices';
+
 interface ViewToggleProps {
-  view: 'my-orders' | 'branch-orders' | 'delivered';
-  onViewChange: (view: 'my-orders' | 'branch-orders' | 'delivered') => void;
+  view: ViewType;
+  onViewChange: (view: ViewType) => void;
   selectedBranch?: string;
   onBranchChange?: (branch: string) => void;
   userBranch?: string;
