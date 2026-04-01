@@ -223,7 +223,7 @@ const Dashboard = () => {
                 <span className="hidden sm:inline">Excel</span>
               </Button>
             )}
-            {currentOrders.length > 0 && (
+            {currentOrders.length > 0 && view !== 'prices' && (
               <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nuevo Pedido</span>
