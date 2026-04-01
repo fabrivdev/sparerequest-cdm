@@ -62,13 +62,6 @@ const PriceConsultView = () => {
 
   // Fetch products server-side
   const fetchProducts = useCallback(async () => {
-    const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
-    if (!hasFilter) {
-      setProducts([]);
-      setTotalCount(0);
-      return;
-    }
-
     setLoadingProducts(true);
 
     const buildQuery = (countOnly: boolean) => {
@@ -122,7 +115,7 @@ const PriceConsultView = () => {
     return pages;
   }, [page, totalPages]);
 
-  const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
+  
 
   return (
     <div className="space-y-4">
@@ -177,11 +170,7 @@ const PriceConsultView = () => {
         </div>
       )}
 
-      {!hasFilter ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          Seleccioná una marca o buscá un código para ver los precios
-        </p>
-      ) : loadingProducts ? (
+      {loadingProducts ? (
         <p className="text-sm text-muted-foreground py-8 text-center">Cargando productos...</p>
       ) : products.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
@@ -217,7 +206,7 @@ const PriceConsultView = () => {
       )}
 
       {/* Footer: count + pagination */}
-      {hasFilter && (
+      {totalCount > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             {totalCount} producto{totalCount !== 1 ? 's' : ''}
