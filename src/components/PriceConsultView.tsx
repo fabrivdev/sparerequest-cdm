@@ -115,7 +115,7 @@ const PriceConsultView = () => {
     return pages;
   }, [page, totalPages]);
 
-  const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
+  
 
   return (
     <div className="space-y-4">
