@@ -45,7 +45,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
-  const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
+  const [view, setView] = useState<ViewType>('my-orders');
   
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
