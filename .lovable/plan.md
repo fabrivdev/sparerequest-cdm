@@ -1,25 +1,27 @@
 
 
-## Mejoras a la vista de Consulta de Precios
+## Carga progresiva de productos
+
+### Problema
+Actualmente se espera a cargar TODOS los productos antes de mostrar algo. Con miles de registros, el usuario ve "Cargando productos..." durante varios segundos.
+
+### Solución
+Aplicar el mismo patrón de carga progresiva que ya usa la tabla de stock: mostrar los primeros resultados de inmediato mientras se siguen cargando lotes en segundo plano.
 
 ### Cambios en `src/components/PriceConsultView.tsx`
 
-**1. Selector de modo de búsqueda**
-- Agregar un `Select` junto al campo de búsqueda con 4 opciones: "Contiene" (default), "Empieza con", "Termina con", "Es igual a"
-- La lógica de filtrado usará `includes`, `startsWith`, `endsWith` o `===` según la opción seleccionada
+1. **Agregar estado `loadingMore`** para distinguir entre carga inicial y carga en segundo plano
+2. **Actualizar `setProducts` después de cada batch** en lugar de acumular todo en una variable local y setear al final
+3. **Poner `setLoading(false)` después del primer batch** para que la tabla se renderice de inmediato
+4. **Mostrar indicador "Cargando más productos..."** cuando `loadingMore` es true, debajo de la tabla o en el footer junto al conteo
 
-**2. Filtro de marca por botones**
-- Extraer marcas únicas de los productos cargados
-- Renderizar botones tipo chip/toggle para cada marca (+ un botón "Todas")
-- Al seleccionar una marca, se filtra la lista; se puede combinar con la búsqueda de texto
-
-**3. Paginación con límite de 200 items por página**
-- Paginar los resultados filtrados en bloques de 200
-- Agregar controles de navegación (anterior/siguiente + número de página) usando los componentes `Pagination` existentes
-- Resetear a página 1 cuando cambian los filtros
-
-**4. Fetch con paginación manual (>1000 productos)**
-- Aplicar la misma estrategia de fetch en batches de 1000 que ya usa el proyecto, para no truncar la tabla `products`
+Lógica resumida:
+```
+batch 1 → setProducts(batch1), setLoading(false), setLoadingMore(true)
+batch 2 → setProducts(prev => [...prev, batch2])
+...
+último batch → setLoadingMore(false)
+```
 
 ### Archivo editado
 - `src/components/PriceConsultView.tsx`
