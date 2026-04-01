@@ -204,9 +204,9 @@ const Dashboard = () => {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-1">
-              {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : 'Pedidos Entregados'}
+              {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : view === 'prices' ? 'Consulta de Precios' : 'Pedidos Entregados'}
             </h2>
-            <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
+            {view !== 'prices' && <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>}
           </div>
           <div className="flex items-center gap-2">
             {filteredOrders.length > 0 && view !== 'delivered' && view !== 'prices' && (
