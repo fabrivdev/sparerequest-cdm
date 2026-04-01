@@ -1,25 +1,26 @@
 
 
-## Consulta de Precios dentro de Compras
+## Mejoras a la vista de Consulta de Precios
 
-### Qué se hará
-Agregar una nueva vista "Precios" en el módulo de Compras (Dashboard) donde los usuarios puedan buscar cualquier producto por código, nombre o marca y ver sus tres niveles de precio (Aéreo, Marítimo, Terrestre).
+### Cambios en `src/components/PriceConsultView.tsx`
 
-### Cambios
+**1. Selector de modo de búsqueda**
+- Agregar un `Select` junto al campo de búsqueda con 4 opciones: "Contiene" (default), "Empieza con", "Termina con", "Es igual a"
+- La lógica de filtrado usará `includes`, `startsWith`, `endsWith` o `===` según la opción seleccionada
 
-**1. `src/components/ViewToggle.tsx`** — Agregar pestaña "Precios"
-- Extender el tipo de vista para incluir `'prices'`
-- Agregar un botón "Precios" con ícono de etiqueta/precio al final del toggle
+**2. Filtro de marca por botones**
+- Extraer marcas únicas de los productos cargados
+- Renderizar botones tipo chip/toggle para cada marca (+ un botón "Todas")
+- Al seleccionar una marca, se filtra la lista; se puede combinar con la búsqueda de texto
 
-**2. Nuevo archivo `src/components/PriceConsultView.tsx`** — Vista de consulta de precios
-- Campo de búsqueda que filtra en tiempo real por código, nombre o marca desde la tabla `products`
-- Tabla con columnas: Marca, Código, Nombre, Precio Aéreo, Precio Marítimo, Precio Terrestre
-- Formateo de precios con separador de miles
-- Estado vacío cuando no hay resultados
-- Consulta directa a la tabla `products` (ya tiene RLS público para SELECT)
+**3. Paginación con límite de 200 items por página**
+- Paginar los resultados filtrados en bloques de 200
+- Agregar controles de navegación (anterior/siguiente + número de página) usando los componentes `Pagination` existentes
+- Resetear a página 1 cuando cambian los filtros
 
-**3. `src/pages/Dashboard.tsx`** — Integrar la nueva vista
-- Extender el tipo de `view` para incluir `'prices'`
-- Renderizar `PriceConsultView` cuando `view === 'prices'`
-- Ocultar botones de "Nuevo Pedido" y "Excel" en esta vista
+**4. Fetch con paginación manual (>1000 productos)**
+- Aplicar la misma estrategia de fetch en batches de 1000 que ya usa el proyecto, para no truncar la tabla `products`
+
+### Archivo editado
+- `src/components/PriceConsultView.tsx`
 
