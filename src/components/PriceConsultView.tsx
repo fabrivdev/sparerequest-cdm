@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -24,81 +24,99 @@ const ITEMS_PER_PAGE = 200;
 const formatPrice = (value: number) =>
   value > 0 ? `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-';
 
-const matchSearch = (value: string, query: string, mode: SearchMode): boolean => {
-  const v = value.toLowerCase();
-  const q = query.toLowerCase();
-  switch (mode) {
-    case 'starts': return v.startsWith(q);
-    case 'ends': return v.endsWith(q);
-    case 'equals': return v === q;
-    default: return v.includes(q);
-  }
-};
-
 const PriceConsultView = () => {
+  const [brands, setBrands] = useState<string[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchMode, setSearchMode] = useState<SearchMode>('contains');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [page, setPage] = useState(1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Fetch brands on mount
   useEffect(() => {
-    const fetchAll = async () => {
-      let from = 0;
-      const batch = 1000;
-      let isFirst = true;
-      while (true) {
-        const { data } = await supabase
-          .from('products')
-          .select('id, brand, code, name, price_aereo, price_maritimo, price_terrestre')
-          .order('brand')
-          .order('code')
-          .range(from, from + batch - 1);
-        if (!data || data.length === 0) break;
-        if (isFirst) {
-          setProducts(data);
-          setLoading(false);
-          setLoadingMore(true);
-          isFirst = false;
-        } else {
-          setProducts(prev => [...prev, ...data]);
-        }
-        if (data.length < batch) break;
-        from += batch;
+    const fetchBrands = async () => {
+      const { data } = await supabase
+        .from('products')
+        .select('brand')
+        .order('brand');
+      if (data) {
+        const unique = [...new Set(data.map(d => d.brand))].sort();
+        setBrands(unique);
       }
-      setLoadingMore(false);
-      if (isFirst) setLoading(false);
+      setLoadingBrands(false);
     };
-    fetchAll();
+    fetchBrands();
   }, []);
 
-  const brands = useMemo(() => {
-    const set = new Set(products.map(p => p.brand));
-    return Array.from(set).sort();
-  }, [products]);
-
-  const filtered = useMemo(() => {
-    let list = products;
-    if (selectedBrand !== 'all') {
-      list = list.filter(p => p.brand === selectedBrand);
-    }
-    if (search.trim()) {
-      list = list.filter(p =>
-        matchSearch(p.code, search, searchMode) ||
-        matchSearch(p.name, search, searchMode) ||
-        matchSearch(p.brand, search, searchMode)
-      );
-    }
-    return list;
-  }, [products, search, searchMode, selectedBrand]);
+  // Debounce search input
+  useEffect(() => {
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 400);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [search, searchMode, selectedBrand]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, searchMode, selectedBrand]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+  // Fetch products server-side
+  const fetchProducts = useCallback(async () => {
+    const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
+    if (!hasFilter) {
+      setProducts([]);
+      setTotalCount(0);
+      return;
+    }
+
+    setLoadingProducts(true);
+
+    const buildQuery = (countOnly: boolean) => {
+      let q = countOnly
+        ? supabase.from('products').select('*', { count: 'exact', head: true })
+        : supabase.from('products').select('id, brand, code, name, price_aereo, price_maritimo, price_terrestre');
+
+      if (selectedBrand !== 'all') {
+        q = q.eq('brand', selectedBrand);
+      }
+
+      const term = debouncedSearch.trim();
+      if (term) {
+        const pattern = searchMode === 'contains' ? `%${term}%`
+          : searchMode === 'starts' ? `${term}%`
+          : searchMode === 'ends' ? `%${term}`
+          : term;
+
+        if (searchMode === 'equals') {
+          q = q.or(`code.ilike.${pattern},name.ilike.${pattern},brand.ilike.${pattern}`);
+        } else {
+          q = q.or(`code.ilike.${pattern},name.ilike.${pattern},brand.ilike.${pattern}`);
+        }
+      }
+
+      return q;
+    };
+
+    const from = (page - 1) * ITEMS_PER_PAGE;
+    const to = from + ITEMS_PER_PAGE - 1;
+
+    const [countRes, dataRes] = await Promise.all([
+      buildQuery(true),
+      buildQuery(false).order('brand').order('code').range(from, to),
+    ]);
+
+    setTotalCount(countRes.count ?? 0);
+    setProducts((dataRes.data as Product[]) ?? []);
+    setLoadingProducts(false);
+  }, [selectedBrand, debouncedSearch, searchMode, page]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / ITEMS_PER_PAGE));
 
   const pageNumbers = useMemo(() => {
     const pages: number[] = [];
@@ -107,6 +125,8 @@ const PriceConsultView = () => {
     for (let i = start; i <= end; i++) pages.push(i);
     return pages;
   }, [page, totalPages]);
+
+  const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
 
   return (
     <div className="space-y-4">
@@ -135,7 +155,9 @@ const PriceConsultView = () => {
       </div>
 
       {/* Brand filter chips */}
-      {brands.length > 0 && (
+      {loadingBrands ? (
+        <p className="text-xs text-muted-foreground">Cargando marcas...</p>
+      ) : brands.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           <Button
             size="sm"
@@ -159,11 +181,15 @@ const PriceConsultView = () => {
         </div>
       )}
 
-      {loading ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">Cargando productos...</p>
-      ) : filtered.length === 0 ? (
+      {!hasFilter ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
-          {search || selectedBrand !== 'all' ? 'No se encontraron productos con esos filtros' : 'No hay productos cargados'}
+          Seleccioná una marca o buscá un código para ver los precios
+        </p>
+      ) : loadingProducts ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Cargando productos...</p>
+      ) : products.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">
+          No se encontraron productos con esos filtros
         </p>
       ) : (
         <div className="rounded-md border overflow-auto">
@@ -179,7 +205,7 @@ const PriceConsultView = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginated.map(p => (
+              {products.map(p => (
                 <TableRow key={p.id}>
                   <TableCell className="font-medium">{p.brand}</TableCell>
                   <TableCell>{p.code}</TableCell>
@@ -195,42 +221,43 @@ const PriceConsultView = () => {
       )}
 
       {/* Footer: count + pagination */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
-          {totalPages > 1 && ` · Página ${page} de ${totalPages}`}
-          {loadingMore && ' · Cargando más productos...'}
-        </p>
-        {totalPages > 1 && (
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-              {pageNumbers.map(n => (
-                <PaginationItem key={n}>
-                  <PaginationLink
-                    isActive={n === page}
-                    onClick={() => setPage(n)}
-                    className="cursor-pointer"
-                  >
-                    {n}
-                  </PaginationLink>
+      {hasFilter && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {totalCount} producto{totalCount !== 1 ? 's' : ''}
+            {totalPages > 1 && ` · Página ${page} de ${totalPages}`}
+          </p>
+          {totalPages > 1 && (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    className={page === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
                 </PaginationItem>
-              ))}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        )}
-      </div>
+                {pageNumbers.map(n => (
+                  <PaginationItem key={n}>
+                    <PaginationLink
+                      isActive={n === page}
+                      onClick={() => setPage(n)}
+                      className="cursor-pointer"
+                    >
+                      {n}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    className={page === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </div>
+      )}
     </div>
   );
 };
