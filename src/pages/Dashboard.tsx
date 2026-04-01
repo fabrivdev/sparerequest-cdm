@@ -209,7 +209,7 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
           </div>
           <div className="flex items-center gap-2">
-            {filteredOrders.length > 0 && view !== 'delivered' && (
+            {filteredOrders.length > 0 && view !== 'delivered' && view !== 'prices' && (
               <Button
                 variant="outline"
                 size="sm"
