@@ -153,8 +153,21 @@ const ViewToggle = ({
           </span>
         )}
       </button>
+
+      <button
+        onClick={() => onViewChange('prices')}
+        className={cn(
+          'px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-all whitespace-nowrap',
+          view === 'prices'
+            ? 'bg-background text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'
+        )}
+      >
+        Precios
+      </button>
     </div>
   );
 };
 
+export { type ViewType };
 export default ViewToggle;

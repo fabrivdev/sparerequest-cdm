@@ -231,7 +231,9 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-        {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
+        {isLoading ? <LoadingScreen /> : view === 'prices' ? (
+          <PriceConsultView />
+        ) : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
         ) : currentOrders.length === 0 ? <EmptyState onNewOrder={() => setIsFormOpen(true)} /> : (
           <>
