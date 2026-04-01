@@ -62,13 +62,6 @@ const PriceConsultView = () => {
 
   // Fetch products server-side
   const fetchProducts = useCallback(async () => {
-    const hasFilter = selectedBrand !== 'all' || debouncedSearch.trim().length > 0;
-    if (!hasFilter) {
-      setProducts([]);
-      setTotalCount(0);
-      return;
-    }
-
     setLoadingProducts(true);
 
     const buildQuery = (countOnly: boolean) => {
