@@ -199,6 +199,7 @@ const PriceConsultView = () => {
         <p className="text-xs text-muted-foreground">
           {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
           {totalPages > 1 && ` · Página ${page} de ${totalPages}`}
+          {loadingMore && ' · Cargando más productos...'}
         </p>
         {totalPages > 1 && (
           <Pagination>
