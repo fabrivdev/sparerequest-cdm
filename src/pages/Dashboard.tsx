@@ -12,7 +12,8 @@ import OrdersTable, { Order } from '@/components/OrdersTable';
 import EmptyState from '@/components/EmptyState';
 import ProfileSetup from '@/components/ProfileSetup';
 import ProfileEditModal from '@/components/ProfileEditModal';
-import ViewToggle from '@/components/ViewToggle';
+import ViewToggle, { type ViewType } from '@/components/ViewToggle';
+import PriceConsultView from '@/components/PriceConsultView';
 import LoadingScreen from '@/components/LoadingScreen';
 import SupportButton from '@/components/support/SupportButton';
 import DeliveredOrdersView from '@/components/DeliveredOrdersView';
@@ -44,7 +45,7 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [showProfileEdit, setShowProfileEdit] = useState(false);
-  const [view, setView] = useState<'my-orders' | 'branch-orders' | 'delivered'>('my-orders');
+  const [view, setView] = useState<ViewType>('my-orders');
   
   const [selectedBranch, setSelectedBranch] = useState<string>('');
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -203,12 +204,12 @@ const Dashboard = () => {
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground mb-1">
-              {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : 'Pedidos Entregados'}
+              {view === 'my-orders' ? 'Mis Pedidos' : view === 'branch-orders' ? selectedBranch === 'all' ? 'Todas las Sucursales' : `Pedidos en ${selectedBranch}` : view === 'prices' ? 'Consulta de Precios' : 'Pedidos Entregados'}
             </h2>
-            <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>
+            {view !== 'prices' && <p className="text-sm text-muted-foreground">{currentOrders.length} {currentOrders.length === 1 ? 'pedido registrado' : 'pedidos registrados'}</p>}
           </div>
           <div className="flex items-center gap-2">
-            {filteredOrders.length > 0 && view !== 'delivered' && (
+            {filteredOrders.length > 0 && view !== 'delivered' && view !== 'prices' && (
               <Button
                 variant="outline"
                 size="sm"
@@ -222,7 +223,7 @@ const Dashboard = () => {
                 <span className="hidden sm:inline">Excel</span>
               </Button>
             )}
-            {currentOrders.length > 0 && (
+            {currentOrders.length > 0 && view !== 'prices' && (
               <Button onClick={() => setIsFormOpen(true)} className="h-9 sm:h-10 gap-1 sm:gap-2 px-2.5 sm:px-4">
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Nuevo Pedido</span>
@@ -230,7 +231,9 @@ const Dashboard = () => {
             )}
           </div>
         </div>
-        {isLoading ? <LoadingScreen /> : view === 'delivered' ? (
+        {isLoading ? <LoadingScreen /> : view === 'prices' ? (
+          <PriceConsultView />
+        ) : view === 'delivered' ? (
           <DeliveredOrdersView orders={orders} onUpdate={fetchOrders} userId={user?.id || ''} pendingInvoiceCount={pendingInvoiceCount} />
         ) : currentOrders.length === 0 ? <EmptyState onNewOrder={() => setIsFormOpen(true)} /> : (
           <>
