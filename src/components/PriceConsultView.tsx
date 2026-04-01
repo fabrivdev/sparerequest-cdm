@@ -170,11 +170,7 @@ const PriceConsultView = () => {
         </div>
       )}
 
-      {!hasFilter ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">
-          Seleccioná una marca o buscá un código para ver los precios
-        </p>
-      ) : loadingProducts ? (
+      {loadingProducts ? (
         <p className="text-sm text-muted-foreground py-8 text-center">Cargando productos...</p>
       ) : products.length === 0 ? (
         <p className="text-sm text-muted-foreground py-8 text-center">
