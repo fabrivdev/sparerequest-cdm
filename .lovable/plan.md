@@ -1,35 +1,25 @@
 
 
-## Cancelar desarme por el creador
+## Consulta de Precios dentro de Compras
 
-### Problema
-El creador de un desarme no puede cancelar la operación una vez aprobada si aún no se generó el pedido. Necesita poder cancelar con una observación obligatoria, y el desarme debe quedar en un estado distinguible.
-
-### Solución
-
-Agregar un nuevo estado `cancelado` y permitir que el creador cancele desde el modal de detalle cuando el estado sea `pendiente_cotizacion`, `pendiente_autorizacion` o `aprobado` (antes de generar pedido).
+### Qué se hará
+Agregar una nueva vista "Precios" en el módulo de Compras (Dashboard) donde los usuarios puedan buscar cualquier producto por código, nombre o marca y ver sus tres niveles de precio (Aéreo, Marítimo, Terrestre).
 
 ### Cambios
 
-**1. `src/constants/desarmeStatuses.ts`** — Agregar estado `cancelado`
-- Label: "Cancelado"
-- Color: gris/slate (`bg-slate-100 text-slate-800`)
+**1. `src/components/ViewToggle.tsx`** — Agregar pestaña "Precios"
+- Extender el tipo de vista para incluir `'prices'`
+- Agregar un botón "Precios" con ícono de etiqueta/precio al final del toggle
 
-**2. `supabase/functions/desarme-operations/index.ts`** — Nueva acción `cancelDesarme`
-- Validar que el usuario sea el creador (`created_by === userId`)
-- Validar que el estado sea `pendiente_cotizacion`, `pendiente_autorizacion` o `aprobado`
-- Requiere observación obligatoria
-- Actualiza estado a `cancelado`, registra en `desarme_status_log`
-- Notifica al cotizador (si existe) que el desarme fue cancelado
-- Envía CSV a Slack y webhook n8n
+**2. Nuevo archivo `src/components/PriceConsultView.tsx`** — Vista de consulta de precios
+- Campo de búsqueda que filtra en tiempo real por código, nombre o marca desde la tabla `products`
+- Tabla con columnas: Marca, Código, Nombre, Precio Aéreo, Precio Marítimo, Precio Terrestre
+- Formateo de precios con separador de miles
+- Estado vacío cuando no hay resultados
+- Consulta directa a la tabla `products` (ya tiene RLS público para SELECT)
 
-**3. `src/components/desarmes/DesarmeDetailModal.tsx`** — Botón "Cancelar operación"
-- Visible solo para el creador (`isCreator`)
-- Solo en estados: `pendiente_cotizacion`, `pendiente_autorizacion`, `aprobado`
-- Al hacer clic, muestra un campo de observación obligatorio y un diálogo de confirmación
-- Llama a `cancelDesarme` en la edge function
-
-**4. Tracking/filtros** — El estado `cancelado` ya se comportará correctamente:
-- El `getDesarmeTracking` ya excluye `rechazado` y `cerrado`; agregar `cancelado` a esa exclusión
-- Los filtros del TrackingPanel ya leen de `DESARME_ALL_STATUSES` así que se incluirá automáticamente
+**3. `src/pages/Dashboard.tsx`** — Integrar la nueva vista
+- Extender el tipo de `view` para incluir `'prices'`
+- Renderizar `PriceConsultView` cuando `view === 'prices'`
+- Ocultar botones de "Nuevo Pedido" y "Excel" en esta vista
 
