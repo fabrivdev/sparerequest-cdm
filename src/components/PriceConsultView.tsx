@@ -41,13 +41,14 @@ const PriceConsultView = () => {
   const [searchMode, setSearchMode] = useState<SearchMode>('contains');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     const fetchAll = async () => {
-      let all: Product[] = [];
       let from = 0;
       const batch = 1000;
+      let isFirst = true;
       while (true) {
         const { data } = await supabase
           .from('products')
@@ -56,12 +57,19 @@ const PriceConsultView = () => {
           .order('code')
           .range(from, from + batch - 1);
         if (!data || data.length === 0) break;
-        all = all.concat(data);
+        if (isFirst) {
+          setProducts(data);
+          setLoading(false);
+          setLoadingMore(true);
+          isFirst = false;
+        } else {
+          setProducts(prev => [...prev, ...data]);
+        }
         if (data.length < batch) break;
         from += batch;
       }
-      setProducts(all);
-      setLoading(false);
+      setLoadingMore(false);
+      if (isFirst) setLoading(false);
     };
     fetchAll();
   }, []);
@@ -191,6 +199,7 @@ const PriceConsultView = () => {
         <p className="text-xs text-muted-foreground">
           {filtered.length} producto{filtered.length !== 1 ? 's' : ''}
           {totalPages > 1 && ` · Página ${page} de ${totalPages}`}
+          {loadingMore && ' · Cargando más productos...'}
         </p>
         {totalPages > 1 && (
           <Pagination>
