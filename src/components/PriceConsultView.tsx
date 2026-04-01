@@ -206,7 +206,7 @@ const PriceConsultView = () => {
       )}
 
       {/* Footer: count + pagination */}
-      {hasFilter && (
+      {totalCount > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground">
             {totalCount} producto{totalCount !== 1 ? 's' : ''}
