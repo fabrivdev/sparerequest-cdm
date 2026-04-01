@@ -837,6 +837,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_distinct_brands: {
+        Args: never
+        Returns: {
+          brand: string
+        }[]
+      }
       has_permission: {
         Args: { _permission: string; _user_id: string }
         Returns: boolean

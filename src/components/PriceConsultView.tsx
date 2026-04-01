@@ -40,13 +40,9 @@ const PriceConsultView = () => {
   // Fetch brands on mount
   useEffect(() => {
     const fetchBrands = async () => {
-      const { data } = await supabase
-        .from('products')
-        .select('brand')
-        .order('brand');
+      const { data } = await supabase.rpc('get_distinct_brands');
       if (data) {
-        const unique = [...new Set(data.map(d => d.brand))].sort();
-        setBrands(unique);
+        setBrands(data.map((d: { brand: string }) => d.brand));
       }
       setLoadingBrands(false);
     };
