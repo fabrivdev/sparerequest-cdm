@@ -71,6 +71,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
 
   // Filter by search + status
   const filtered = desarmes.filter(d => {
+    if (d.status === 'cancelado') return false;
     if (statusFilter !== 'todos' && d.status !== statusFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
@@ -126,7 +127,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los estados</SelectItem>
-            {DESARME_ALL_STATUSES.map(s => (
+            {DESARME_ALL_STATUSES.filter(s => s !== 'cancelado').map(s => (
               <SelectItem key={s} value={s}>{DESARME_STATUS_LABELS[s]}</SelectItem>
             ))}
           </SelectContent>
