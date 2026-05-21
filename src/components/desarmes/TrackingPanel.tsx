@@ -127,7 +127,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los estados</SelectItem>
-            {DESARME_ALL_STATUSES.map(s => (
+            {DESARME_ALL_STATUSES.filter(s => s !== 'cancelado').map(s => (
               <SelectItem key={s} value={s}>{DESARME_STATUS_LABELS[s]}</SelectItem>
             ))}
           </SelectContent>
