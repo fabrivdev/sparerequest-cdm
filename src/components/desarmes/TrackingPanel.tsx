@@ -71,6 +71,7 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
 
   // Filter by search + status
   const filtered = desarmes.filter(d => {
+    if (d.status === 'cancelado') return false;
     if (statusFilter !== 'todos' && d.status !== statusFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
