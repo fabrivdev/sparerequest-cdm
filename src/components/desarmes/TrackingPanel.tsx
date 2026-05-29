@@ -192,8 +192,9 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
                           <div className="flex-1 min-w-0">
                              <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-xs">{part.desarme_number}</span>
-                              <span className="font-mono text-xs text-muted-foreground">{part.product_code}</span>
-                              <span className="text-xs text-muted-foreground">× {part.quantity}</span>
+                              <span className="font-mono text-xs text-muted-foreground" title={part.items_summary}>
+                                {part.items_summary || `${part.product_code}×${part.quantity}`}
+                              </span>
                               {group.client_names.length > 1 && (
                                 <span className="text-xs font-medium text-primary">{part.client_name}</span>
                               )}
