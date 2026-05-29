@@ -433,15 +433,29 @@ Deno.serve(async (req) => {
       if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
       const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
       if (!desarme || desarme.status !== 'aprobado') return respond({ error: 'El desarme debe estar aprobado para generar pedido' }, 400);
+      const { data: itemsList } = await supabase.from('desarme_items').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
+      const itemsToOrder = (itemsList && itemsList.length > 0)
+        ? itemsList
+        : [{ id: null, product_code: desarme.product_code, quantity: desarme.quantity }];
       const observation = `Generado desde Desarme Nº ${desarme.desarme_number} – Serie ${desarme.serial_number} – Cliente ${desarme.client_name}`;
-      const { data: order, error: orderError } = await supabase.from('orders').insert({
-        user_id: desarme.created_by, brand: desarme.brand, product_code: desarme.product_code,
-        quantity: desarme.quantity, branch_destination: desarme.branch,
-        shipping_method: desarme.quoted_shipping_method || 'aereo', observation, status: 'pending', order_destination: 'cliente',
-      }).select().single();
-      if (orderError) return respond({ error: 'Error al generar pedido' }, 500);
-      await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: order.id }).eq('id', desarmeId);
-      await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId, `Pedido generado: ${order.id}`);
+      const createdOrders: any[] = [];
+      for (const it of itemsToOrder) {
+        const { data: order, error: orderError } = await supabase.from('orders').insert({
+          user_id: desarme.created_by, brand: desarme.brand, product_code: it.product_code,
+          quantity: it.quantity, branch_destination: desarme.branch,
+          shipping_method: desarme.quoted_shipping_method || 'aereo',
+          observation, status: 'pending', order_destination: 'cliente',
+          desarme_item_id: it.id || null,
+        }).select().single();
+        if (orderError) { console.error('Order create error:', orderError); return respond({ error: 'Error al generar pedido' }, 500); }
+        createdOrders.push(order);
+        if (it.id) {
+          await supabase.from('desarme_items').update({ linked_order_id: order.id }).eq('id', it.id);
+        }
+      }
+      await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: createdOrders[0].id }).eq('id', desarmeId);
+      await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId,
+        createdOrders.length > 1 ? `${createdOrders.length} pedidos generados` : `Pedido generado: ${createdOrders[0].id}`);
       const updatedDesarme = await getFullDesarme(desarmeId);
       if (updatedDesarme) sendSlackCSV(updatedDesarme, supabase, 'Pedido Generado');
       return respond({ success: true, order });
