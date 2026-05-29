@@ -338,7 +338,16 @@ Deno.serve(async (req) => {
       const { data: desarme, error } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
       if (error || !desarme) return respond({ error: 'Desarme no encontrado' }, 404);
       const { data: logs } = await supabase.from('desarme_status_log').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
-      return respond({ desarme, logs: logs || [] });
+      const { data: items } = await supabase.from('desarme_items').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
+      let itemsWithOrders = items || [];
+      const orderIds = (items || []).filter((i: any) => i.linked_order_id).map((i: any) => i.linked_order_id);
+      if (orderIds.length > 0) {
+        const { data: orders } = await supabase.from('orders').select('id, status, order_number').in('id', orderIds);
+        const orderMap: Record<string, any> = {};
+        orders?.forEach((o: any) => { orderMap[o.id] = o; });
+        itemsWithOrders = (items || []).map((i: any) => ({ ...i, linked_order: i.linked_order_id ? orderMap[i.linked_order_id] || null : null }));
+      }
+      return respond({ desarme, logs: logs || [], items: itemsWithOrders });
     }
 
     // ===== QUOTE DESARME =====
