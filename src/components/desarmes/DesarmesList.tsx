@@ -27,6 +27,8 @@ interface Desarme {
   quoted_value: number | null;
   created_at: string;
   created_by_name?: string;
+  items_summary?: string;
+  items_count?: number;
 }
 
 interface DesarmesListProps {
