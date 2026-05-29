@@ -78,7 +78,8 @@ const TrackingPanel = ({ onSelect, refreshKey }: TrackingPanelProps) => {
     return d.serial_number.toLowerCase().includes(s) ||
       d.client_name.toLowerCase().includes(s) ||
       d.desarme_number.toLowerCase().includes(s) ||
-      d.product_code.toLowerCase().includes(s);
+      d.product_code.toLowerCase().includes(s) ||
+      (d.items_summary || '').toLowerCase().includes(s);
   });
 
   // Group by serial_number
