@@ -25,6 +25,7 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   const { user } = useAuth();
   const [desarme, setDesarme] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -41,6 +42,7 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
       });
       if (data?.desarme) setDesarme(data.desarme);
       if (data?.logs) setLogs(data.logs);
+      if (data?.items) setItems(data.items);
       setLoading(false);
     };
     fetch();
@@ -52,6 +54,7 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     });
     if (data?.desarme) setDesarme(data.desarme);
     if (data?.logs) setLogs(data.logs);
+    if (data?.items) setItems(data.items);
   };
 
   const handleGenerateOrder = async () => {
