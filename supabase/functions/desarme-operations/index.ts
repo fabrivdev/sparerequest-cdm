@@ -458,7 +458,7 @@ Deno.serve(async (req) => {
         createdOrders.length > 1 ? `${createdOrders.length} pedidos generados` : `Pedido generado: ${createdOrders[0].id}`);
       const updatedDesarme = await getFullDesarme(desarmeId);
       if (updatedDesarme) sendSlackCSV(updatedDesarme, supabase, 'Pedido Generado');
-      return respond({ success: true, order });
+      return respond({ success: true, orders: createdOrders, order: createdOrders[0] });
     }
 
     // ===== UPDATE DESARME STATUS =====
