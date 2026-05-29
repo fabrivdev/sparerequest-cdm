@@ -205,6 +205,9 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                     </div>
                   ))}
                 </div>
+              </div>
+
+
 
               {/* Quote */}
               {desarme.quoted_value !== null && (
