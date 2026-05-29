@@ -178,12 +178,33 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                 <div><span className="text-muted-foreground">Marca:</span> {desarme.brand}</div>
                 <div><span className="text-muted-foreground">Modelo:</span> {desarme.model}</div>
                 <div><span className="text-muted-foreground">Serie:</span> <span className="font-mono">{desarme.serial_number}</span></div>
-                <div><span className="text-muted-foreground">Repuesto:</span> <span className="font-mono">{desarme.product_code}</span> × {desarme.quantity}</div>
                 <div className="col-span-2"><span className="text-muted-foreground">Motivo:</span> {desarme.reason}</div>
                 {desarme.service_order_number && (
                   <div className="col-span-2"><span className="text-muted-foreground">Orden de Servicio:</span> <span className="font-mono font-medium">{desarme.service_order_number}</span></div>
                 )}
               </div>
+
+              {/* Items list */}
+              <div className="space-y-1.5">
+                <p className="text-xs font-medium">Repuestos ({items.length || 1})</p>
+                <div className="border rounded-lg overflow-hidden">
+                  {(items.length > 0 ? items : [{ id: 'legacy', product_code: desarme.product_code, product_name: desarme.product_name, quantity: desarme.quantity, received_at: null, linked_order: null }]).map((it: any) => (
+                    <div key={it.id} className="flex items-center gap-2 px-3 py-2 text-xs border-b last:border-b-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono font-medium">{it.product_code}</span>
+                          <span className="text-muted-foreground">× {it.quantity}</span>
+                        </div>
+                        {it.product_name && <p className="text-[11px] text-muted-foreground truncate">{it.product_name}</p>}
+                      </div>
+                      {it.received_at ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">Recibido</span>
+                      ) : it.linked_order ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Pedido {it.linked_order.order_number || it.linked_order_id?.slice(0, 6)}</span>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
 
               {/* Quote */}
               {desarme.quoted_value !== null && (
