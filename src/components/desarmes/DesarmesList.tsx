@@ -84,6 +84,7 @@ const DesarmesList = ({ view, onSelect, onNew, canCreate, refreshKey }: Desarmes
       d.client_name.toLowerCase().includes(s) ||
       d.serial_number.toLowerCase().includes(s) ||
       d.product_code.toLowerCase().includes(s) ||
+      (d.items_summary || '').toLowerCase().includes(s) ||
       d.brand.toLowerCase().includes(s);
   });
 
