@@ -244,18 +244,40 @@ Deno.serve(async (req) => {
     // ===== CREATE DESARME =====
     if (action === 'createDesarme') {
       if (!(await checkPerm('crear_desarme'))) return respond({ error: 'Sin permiso para crear desarmes' }, 403);
-      const { brand, model, serial_number, client_name, branch, product_code, product_name, quantity, reason, is_urgent, salesperson } = body;
-      if (!brand || !model || !serial_number || !client_name || !branch || !product_code || !quantity || !reason) return respond({ error: 'Faltan campos obligatorios' }, 400);
+      const { brand, model, serial_number, client_name, branch, reason, is_urgent, salesperson } = body;
+      let items: { product_code: string; product_name?: string | null; quantity: number }[] = Array.isArray(body.items) ? body.items : [];
+      if (items.length === 0 && body.product_code) {
+        items = [{ product_code: body.product_code, product_name: body.product_name || null, quantity: parseInt(body.quantity) || 1 }];
+      }
+      items = items
+        .map(it => ({ product_code: String(it.product_code || '').trim(), product_name: it.product_name || null, quantity: parseInt(String(it.quantity)) || 1 }))
+        .filter(it => it.product_code && it.quantity > 0);
+      if (!brand || !model || !serial_number || !client_name || !branch || !reason || items.length === 0) {
+        return respond({ error: 'Faltan campos obligatorios' }, 400);
+      }
+      const dedup = new Map<string, { product_code: string; product_name: string | null; quantity: number }>();
+      for (const it of items) {
+        const key = it.product_code.toUpperCase();
+        const prev = dedup.get(key);
+        if (prev) prev.quantity += it.quantity;
+        else dedup.set(key, { ...it });
+      }
+      const finalItems = [...dedup.values()];
+      const first = finalItems[0];
       const { data, error } = await supabase.from('desarmes').insert({
         created_by: userId, brand, model, serial_number, client_name, branch,
-        product_code, product_name: product_name || null,
-        quantity: parseInt(quantity), reason, is_urgent: !!is_urgent,
+        product_code: first.product_code, product_name: first.product_name,
+        quantity: first.quantity, reason, is_urgent: !!is_urgent,
         salesperson: salesperson || null,
       }).select().single();
       if (error) { console.error('Error creating desarme:', error); return respond({ error: 'Error al crear desarme' }, 500); }
-      await logStatus(data.id, null, 'pendiente_cotizacion', userId, 'Desarme creado');
+      const { error: itemsError } = await supabase.from('desarme_items').insert(
+        finalItems.map(it => ({ desarme_id: data.id, product_code: it.product_code, product_name: it.product_name, quantity: it.quantity }))
+      );
+      if (itemsError) console.error('Error creating desarme items:', itemsError);
+      await logStatus(data.id, null, 'pendiente_cotizacion', userId,
+        finalItems.length > 1 ? `Desarme creado con ${finalItems.length} repuestos` : 'Desarme creado');
       sendSlackCSV(data, supabase, 'Creado');
-      // n8n webhook - CREADO
       const { data: creatorAuth } = await supabase.auth.admin.getUserById(userId);
       sendN8nWebhook('CREADO', data.desarme_number, creatorAuth?.user?.email || '');
       return respond({ desarme: data });
@@ -284,12 +306,27 @@ Deno.serve(async (req) => {
       const { data: profiles } = await supabase.from('profiles').select('user_id, full_name').in('user_id', userIds);
       const nameMap: Record<string, string> = {};
       profiles?.forEach((p: any) => { nameMap[p.user_id] = p.full_name || 'Usuario'; });
-      const enriched = data.map((d: any) => ({
-        ...d,
-        created_by_name: nameMap[d.created_by] || 'Usuario',
-        quoted_by_name: d.quoted_by ? (nameMap[d.quoted_by] || 'Usuario') : null,
-        authorized_by_name: d.authorized_by ? (nameMap[d.authorized_by] || 'Usuario') : null,
-      }));
+
+      const desarmeIds = data.map((d: any) => d.id);
+      const itemsByDesarme: Record<string, any[]> = {};
+      if (desarmeIds.length > 0) {
+        const { data: items } = await supabase.from('desarme_items').select('*').in('desarme_id', desarmeIds).order('created_at', { ascending: true });
+        items?.forEach((it: any) => { (itemsByDesarme[it.desarme_id] ||= []).push(it); });
+      }
+
+      const enriched = data.map((d: any) => {
+        const its = itemsByDesarme[d.id] || [];
+        const summary = its.map((i: any) => `${i.product_code}×${i.quantity}`).join(', ');
+        return {
+          ...d,
+          created_by_name: nameMap[d.created_by] || 'Usuario',
+          quoted_by_name: d.quoted_by ? (nameMap[d.quoted_by] || 'Usuario') : null,
+          authorized_by_name: d.authorized_by ? (nameMap[d.authorized_by] || 'Usuario') : null,
+          items: its,
+          items_count: its.length || 1,
+          items_summary: summary || `${d.product_code}×${d.quantity}`,
+        };
+      });
       return respond({ desarmes: enriched });
     }
 
@@ -301,7 +338,16 @@ Deno.serve(async (req) => {
       const { data: desarme, error } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
       if (error || !desarme) return respond({ error: 'Desarme no encontrado' }, 404);
       const { data: logs } = await supabase.from('desarme_status_log').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
-      return respond({ desarme, logs: logs || [] });
+      const { data: items } = await supabase.from('desarme_items').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
+      let itemsWithOrders = items || [];
+      const orderIds = (items || []).filter((i: any) => i.linked_order_id).map((i: any) => i.linked_order_id);
+      if (orderIds.length > 0) {
+        const { data: orders } = await supabase.from('orders').select('id, status, order_number').in('id', orderIds);
+        const orderMap: Record<string, any> = {};
+        orders?.forEach((o: any) => { orderMap[o.id] = o; });
+        itemsWithOrders = (items || []).map((i: any) => ({ ...i, linked_order: i.linked_order_id ? orderMap[i.linked_order_id] || null : null }));
+      }
+      return respond({ desarme, logs: logs || [], items: itemsWithOrders });
     }
 
     // ===== QUOTE DESARME =====
@@ -387,18 +433,32 @@ Deno.serve(async (req) => {
       if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
       const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
       if (!desarme || desarme.status !== 'aprobado') return respond({ error: 'El desarme debe estar aprobado para generar pedido' }, 400);
+      const { data: itemsList } = await supabase.from('desarme_items').select('*').eq('desarme_id', desarmeId).order('created_at', { ascending: true });
+      const itemsToOrder = (itemsList && itemsList.length > 0)
+        ? itemsList
+        : [{ id: null, product_code: desarme.product_code, quantity: desarme.quantity }];
       const observation = `Generado desde Desarme Nº ${desarme.desarme_number} – Serie ${desarme.serial_number} – Cliente ${desarme.client_name}`;
-      const { data: order, error: orderError } = await supabase.from('orders').insert({
-        user_id: desarme.created_by, brand: desarme.brand, product_code: desarme.product_code,
-        quantity: desarme.quantity, branch_destination: desarme.branch,
-        shipping_method: desarme.quoted_shipping_method || 'aereo', observation, status: 'pending', order_destination: 'cliente',
-      }).select().single();
-      if (orderError) return respond({ error: 'Error al generar pedido' }, 500);
-      await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: order.id }).eq('id', desarmeId);
-      await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId, `Pedido generado: ${order.id}`);
+      const createdOrders: any[] = [];
+      for (const it of itemsToOrder) {
+        const { data: order, error: orderError } = await supabase.from('orders').insert({
+          user_id: desarme.created_by, brand: desarme.brand, product_code: it.product_code,
+          quantity: it.quantity, branch_destination: desarme.branch,
+          shipping_method: desarme.quoted_shipping_method || 'aereo',
+          observation, status: 'pending', order_destination: 'cliente',
+          desarme_item_id: it.id || null,
+        }).select().single();
+        if (orderError) { console.error('Order create error:', orderError); return respond({ error: 'Error al generar pedido' }, 500); }
+        createdOrders.push(order);
+        if (it.id) {
+          await supabase.from('desarme_items').update({ linked_order_id: order.id }).eq('id', it.id);
+        }
+      }
+      await supabase.from('desarmes').update({ status: 'pedido_generado', linked_order_id: createdOrders[0].id }).eq('id', desarmeId);
+      await logStatus(desarmeId, 'aprobado', 'pedido_generado', userId,
+        createdOrders.length > 1 ? `${createdOrders.length} pedidos generados` : `Pedido generado: ${createdOrders[0].id}`);
       const updatedDesarme = await getFullDesarme(desarmeId);
       if (updatedDesarme) sendSlackCSV(updatedDesarme, supabase, 'Pedido Generado');
-      return respond({ success: true, order });
+      return respond({ success: true, orders: createdOrders, order: createdOrders[0] });
     }
 
     // ===== UPDATE DESARME STATUS =====

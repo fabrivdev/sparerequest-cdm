@@ -27,6 +27,8 @@ interface Desarme {
   quoted_value: number | null;
   created_at: string;
   created_by_name?: string;
+  items_summary?: string;
+  items_count?: number;
 }
 
 interface DesarmesListProps {
@@ -82,6 +84,7 @@ const DesarmesList = ({ view, onSelect, onNew, canCreate, refreshKey }: Desarmes
       d.client_name.toLowerCase().includes(s) ||
       d.serial_number.toLowerCase().includes(s) ||
       d.product_code.toLowerCase().includes(s) ||
+      (d.items_summary || '').toLowerCase().includes(s) ||
       d.brand.toLowerCase().includes(s);
   });
 
@@ -158,7 +161,9 @@ const DesarmesList = ({ view, onSelect, onNew, canCreate, refreshKey }: Desarmes
                   </TableCell>
                   <TableCell className="text-sm font-medium max-w-[120px] truncate">{d.client_name}</TableCell>
                   <TableCell className="hidden md:table-cell text-xs font-mono">{d.serial_number}</TableCell>
-                  <TableCell className="text-xs font-mono">{d.product_code}</TableCell>
+                  <TableCell className="text-xs font-mono" title={d.items_summary}>
+                    {d.product_code}{(d.items_count || 1) > 1 && <span className="ml-1 text-muted-foreground">+{(d.items_count || 1) - 1}</span>}
+                  </TableCell>
                   <TableCell className="hidden lg:table-cell text-xs">{d.branch}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${DESARME_STATUS_COLORS[d.status] || 'bg-muted text-muted-foreground'}`}>

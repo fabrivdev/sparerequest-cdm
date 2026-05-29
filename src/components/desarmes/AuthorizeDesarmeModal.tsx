@@ -68,7 +68,7 @@ const AuthorizeDesarmeModal = ({ isOpen, onClose, desarme, onActioned }: Authori
           <div className="bg-muted/50 rounded-lg p-3 text-xs space-y-1.5">
             <div className="flex justify-between"><span className="text-muted-foreground">Cliente:</span><span className="font-medium">{desarme.client_name}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Máquina:</span><span>{desarme.brand} {desarme.model} – {desarme.serial_number}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Repuesto:</span><span className="font-mono">{desarme.product_code} × {desarme.quantity}</span></div>
+            <div className="flex justify-between gap-2"><span className="text-muted-foreground shrink-0">Repuesto{(desarme.items_count || 1) > 1 ? 's' : ''}:</span><span className="font-mono text-right break-all">{desarme.items_summary || `${desarme.product_code} × ${desarme.quantity}`}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Motivo:</span><span>{desarme.reason}</span></div>
             {desarme.is_urgent && (
               <div className="flex items-center gap-1 text-destructive font-medium">

@@ -161,6 +161,50 @@ export type Database = {
         }
         Relationships: []
       }
+      desarme_items: {
+        Row: {
+          created_at: string
+          desarme_id: string
+          id: string
+          linked_order_id: string | null
+          product_code: string
+          product_name: string | null
+          quantity: number
+          received_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          desarme_id: string
+          id?: string
+          linked_order_id?: string | null
+          product_code: string
+          product_name?: string | null
+          quantity?: number
+          received_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          desarme_id?: string
+          id?: string
+          linked_order_id?: string | null
+          product_code?: string
+          product_name?: string | null
+          quantity?: number
+          received_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "desarme_items_desarme_id_fkey"
+            columns: ["desarme_id"]
+            isOneToOne: false
+            referencedRelation: "desarmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       desarme_status_log: {
         Row: {
           changed_by: string
@@ -331,6 +375,7 @@ export type Database = {
           brand: string
           created_at: string
           delivered_at: string | null
+          desarme_item_id: string | null
           estimated_delivery_date: string | null
           id: string
           invoice_number: string | null
@@ -354,6 +399,7 @@ export type Database = {
           brand: string
           created_at?: string
           delivered_at?: string | null
+          desarme_item_id?: string | null
           estimated_delivery_date?: string | null
           id?: string
           invoice_number?: string | null
@@ -377,6 +423,7 @@ export type Database = {
           brand?: string
           created_at?: string
           delivered_at?: string | null
+          desarme_item_id?: string | null
           estimated_delivery_date?: string | null
           id?: string
           invoice_number?: string | null

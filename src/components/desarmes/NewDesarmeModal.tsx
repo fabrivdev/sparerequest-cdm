@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Wrench, Check, AlertCircle } from 'lucide-react';
+import { Loader2, Wrench, Check, Plus, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -17,6 +17,15 @@ interface NewDesarmeModalProps {
   onCreated: () => void;
 }
 
+interface ItemRow {
+  product_code: string;
+  product_name: string;
+  quantity: string;
+  searching: boolean;
+}
+
+const emptyItem = (): ItemRow => ({ product_code: '', product_name: '', quantity: '1', searching: false });
+
 const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: NewDesarmeModalProps) => {
   const [brand, setBrand] = useState('');
   const [model, setModel] = useState('');
@@ -24,16 +33,13 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
   const [clientName, setClientName] = useState('');
   const [salesperson, setSalesperson] = useState('');
   const [branch, setBranch] = useState(defaultBranch);
-  const [productCode, setProductCode] = useState('');
-  const [productName, setProductName] = useState('');
-  const [quantity, setQuantity] = useState('1');
+  const [items, setItems] = useState<ItemRow[]>([emptyItem()]);
   const [reason, setReason] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [providers, setProviders] = useState<{ id: string; name: string; color: string }[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -49,33 +55,54 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
     if (defaultBranch) setBranch(defaultBranch);
   }, [isOpen, defaultBranch]);
 
-  // Search product
-  const searchProduct = useCallback(async (code: string, b: string) => {
-    if (!code.trim() || !b) { setProductName(''); return; }
-    setIsSearching(true);
+  const updateItem = (idx: number, patch: Partial<ItemRow>) => {
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...patch } : it));
+  };
+
+  const searchProduct = useCallback(async (idx: number, code: string, b: string) => {
+    if (!code.trim() || !b) { updateItem(idx, { product_name: '', searching: false }); return; }
+    updateItem(idx, { searching: true });
     const { data } = await supabase.from('products').select('name').ilike('code', code.trim()).ilike('brand', b).maybeSingle();
-    setProductName(data?.name || '');
-    setIsSearching(false);
+    updateItem(idx, { product_name: data?.name || '', searching: false });
   }, []);
 
+  // Debounced search per item / brand change
   useEffect(() => {
-    const t = setTimeout(() => searchProduct(productCode, brand), 300);
-    return () => clearTimeout(t);
-  }, [productCode, brand, searchProduct]);
+    const timeouts = items.map((it, idx) =>
+      setTimeout(() => searchProduct(idx, it.product_code, brand), 300)
+    );
+    return () => { timeouts.forEach(clearTimeout); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.map(i => i.product_code).join('|'), brand]);
+
+  const addItem = () => setItems(prev => [...prev, emptyItem()]);
+  const removeItem = (idx: number) => setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== idx));
 
   const resetForm = () => {
     setBrand(''); setModel(''); setSerialNumber(''); setClientName(''); setSalesperson('');
-    setBranch(defaultBranch); setProductCode(''); setProductName('');
-    setQuantity('1'); setReason(''); setIsUrgent(false);
-    setError(null); setIsLoading(false);
+    setBranch(defaultBranch); setItems([emptyItem()]);
+    setReason(''); setIsUrgent(false); setError(null); setIsLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!brand || !model || !serialNumber || !clientName || !branch || !productCode || !reason) {
-      setError('Completa todos los campos obligatorios');
+    const cleanItems = items
+      .map(it => ({ product_code: it.product_code.trim(), product_name: it.product_name || null, quantity: parseInt(it.quantity) || 0 }))
+      .filter(it => it.product_code);
+
+    if (!brand || !model || !serialNumber || !clientName || !branch || !reason || cleanItems.length === 0) {
+      setError('Completa todos los campos obligatorios y al menos un repuesto');
+      return;
+    }
+    if (cleanItems.some(it => it.quantity <= 0)) {
+      setError('La cantidad de cada repuesto debe ser mayor a 0');
+      return;
+    }
+    const codes = cleanItems.map(it => it.product_code.toUpperCase());
+    if (new Set(codes).size !== codes.length) {
+      setError('Hay códigos repetidos. Eliminá duplicados antes de enviar.');
       return;
     }
 
@@ -85,9 +112,9 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
         body: {
           action: 'createDesarme',
           brand, model, serial_number: serialNumber, client_name: clientName,
-          branch, product_code: productCode, product_name: productName || null,
-          quantity: parseInt(quantity) || 1, reason, is_urgent: isUrgent,
+          branch, reason, is_urgent: isUrgent,
           salesperson: salesperson || null,
+          items: cleanItems,
         },
       });
 
@@ -125,7 +152,6 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <div className="p-3 bg-destructive/10 text-destructive rounded-xl text-xs">{error}</div>}
 
-          {/* Brand */}
           <div className="space-y-1.5">
             <Label className="text-xs">Marca Máquina <span className="text-destructive">*</span></Label>
             <Select value={brand} onValueChange={setBrand}>
@@ -143,7 +169,6 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
             </Select>
           </div>
 
-          {/* Model + Serial */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Modelo <span className="text-destructive">*</span></Label>
@@ -155,7 +180,6 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
             </div>
           </div>
 
-          {/* Client + Salesperson */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Cliente <span className="text-destructive">*</span></Label>
@@ -167,7 +191,6 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
             </div>
           </div>
 
-          {/* Branch */}
           <div className="space-y-1.5">
             <Label className="text-xs">Sucursal <span className="text-destructive">*</span></Label>
             <Select value={branch} onValueChange={setBranch}>
@@ -178,30 +201,59 @@ const NewDesarmeModal = ({ isOpen, onClose, defaultBranch = '', onCreated }: New
             </Select>
           </div>
 
-          {/* Product Code + Qty */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2 space-y-1.5">
-              <Label className="text-xs">Código Repuesto <span className="text-destructive">*</span></Label>
-              <div className="relative">
-                <Input value={productCode} onChange={e => setProductCode(e.target.value)} placeholder="Código" className="h-9 text-sm pr-8" />
-                {isSearching && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
-                {productName && !isSearching && <Check className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" />}
-              </div>
-              {productName && <p className="text-[11px] text-green-600">{productName}</p>}
+          {/* Items */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Repuestos <span className="text-destructive">*</span></Label>
+              <Button type="button" variant="ghost" size="sm" onClick={addItem} className="h-7 text-xs gap-1">
+                <Plus className="w-3.5 h-3.5" /> Agregar repuesto
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Cantidad <span className="text-destructive">*</span></Label>
-              <Input type="text" inputMode="numeric" value={quantity} onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))} className="h-9 text-sm" />
+            <div className="space-y-2">
+              {items.map((it, idx) => (
+                <div key={idx} className="grid grid-cols-[1fr_72px_32px] gap-2 items-start">
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Input
+                        value={it.product_code}
+                        onChange={e => updateItem(idx, { product_code: e.target.value })}
+                        placeholder="Código"
+                        className="h-9 text-sm pr-8 font-mono"
+                      />
+                      {it.searching && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin text-muted-foreground" />}
+                      {it.product_name && !it.searching && <Check className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-green-500" />}
+                    </div>
+                    {it.product_name && <p className="text-[11px] text-green-600 leading-tight">{it.product_name}</p>}
+                  </div>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={it.quantity}
+                    onChange={e => updateItem(idx, { quantity: e.target.value.replace(/[^0-9]/g, '') })}
+                    className="h-9 text-sm text-center"
+                    placeholder="Cant."
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeItem(idx)}
+                    disabled={items.length === 1}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
             </div>
+            {!brand && <p className="text-[11px] text-muted-foreground">Seleccioná la marca para autocompletar nombres de repuesto.</p>}
           </div>
 
-          {/* Reason */}
           <div className="space-y-1.5">
             <Label className="text-xs">Motivo del Desarme <span className="text-destructive">*</span></Label>
             <Textarea value={reason} onChange={e => setReason(e.target.value)} placeholder="Describir motivo..." className="text-sm min-h-[60px]" />
           </div>
 
-          {/* Urgent */}
           <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-xl">
             <div>
               <p className="text-sm font-medium">¿Máquina parada?</p>
