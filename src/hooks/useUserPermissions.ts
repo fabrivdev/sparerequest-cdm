@@ -27,7 +27,7 @@ export const useUserPermissions = () => {
 
     // Listen for realtime changes
     const channel = supabase
-      .channel('user-perms-' + user.id)
+      .channel(`user-perms-${user.id}-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
