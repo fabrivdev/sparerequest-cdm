@@ -175,7 +175,7 @@ const sendSlackCSV = async (desarme: any, supabase: any, action: string) => {
 };
 
 // ── n8n webhook helper ──────────────────────────────────────────────────
-const N8N_WEBHOOK_URL = 'https://favegacdm.app.n8n.cloud/webhook/desarmes';
+const N8N_WEBHOOK_URL = 'https://sparerequest-cdm.onrender.com/desarmes';
 
 const sendN8nWebhook = async (accion: string, solicitud: string, creadorEmail: string) => {
   try {
