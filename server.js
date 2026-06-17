@@ -1,23 +1,16 @@
 const express = require("express");
-const nodemailer = require("nodemailer");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
 
-// ─── Transporte Brevo (SMTP) ────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.BREVO_LOGIN,    // tu email de cuenta en Brevo
-    pass: process.env.BREVO_SMTP_KEY, // clave SMTP de Brevo (no tu contraseña)
-  },
-});
+// ─── Brevo API (HTTP, no usa puertos SMTP) ──────────────────────────────────
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_URL = "https://api.brevo.com/v3/smtp/email";
 
 // ─── Remitente verificado en Brevo ──────────────────────────────────────────
-const FROM = `"Sistema de Repuestos CDM" <${process.env.BREVO_FROM || "noreply.sgr.cdm@gmail.com"}>`;
+const FROM_EMAIL = process.env.BREVO_FROM || "noreply.sgr.cdm@gmail.com";
+const FROM_NAME = "Sistema de Repuestos CDM";
 
 // ─── Destinatarios ──────────────────────────────────────────────────────────
 const EMAILS = {
@@ -51,7 +44,13 @@ const firma = `
   </table>
 `;
 
-// ─── Helper: enviar correo ──────────────────────────────────────────────────
+// ─── Helper: convertir string/array de emails a formato Brevo ──────────────
+function toBrevoList(value) {
+  const arr = Array.isArray(value) ? value : value.split(",").map(e => e.trim());
+  return arr.filter(Boolean).map(email => ({ email }));
+}
+
+// ─── Helper: enviar correo vía API de Brevo ─────────────────────────────────
 async function enviar({ to, cc, subject, cuerpo }) {
   const html = `
     <div style="padding:30px; font-family:Arial, Helvetica, sans-serif; color:#333;">
@@ -61,7 +60,29 @@ async function enviar({ to, cc, subject, cuerpo }) {
       ${firma}
     </div>`;
 
-  await transporter.sendMail({ from: FROM, to, cc, subject, html });
+  const payload = {
+    sender: { email: FROM_EMAIL, name: FROM_NAME },
+    to: toBrevoList(to),
+    subject,
+    htmlContent: html,
+  };
+
+  if (cc) payload.cc = toBrevoList(cc);
+
+  const response = await fetch(BREVO_URL, {
+    method: "POST",
+    headers: {
+      "accept": "application/json",
+      "api-key": BREVO_API_KEY,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Brevo API error (${response.status}): ${errorBody}`);
+  }
 }
 
 // ─── Webhook principal ──────────────────────────────────────────────────────
