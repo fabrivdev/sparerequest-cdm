@@ -451,6 +451,78 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                 </AlertDialog>
               )}
             </div>
+
+            {/* Mark single item received */}
+            <AlertDialog open={!!receiveItemId} onOpenChange={(o) => { if (!o) { setReceiveItemId(null); setReceiveObservation(''); } }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Marcar repuesto como recibido</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    El repuesto quedará marcado como recibido sin necesidad de un pedido vinculado. Si era el último pendiente, el desarme avanzará a "Recibido".
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Observación (opcional)</Label>
+                  <Input value={receiveObservation} onChange={e => setReceiveObservation(e.target.value)} placeholder="Ej: compra externa, ya estaba en stock..." className="h-9 text-sm" />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMarkItemReceived} disabled={actionLoading}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar recepción'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Mark all received */}
+            <AlertDialog open={showMarkAll} onOpenChange={setShowMarkAll}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Marcar todo como recibido</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Todos los repuestos pendientes del desarme <span className="font-mono font-medium">{desarme.desarme_number}</span> quedarán marcados como recibidos y el desarme pasará a "Recibido".
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Observación <span className="text-destructive">*</span></Label>
+                  <Input value={markAllObservation} onChange={e => setMarkAllObservation(e.target.value)} placeholder="Ej: compra externa, repuestos ya en camino..." className="h-9 text-sm" />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setMarkAllObservation('')}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMarkAllReceived} disabled={actionLoading || !markAllObservation.trim()}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Force close */}
+            <AlertDialog open={showForceClose} onOpenChange={setShowForceClose}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Forzar cierre del desarme</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se cerrará el desarme <span className="font-mono font-medium">{desarme.desarme_number}</span> saltando los pasos intermedios. Usalo solo cuando el circuito se completó por fuera del sistema.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Nro. Orden de Servicio <span className="text-destructive">*</span></Label>
+                    <Input value={forceCloseOS} onChange={e => setForceCloseOS(e.target.value)} placeholder="Ingrese el Nro. de O.S." className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Observación <span className="text-destructive">*</span></Label>
+                    <Input value={forceCloseObs} onChange={e => setForceCloseObs(e.target.value)} placeholder="Motivo del cierre forzado..." className="h-9 text-sm" />
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => { setForceCloseOS(''); setForceCloseObs(''); }}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleForceClose} disabled={actionLoading || !forceCloseOS.trim() || !forceCloseObs.trim()}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar cierre'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         ) : (
           <div className="text-center py-8 text-muted-foreground text-sm">Desarme no encontrado</div>
