@@ -275,6 +275,11 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                       ) : it.linked_order ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Pedido {it.linked_order.order_number || it.linked_order_id?.slice(0, 6)}</span>
                       ) : null}
+                      {!it.received_at && canManualReceive && it.id !== 'legacy' && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] gap-1 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => { setReceiveItemId(it.id); setReceiveObservation(''); }}>
+                          <CheckCircle2 className="w-3 h-3" /> Marcar recibido
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
