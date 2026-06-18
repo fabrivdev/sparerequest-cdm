@@ -32,6 +32,13 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   const [serviceOrderNumber, setServiceOrderNumber] = useState('');
   const [cancelObservation, setCancelObservation] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [receiveItemId, setReceiveItemId] = useState<string | null>(null);
+  const [receiveObservation, setReceiveObservation] = useState('');
+  const [showMarkAll, setShowMarkAll] = useState(false);
+  const [markAllObservation, setMarkAllObservation] = useState('');
+  const [showForceClose, setShowForceClose] = useState(false);
+  const [forceCloseOS, setForceCloseOS] = useState('');
+  const [forceCloseObs, setForceCloseObs] = useState('');
 
   useEffect(() => {
     if (!isOpen || !desarmeId) return;
