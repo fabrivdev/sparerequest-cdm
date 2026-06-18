@@ -371,6 +371,27 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                   ))}
                 </div>
               </div>
+
+              {/* Manual actions panel */}
+              {(canManualReceive || canForceClose) && (
+                <div className="border border-dashed rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Acciones manuales</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Para casos donde el repuesto se compró por fuera del sistema o ya estaba en camino.
+                  </p>
+                  {canManualReceive && (
+                    <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => { setShowMarkAll(true); setMarkAllObservation(''); }}>
+                      <CheckCircle2 className="w-4 h-4" /> Marcar todo como recibido (compra externa)
+                    </Button>
+                  )}
+                  {canForceClose && (
+                    <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => { setShowForceClose(true); setForceCloseOS(desarme.service_order_number || ''); setForceCloseObs(''); }}>
+                      <ShieldCheck className="w-4 h-4" /> Forzar cierre del desarme
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Cancel operation */}
               {canCancel && (
                 <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
