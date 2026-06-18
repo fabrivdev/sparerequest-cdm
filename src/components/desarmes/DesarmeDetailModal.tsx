@@ -145,6 +145,72 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     setActionLoading(false);
   };
 
+  const canManualReceive = (isCreator || canUpdateStatus) && desarme && ['aprobado', 'pedido_generado'].includes(desarme.status);
+  const canForceClose = canUpdateStatus && desarme && ['aprobado', 'pedido_generado', 'recibido', 'maquina_rearmada'].includes(desarme.status);
+
+  const handleMarkItemReceived = async () => {
+    if (!receiveItemId) return;
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'markItemReceived', desarmeId, itemId: receiveItemId, observation: receiveObservation.trim() || null },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al marcar como recibido');
+    } else {
+      toast.success('Repuesto marcado como recibido');
+      setReceiveItemId(null);
+      setReceiveObservation('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+  const handleMarkAllReceived = async () => {
+    if (!markAllObservation.trim()) {
+      toast.error('La observación es obligatoria');
+      return;
+    }
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'markAllReceivedManual', desarmeId, observation: markAllObservation.trim() },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al marcar como recibido');
+    } else {
+      toast.success('Repuestos marcados como recibidos');
+      setShowMarkAll(false);
+      setMarkAllObservation('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+  const handleForceClose = async () => {
+    if (!forceCloseOS.trim() || !forceCloseObs.trim()) {
+      toast.error('Nro. de O.S. y observación son obligatorios');
+      return;
+    }
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'forceCloseDesarme', desarmeId, service_order_number: forceCloseOS.trim(), observation: forceCloseObs.trim() },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al forzar cierre');
+    } else {
+      toast.success('Desarme cerrado');
+      setShowForceClose(false);
+      setForceCloseOS('');
+      setForceCloseObs('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+
+
   const nextStatusMap: Record<string, string> = {
     recibido: 'maquina_rearmada',
     maquina_rearmada: 'cerrado',
