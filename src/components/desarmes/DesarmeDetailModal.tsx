@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -32,6 +32,13 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
   const [serviceOrderNumber, setServiceOrderNumber] = useState('');
   const [cancelObservation, setCancelObservation] = useState('');
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [receiveItemId, setReceiveItemId] = useState<string | null>(null);
+  const [receiveObservation, setReceiveObservation] = useState('');
+  const [showMarkAll, setShowMarkAll] = useState(false);
+  const [markAllObservation, setMarkAllObservation] = useState('');
+  const [showForceClose, setShowForceClose] = useState(false);
+  const [forceCloseOS, setForceCloseOS] = useState('');
+  const [forceCloseObs, setForceCloseObs] = useState('');
 
   useEffect(() => {
     if (!isOpen || !desarmeId) return;
@@ -138,6 +145,72 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
     setActionLoading(false);
   };
 
+  const canManualReceive = (isCreator || canUpdateStatus) && desarme && ['aprobado', 'pedido_generado'].includes(desarme.status);
+  const canForceClose = canUpdateStatus && desarme && ['aprobado', 'pedido_generado', 'recibido', 'maquina_rearmada'].includes(desarme.status);
+
+  const handleMarkItemReceived = async () => {
+    if (!receiveItemId) return;
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'markItemReceived', desarmeId, itemId: receiveItemId, observation: receiveObservation.trim() || null },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al marcar como recibido');
+    } else {
+      toast.success('Repuesto marcado como recibido');
+      setReceiveItemId(null);
+      setReceiveObservation('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+  const handleMarkAllReceived = async () => {
+    if (!markAllObservation.trim()) {
+      toast.error('La observación es obligatoria');
+      return;
+    }
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'markAllReceivedManual', desarmeId, observation: markAllObservation.trim() },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al marcar como recibido');
+    } else {
+      toast.success('Repuestos marcados como recibidos');
+      setShowMarkAll(false);
+      setMarkAllObservation('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+  const handleForceClose = async () => {
+    if (!forceCloseOS.trim() || !forceCloseObs.trim()) {
+      toast.error('Nro. de O.S. y observación son obligatorios');
+      return;
+    }
+    setActionLoading(true);
+    const { data, error } = await supabase.functions.invoke('desarme-operations', {
+      body: { action: 'forceCloseDesarme', desarmeId, service_order_number: forceCloseOS.trim(), observation: forceCloseObs.trim() },
+    });
+    if (error || data?.error) {
+      toast.error(data?.error || 'Error al forzar cierre');
+    } else {
+      toast.success('Desarme cerrado');
+      setShowForceClose(false);
+      setForceCloseOS('');
+      setForceCloseObs('');
+      onRefresh();
+      await refetchDetail();
+    }
+    setActionLoading(false);
+  };
+
+
+
   const nextStatusMap: Record<string, string> = {
     recibido: 'maquina_rearmada',
     maquina_rearmada: 'cerrado',
@@ -202,6 +275,11 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                       ) : it.linked_order ? (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Pedido {it.linked_order.order_number || it.linked_order_id?.slice(0, 6)}</span>
                       ) : null}
+                      {!it.received_at && canManualReceive && it.id !== 'legacy' && (
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] gap-1 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20" onClick={() => { setReceiveItemId(it.id); setReceiveObservation(''); }}>
+                          <CheckCircle2 className="w-3 h-3" /> Marcar recibido
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -293,6 +371,27 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                   ))}
                 </div>
               </div>
+
+              {/* Manual actions panel */}
+              {(canManualReceive || canForceClose) && (
+                <div className="border border-dashed rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Acciones manuales</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Para casos donde el repuesto se compró por fuera del sistema o ya estaba en camino.
+                  </p>
+                  {canManualReceive && (
+                    <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => { setShowMarkAll(true); setMarkAllObservation(''); }}>
+                      <CheckCircle2 className="w-4 h-4" /> Marcar todo como recibido (compra externa)
+                    </Button>
+                  )}
+                  {canForceClose && (
+                    <Button variant="outline" className="w-full gap-2 text-xs" onClick={() => { setShowForceClose(true); setForceCloseOS(desarme.service_order_number || ''); setForceCloseObs(''); }}>
+                      <ShieldCheck className="w-4 h-4" /> Forzar cierre del desarme
+                    </Button>
+                  )}
+                </div>
+              )}
+
               {/* Cancel operation */}
               {canCancel && (
                 <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
@@ -352,6 +451,78 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
                 </AlertDialog>
               )}
             </div>
+
+            {/* Mark single item received */}
+            <AlertDialog open={!!receiveItemId} onOpenChange={(o) => { if (!o) { setReceiveItemId(null); setReceiveObservation(''); } }}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Marcar repuesto como recibido</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    El repuesto quedará marcado como recibido sin necesidad de un pedido vinculado. Si era el último pendiente, el desarme avanzará a "Recibido".
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Observación (opcional)</Label>
+                  <Input value={receiveObservation} onChange={e => setReceiveObservation(e.target.value)} placeholder="Ej: compra externa, ya estaba en stock..." className="h-9 text-sm" />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMarkItemReceived} disabled={actionLoading}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar recepción'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Mark all received */}
+            <AlertDialog open={showMarkAll} onOpenChange={setShowMarkAll}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Marcar todo como recibido</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Todos los repuestos pendientes del desarme <span className="font-mono font-medium">{desarme.desarme_number}</span> quedarán marcados como recibidos y el desarme pasará a "Recibido".
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Observación <span className="text-destructive">*</span></Label>
+                  <Input value={markAllObservation} onChange={e => setMarkAllObservation(e.target.value)} placeholder="Ej: compra externa, repuestos ya en camino..." className="h-9 text-sm" />
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => setMarkAllObservation('')}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleMarkAllReceived} disabled={actionLoading || !markAllObservation.trim()}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Force close */}
+            <AlertDialog open={showForceClose} onOpenChange={setShowForceClose}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Forzar cierre del desarme</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Se cerrará el desarme <span className="font-mono font-medium">{desarme.desarme_number}</span> saltando los pasos intermedios. Usalo solo cuando el circuito se completó por fuera del sistema.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="space-y-2">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs flex items-center gap-1"><FileText className="w-3.5 h-3.5" /> Nro. Orden de Servicio <span className="text-destructive">*</span></Label>
+                    <Input value={forceCloseOS} onChange={e => setForceCloseOS(e.target.value)} placeholder="Ingrese el Nro. de O.S." className="h-9 text-sm" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Observación <span className="text-destructive">*</span></Label>
+                    <Input value={forceCloseObs} onChange={e => setForceCloseObs(e.target.value)} placeholder="Motivo del cierre forzado..." className="h-9 text-sm" />
+                  </div>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={() => { setForceCloseOS(''); setForceCloseObs(''); }}>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleForceClose} disabled={actionLoading || !forceCloseOS.trim() || !forceCloseObs.trim()}>
+                    {actionLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Confirmar cierre'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         ) : (
           <div className="text-center py-8 text-muted-foreground text-sm">Desarme no encontrado</div>

@@ -539,6 +539,90 @@ Deno.serve(async (req) => {
       return respond({ tracking: enriched });
     }
 
+    // ===== MARK ITEM RECEIVED (MANUAL) =====
+    if (action === 'markItemReceived') {
+      const { desarmeId, itemId, observation } = body;
+      if (!desarmeId || !itemId) return respond({ error: 'Faltan parámetros' }, 400);
+      const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
+      if (!desarme) return respond({ error: 'Desarme no encontrado' }, 404);
+      const isCreator = desarme.created_by === userId;
+      const canTrack = await checkPerm('seguimiento_desarme');
+      if (!isCreator && !canTrack) return respond({ error: 'Sin permiso' }, 403);
+      const { data: item } = await supabase.from('desarme_items').select('*').eq('id', itemId).eq('desarme_id', desarmeId).single();
+      if (!item) return respond({ error: 'Repuesto no encontrado' }, 404);
+      if (item.received_at) return respond({ error: 'El repuesto ya estaba recibido' }, 400);
+      await supabase.from('desarme_items').update({ received_at: new Date().toISOString() }).eq('id', itemId);
+      const obs = `Repuesto ${item.product_code} recibido manualmente${observation ? ': ' + observation : ''}`;
+      await logStatus(desarmeId, desarme.status, desarme.status, userId, obs);
+
+      // Check if all items received
+      const { data: pending } = await supabase.from('desarme_items').select('id').eq('desarme_id', desarmeId).is('received_at', null);
+      const allReceived = !pending || pending.length === 0;
+      if (allReceived && ['aprobado', 'pedido_generado'].includes(desarme.status)) {
+        await supabase.from('desarmes').update({ status: 'recibido' }).eq('id', desarmeId);
+        await logStatus(desarmeId, desarme.status, 'recibido', userId, 'Todos los repuestos recibidos');
+        await supabase.from('user_notifications').insert({
+          user_id: desarme.created_by, type: 'desarme_recibido', title: 'Repuestos recibidos',
+          message: `Todos los repuestos del desarme ${desarme.desarme_number} fueron recibidos. Procede con el rearmado.`,
+          metadata: { desarme_id: desarmeId },
+        });
+      }
+      return respond({ success: true, allReceived });
+    }
+
+    // ===== MARK ALL RECEIVED MANUAL (COMPRA EXTERNA) =====
+    if (action === 'markAllReceivedManual') {
+      const { desarmeId, observation } = body;
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
+      if (!observation || !observation.trim()) return respond({ error: 'La observación es obligatoria' }, 400);
+      const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
+      if (!desarme) return respond({ error: 'Desarme no encontrado' }, 404);
+      const isCreator = desarme.created_by === userId;
+      const canTrack = await checkPerm('seguimiento_desarme');
+      if (!isCreator && !canTrack) return respond({ error: 'Sin permiso' }, 403);
+      if (!['aprobado', 'pedido_generado'].includes(desarme.status)) {
+        return respond({ error: 'El desarme no puede marcarse como recibido en su estado actual' }, 400);
+      }
+      await supabase.from('desarme_items').update({ received_at: new Date().toISOString() })
+        .eq('desarme_id', desarmeId).is('received_at', null);
+      await supabase.from('desarmes').update({ status: 'recibido' }).eq('id', desarmeId);
+      await logStatus(desarmeId, desarme.status, 'recibido', userId, `Recepción manual: ${observation.trim()}`);
+      await supabase.from('user_notifications').insert({
+        user_id: desarme.created_by, type: 'desarme_recibido', title: 'Repuestos recibidos',
+        message: `Los repuestos del desarme ${desarme.desarme_number} fueron marcados como recibidos manualmente.`,
+        metadata: { desarme_id: desarmeId },
+      });
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Recibido (Manual)');
+      return respond({ success: true });
+    }
+
+    // ===== FORCE CLOSE DESARME =====
+    if (action === 'forceCloseDesarme') {
+      if (!(await checkPerm('seguimiento_desarme'))) return respond({ error: 'Sin permiso para seguimiento' }, 403);
+      const { desarmeId, service_order_number, observation } = body;
+      if (!desarmeId) return respond({ error: 'Falta desarmeId' }, 400);
+      if (!service_order_number || !String(service_order_number).trim()) return respond({ error: 'El Nro. de Orden de Servicio es obligatorio' }, 400);
+      if (!observation || !observation.trim()) return respond({ error: 'La observación es obligatoria' }, 400);
+      const { data: desarme } = await supabase.from('desarmes').select('*').eq('id', desarmeId).single();
+      if (!desarme) return respond({ error: 'Desarme no encontrado' }, 404);
+      const forceable = ['aprobado', 'pedido_generado', 'recibido', 'maquina_rearmada'];
+      if (!forceable.includes(desarme.status)) return respond({ error: 'El desarme no puede forzarse a cerrado en su estado actual' }, 400);
+      // Mark all items received if pending
+      await supabase.from('desarme_items').update({ received_at: new Date().toISOString() })
+        .eq('desarme_id', desarmeId).is('received_at', null);
+      await supabase.from('desarmes').update({
+        status: 'cerrado',
+        closed_at: new Date().toISOString(),
+        service_order_number: String(service_order_number).trim(),
+        reassembled_at: desarme.reassembled_at || new Date().toISOString(),
+      }).eq('id', desarmeId);
+      await logStatus(desarmeId, desarme.status, 'cerrado', userId, `Cierre forzado: ${observation.trim()}`);
+      const fullDesarme = await getFullDesarme(desarmeId);
+      if (fullDesarme) sendSlackCSV(fullDesarme, supabase, 'Cerrado (Forzado)');
+      return respond({ success: true });
+    }
+
     return respond({ error: 'Acción no válida' }, 400);
   } catch (error) {
     console.error('Error:', error);
