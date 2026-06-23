@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2, CheckCircle2, ShieldCheck, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -223,6 +223,48 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
 
   const shippingLabels: Record<string, string> = { aereo: 'Aéreo', maritimo: 'Marítimo', terrestre: 'Terrestre' };
 
+  const handlePrint = () => {
+    if (!desarme) return;
+    const list = items.length > 0 ? items : [{ product_code: desarme.product_code, product_name: desarme.product_name, quantity: desarme.quantity, received_at: null }];
+    const rows = list.map((it: any) => `
+      <tr>
+        <td style="font-family:monospace">${it.product_code ?? ''}</td>
+        <td>${it.product_name ?? ''}</td>
+        <td style="text-align:center">${it.quantity ?? ''}</td>
+        <td style="text-align:center">${it.received_at ? 'Sí' : 'No'}</td>
+      </tr>`).join('');
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${desarme.desarme_number} - Repuestos</title>
+      <style>
+        body{font-family:Arial,sans-serif;color:#111;padding:24px;font-size:12px}
+        h1{font-size:18px;margin:0 0 4px}
+        .meta{color:#555;margin-bottom:16px;font-size:11px}
+        .meta div{margin:2px 0}
+        table{width:100%;border-collapse:collapse;margin-top:8px}
+        th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:11px}
+        th{background:#f3f4f6}
+        .footer{margin-top:20px;font-size:10px;color:#666}
+      </style></head><body>
+      <h1>Desarme ${desarme.desarme_number}</h1>
+      <div class="meta">
+        <div><b>Cliente:</b> ${desarme.client_name ?? ''} &nbsp;·&nbsp; <b>Sucursal:</b> ${desarme.branch ?? ''}</div>
+        <div><b>Marca/Modelo:</b> ${desarme.brand ?? ''} ${desarme.model ?? ''} &nbsp;·&nbsp; <b>Serie:</b> ${desarme.serial_number ?? ''}</div>
+        <div><b>Motivo:</b> ${desarme.reason ?? ''}</div>
+        ${desarme.service_order_number ? `<div><b>O.S.:</b> ${desarme.service_order_number}</div>` : ''}
+      </div>
+      <h2 style="font-size:13px;margin:12px 0 4px">Listado de repuestos utilizados (${list.length})</h2>
+      <table>
+        <thead><tr><th>Código</th><th>Descripción</th><th style="width:60px">Cant.</th><th style="width:80px">Recibido</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="footer">Impreso el ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: es })}</div>
+      <script>window.onload=()=>{window.print();}</script>
+      </body></html>`;
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { toast.error('Habilita las ventanas emergentes para imprimir'); return; }
+    w.document.write(html);
+    w.document.close();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
@@ -259,7 +301,12 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
 
               {/* Items list */}
               <div className="space-y-1.5">
-                <p className="text-xs font-medium">Repuestos ({items.length || 1})</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Repuestos ({items.length || 1})</p>
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] gap-1" onClick={handlePrint}>
+                    <Printer className="w-3 h-3" /> Imprimir
+                  </Button>
+                </div>
                 <div className="border rounded-lg overflow-hidden">
                   {(items.length > 0 ? items : [{ id: 'legacy', product_code: desarme.product_code, product_name: desarme.product_name, quantity: desarme.quantity, received_at: null, linked_order: null }]).map((it: any) => (
                     <div key={it.id} className="flex items-center gap-2 px-3 py-2 text-xs border-b last:border-b-0">
