@@ -4,7 +4,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Loader2, AlertTriangle, Package, DollarSign, Clock, Truck, FileText, Info, Trash2, CheckCircle2, ShieldCheck, Printer } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
