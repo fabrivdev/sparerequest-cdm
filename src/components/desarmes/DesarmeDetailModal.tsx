@@ -301,7 +301,12 @@ const DesarmeDetailModal = ({ isOpen, onClose, desarmeId, canGenerateOrder, canU
 
               {/* Items list */}
               <div className="space-y-1.5">
-                <p className="text-xs font-medium">Repuestos ({items.length || 1})</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium">Repuestos ({items.length || 1})</p>
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[10px] gap-1" onClick={handlePrint}>
+                    <Printer className="w-3 h-3" /> Imprimir
+                  </Button>
+                </div>
                 <div className="border rounded-lg overflow-hidden">
                   {(items.length > 0 ? items : [{ id: 'legacy', product_code: desarme.product_code, product_name: desarme.product_name, quantity: desarme.quantity, received_at: null, linked_order: null }]).map((it: any) => (
                     <div key={it.id} className="flex items-center gap-2 px-3 py-2 text-xs border-b last:border-b-0">
